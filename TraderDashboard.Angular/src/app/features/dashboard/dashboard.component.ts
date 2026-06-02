@@ -4,6 +4,7 @@ import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartData } from 'chart.js';
 import { ApiService } from '../../services/api.service';
 import { AnalyticsSummary, EquityPoint, StrategyPerformance } from '../../models/analytics.model';
+import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -197,9 +198,13 @@ export class DashboardComponent implements OnInit {
     }
   };
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private nav: NavigationService) {}
 
   ngOnInit(): void {
+    this.nav.onNavigateTo('dashboard', () => this.loadData());
+  }
+
+  loadData(): void {
     this.api.getSummary().subscribe(s => this.summary = s);
 
     this.api.getEquityCurve().subscribe(points => {
