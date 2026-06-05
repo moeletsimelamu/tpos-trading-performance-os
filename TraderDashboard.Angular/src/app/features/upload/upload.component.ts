@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../services/api.service';
 import { UploadResult } from '../../models/analytics.model';
-import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-upload',
@@ -215,10 +214,10 @@ export class UploadComponent implements OnInit {
     'Notes', 'IsManualOverride', 'DeviationNotes'
   ];
 
-  constructor(private api: ApiService, private nav: NavigationService) {}
+  constructor(private api: ApiService) {}
 
   ngOnInit(): void {
-    this.nav.onNavigateTo('upload', () => this.loadLogs());
+    this.loadLogs();
   }
 
   loadLogs(): void {

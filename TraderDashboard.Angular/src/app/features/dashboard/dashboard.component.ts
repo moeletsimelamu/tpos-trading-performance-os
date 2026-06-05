@@ -5,7 +5,6 @@ import { ChartConfiguration, ChartData } from 'chart.js';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../services/api.service';
 import { AnalyticsSummary } from '../../models/analytics.model';
-import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -231,10 +230,10 @@ export class DashboardComponent implements OnInit {
     }
   };
 
-  constructor(private api: ApiService, private nav: NavigationService) {}
+  constructor(private api: ApiService) {}
 
   ngOnInit(): void {
-    this.nav.onNavigateTo('dashboard', () => this.loadData());
+    this.loadData();
   }
 
   loadData(): void {

@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../services/api.service';
 import { Trade } from '../../models/trade.model';
-import { NavigationService } from '../../services/navigation.service';
 
 @Component({
   selector: 'app-trades',
@@ -237,10 +236,10 @@ export class TradesComponent implements OnInit {
   resultFilter = '';
   isLoading = true;
 
-  constructor(private api: ApiService, private nav: NavigationService) {}
+  constructor(private api: ApiService) {}
 
   ngOnInit(): void {
-    this.nav.onNavigateTo('trades', () => this.loadData());
+    this.loadData();
   }
 
   loadData(): void {

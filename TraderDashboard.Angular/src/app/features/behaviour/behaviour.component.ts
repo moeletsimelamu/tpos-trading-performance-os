@@ -199,10 +199,10 @@ export class BehaviourComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
   summary: BehaviourSummary | null = null;
 
-  constructor(private api: ApiService, private nav: NavigationService) {}
+  constructor(private api: ApiService) {}
 
   ngOnInit(): void {
-    this.nav.onNavigateTo('behaviour', () => this.loadData());
+    this.loadData();
   }
 
   loadData(): void {
