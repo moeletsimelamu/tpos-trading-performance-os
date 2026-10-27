@@ -82,7 +82,7 @@ const PAGE_SIZE = 25;
                         <td class="small">
                           @for (e of t.entries; track $index) {
                             <div class="entry">
-                              <span>{{ e.accountName }} · {{ e.fundName }}</span>
+                              <span>{{ e.accountName }} · {{ e.fundName }}@if (e.role === 'Fee') { <span class="tag tag-warning fee">Fee</span> }</span>
                               <span [class.amount-in]="e.amount > 0" [class.amount-out]="e.amount < 0">{{ e.amount | money: e.currency : true }}</span>
                             </div>
                           }
@@ -100,7 +100,8 @@ const PAGE_SIZE = 25;
                               <span>Transaction #{{ t.id }}</span>
                               <span>Recorded {{ t.recordedAt | date: 'yyyy-MM-dd HH:mm' }}</span>
                               @if (t.category) { <span>Category: {{ t.category }}</span> }
-                              @if (t.exchangeRate) { <span>Rate: {{ t.exchangeRate }}</span> }
+                              @if (t.exchangeRate) { <span>Effective rate: {{ t.exchangeRate }} (from the amounts)</span> }
+                              @if (t.quotedRate) { <span>Quoted rate: {{ t.quotedRate }} (as entered from the provider)</span> }
                             </div>
                             @if (canReverse(t)) {
                               <form class="reverse" (ngSubmit)="reverse(t)" aria-label="Reverse transaction">
@@ -136,6 +137,7 @@ const PAGE_SIZE = 25;
     .row { cursor: pointer; &:hover { background: var(--surface-hover); } }
     .row-toggle { color: var(--text-primary); text-align: left; }
     .entry { display: flex; justify-content: space-between; gap: 1rem; }
+    .fee { margin-left: 0.4rem; }
     .nowrap { white-space: nowrap; }
     .detail td { background: var(--surface-sunken); }
     .detail-grid { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; color: var(--text-secondary); margin-bottom: 0.75rem; }

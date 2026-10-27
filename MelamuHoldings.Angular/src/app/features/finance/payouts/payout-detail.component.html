@@ -1,0 +1,227 @@
+<div class="page">
+  <app-page-header section="Finance · Payouts" [title]="title()"
+    description="A payout becomes money only when it is received. Allocation then splits what was actually credited.">
+    <a class="btn" routerLink="/finance/payouts">All payouts</a>
+  </app-page-header>
+
+  @switch (state()) {
+    @case ('loading') {
+      <div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading payout...</span></div>
+    }
+    @case ('error') {
+      <app-load-error title="Could not load the payout" [message]="error()" (retry)="load()" />
+    }
+    @case ('ready') {
+      @if (payout(); as p) {
+        <div class="layout">
+          <section class="card flush" aria-labelledby="progress-heading">
+            <div class="card-header">
+              <h2 id="progress-heading">Progress</h2>
+              <span [class]="payoutStatus[p.status].tag">{{ payoutStatus[p.status].label }}</span>
+            </div>
+            <ol class="timeline">
+              <li class="step done">
+                <span class="dot" aria-hidden="true"></span>
+                <div>
+                  <p class="step-title">Requested {{ p.requested.amount | money: p.requested.currency }}</p>
+                  <p class="step-detail">{{ p.requestedOn }}{{ p.reference ? ' · Ref ' + p.reference : '' }}{{ p.notes ? ' · ' + p.notes : '' }}</p>
+                </div>
+              </li>
+              <li class="step" [class.done]="!!p.approved">
+                <span class="dot" aria-hidden="true"></span>
+                <div>
+                  @if (p.approved) {
+                    <p class="step-title">Approved {{ p.approved.amount | money: p.approved.currency }}</p>
+                  } @else {
+                    <p class="step-title">Approval</p>
+                  }
+                  <p class="step-detail">{{ p.approvedOn ?? 'Not yet approved' }}</p>
+                </div>
+              </li>
+              @if (p.status === 'Rejected') {
+                <li class="step stopped">
+                  <span class="dot" aria-hidden="true"></span>
+                  <div>
+                    <p class="step-title">Rejected</p>
+                    <p class="step-detail">{{ p.rejectedOn }} · {{ p.rejectionReason }}</p>
+                  </div>
+                </li>
+              } @else {
+                <li class="step" [class.done]="!!p.credited">
+                  <span class="dot" aria-hidden="true"></span>
+                  <div>
+                    @if (p.credited) {
+                      <p class="step-title">Received {{ p.credited.amount | money: p.credited.currency }}</p>
+                    } @else {
+                      <p class="step-title">Receipt</p>
+                    }
+                    @if (p.credited) {
+                      <p class="step-detail">
+                        {{ p.receivedOn }} into {{ p.receivedIntoAccountName }}
+                        @if (p.fee) { · {{ p.fee.amount | money: p.fee.currency }} fee deducted }
+                        @if (p.effectiveRate) { · effective rate {{ p.effectiveRate }} }
+                      </p>
+                      <a class="small" [routerLink]="['/finance/transactions']" [queryParams]="{ accountId: p.receivedIntoAccountId }">Income transaction #{{ p.incomeTransactionId }}</a>
+                    } @else {
+                      <p class="step-detail">Not received yet: this is not cash.</p>
+                    }
+                  </div>
+                </li>
+                <li class="step" [class.done]="!!p.allocationId">
+                  <span class="dot" aria-hidden="true"></span>
+                  <div>
+                    <p class="step-title">Allocation</p>
+                    @if (p.allocationId && p.allocationStatus) {
+                      <p class="step-detail">
+                        <a [routerLink]="['/finance/allocations', p.allocationId]">Allocation #{{ p.allocationId }}</a>
+                        <span [class]="allocationStatus[p.allocationStatus].tag">{{ allocationStatus[p.allocationStatus].label }}</span>
+                      </p>
+                    } @else {
+                      <p class="step-detail">{{ p.status === 'Received' ? 'Ready to allocate' : 'After receipt' }}</p>
+                    }
+                  </div>
+                </li>
+              }
+            </ol>
+          </section>
+
+          <section class="card flush" aria-labelledby="action-heading">
+            <div class="card-header"><h2 id="action-heading">Next step</h2></div>
+
+            @if (actionError()) { <div class="panel"><p class="notice notice-error" role="alert">{{ actionError() }}</p></div> }
+
+            @switch (p.status) {
+              @case ('Requested') {
+                <form class="panel" [formGroup]="approveForm" (ngSubmit)="approve()" aria-label="Approve payout">
+                  <h3>Record the approval</h3>
+                  <p>When the payer approves the payout. The approved amount can be lower than requested, never higher.</p>
+                  <div class="form-grid">
+                    <div class="field">
+                      <label for="ap-amount">Approved amount {{ p.requested.currency }}</label>
+                      <input id="ap-amount" type="number" step="0.01" formControlName="amount" />
+                      @if (approveForm.controls.amount.touched && approveForm.controls.amount.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+                    </div>
+                    <div class="field">
+                      <label for="ap-date">Approved on</label>
+                      <input id="ap-date" type="date" formControlName="date" />
+                    </div>
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" [disabled]="busy()">Record approval</button>
+                    <button type="button" class="btn-link small" (click)="showReject.set(!showReject())">Rejected instead?</button>
+                  </div>
+                </form>
+              }
+              @case ('Approved') {
+                <form class="panel" [formGroup]="receiveForm" (ngSubmit)="receive()" aria-label="Receive payout">
+                  <h3>Record the money arriving</h3>
+                  <p>Enter what actually reached the account, in that account's currency. A fee deducted on the way is recorded beside it, so nothing is hidden.</p>
+                  <div class="form-grid">
+                    <div class="field">
+                      <label for="rc-account">Received into</label>
+                      <select id="rc-account" formControlName="accountId">
+                        <option [ngValue]="null" disabled>Choose an account</option>
+                        @for (a of activeAccounts(); track a.id) { <option [ngValue]="a.id">{{ a.name }} ({{ a.currency }})</option> }
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="rc-amount">Amount credited {{ receiveAccount()?.currency ?? '' }}</label>
+                      <input id="rc-amount" type="number" step="0.01" formControlName="amountCredited" />
+                      @if (impliedRate(); as rate) { <span class="hint">Effective rate {{ rate }} {{ receiveAccount()?.currency }} per {{ p.requested.currency }}, from the amounts</span> }
+                      @if (receiveForm.controls.amountCredited.touched && receiveForm.controls.amountCredited.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+                    </div>
+                    <div class="field">
+                      <label for="rc-fee">Fee deducted (optional)</label>
+                      <input id="rc-fee" type="number" step="0.01" formControlName="fee" />
+                      <span class="hint">In the account's currency, if the amount credited is net of it.</span>
+                      @if (receiveForm.controls.fee.touched && receiveForm.controls.fee.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+                    </div>
+                    <div class="field">
+                      <label for="rc-date">Received on</label>
+                      <input id="rc-date" type="date" formControlName="date" />
+                    </div>
+                    <div class="field">
+                      <label for="rc-ref">Bank reference (optional)</label>
+                      <input id="rc-ref" formControlName="reference" />
+                    </div>
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" [disabled]="busy()">{{ busy() ? 'Recording…' : 'Record receipt' }}</button>
+                    <button type="button" class="btn-link small" (click)="showReject.set(!showReject())">Rejected instead?</button>
+                  </div>
+                </form>
+              }
+              @case ('Received') {
+                @if (!p.allocationId) {
+                  <div class="panel">
+                    <h3>Allocate {{ p.credited?.amount | money: p.credited?.currency }}</h3>
+                    <p>Preview the split, then confirm it. Confirming records the commitment; the money moves when each line is settled.</p>
+                    <div class="field policy">
+                      <label for="al-policy">Policy</label>
+                      <select id="al-policy" (change)="selectPolicy(+$any($event.target).value)">
+                        @for (pol of policies(); track pol.id) { <option [value]="pol.id" [selected]="pol.id === policyId()">{{ policyLabel(pol) }}</option> }
+                      </select>
+                    </div>
+                    @if (previewError()) { <p class="notice notice-error" role="alert">{{ previewError() }}</p> }
+                  </div>
+                  @if (preview(); as pv) {
+                    <table class="data-table" aria-label="Allocation preview">
+                      <thead><tr><th>Fund</th><th class="num">Share</th><th class="num">Amount</th></tr></thead>
+                      <tbody>
+                        @for (l of pv.lines; track l.fundId) {
+                          <tr><td>{{ l.fundName }}</td><td class="num">{{ l.percentage }}%</td><td class="num">{{ l.amount.amount | money: l.amount.currency }}</td></tr>
+                        }
+                        <tr class="total-row"><td>Total</td><td class="num">100%</td><td class="num">{{ pv.total.amount | money: pv.total.currency }}</td></tr>
+                      </tbody>
+                    </table>
+                    <div class="panel">
+                      <p>Held in {{ pv.sourceAccountName }}. Rounding is to the cent; any leftover cents go to the largest remainders, so the lines add up exactly.</p>
+                      <button type="button" class="btn btn-primary" [disabled]="busy()" (click)="confirm()">{{ busy() ? 'Confirming…' : 'Confirm allocation' }}</button>
+                    </div>
+                  }
+                } @else {
+                  <div class="panel">
+                    <h3>Allocated</h3>
+                    <p>Settle each line from the allocation: an earmark keeps money in place, a transfer or exchange moves it.</p>
+                    <a class="btn btn-primary" [routerLink]="['/finance/allocations', p.allocationId]">Open allocation #{{ p.allocationId }}</a>
+                  </div>
+                }
+                @if (!p.allocationId) {
+                  <div class="panel">
+                    <div class="secondary-actions">
+                      <button type="button" class="btn-link small" (click)="showUndo.set(!showUndo())">Receipt recorded wrongly?</button>
+                    </div>
+                    @if (showUndo()) {
+                      <form [formGroup]="undoForm" (ngSubmit)="undoReceipt()" aria-label="Undo receipt">
+                        <p class="small secondary">Reverses the income transaction and returns the payout to Approved. Both stay in the ledger.</p>
+                        <div class="form-grid">
+                          <div class="field"><label for="un-reason">Reason</label><input id="un-reason" formControlName="reason" /></div>
+                          <div class="field"><label for="un-date">Date</label><input id="un-date" type="date" formControlName="date" /></div>
+                        </div>
+                        <div class="form-actions"><button type="submit" class="btn btn-danger" [disabled]="busy()">Undo receipt</button></div>
+                      </form>
+                    }
+                  </div>
+                }
+              }
+              @case ('Rejected') {
+                <div class="panel"><p>This payout was rejected. Nothing reached the ledger.</p></div>
+              }
+            }
+
+            @if (showReject() && (p.status === 'Requested' || p.status === 'Approved')) {
+              <form class="panel" [formGroup]="rejectForm" (ngSubmit)="reject()" aria-label="Reject payout">
+                <h3>Record a rejection</h3>
+                <div class="form-grid">
+                  <div class="field"><label for="rj-reason">Reason</label><input id="rj-reason" formControlName="reason" placeholder="e.g. rule breach found in review" /></div>
+                  <div class="field"><label for="rj-date">Rejected on</label><input id="rj-date" type="date" formControlName="date" /></div>
+                </div>
+                <div class="form-actions"><button type="submit" class="btn btn-danger" [disabled]="busy()">Record rejection</button></div>
+              </form>
+            }
+          </section>
+        </div>
+      }
+    }
+  }
+</div>

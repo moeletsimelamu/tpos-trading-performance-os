@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { FinanceApiService } from '../finance/finance-api.service';
-import { Balances, Money, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID } from '../finance/finance.models';
+import { Allocation, Balances, Money, Payout, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID } from '../finance/finance.models';
 import { TradingApiService } from '../trading/trading-api.service';
 import { AnalyticsSummary, BehaviourSummary } from '../trading/models/analytics.model';
 import { MoneyPipe } from '../../shared/money.pipe';
@@ -116,7 +116,7 @@ const RECENT_COUNT = 6;
                     <li class="attention-item clear"><app-icon name="check" [size]="18" /><p>Nothing in the recorded data needs attention.</p></li>
                   }
                 </ul>
-                <p class="coverage">Checks cover recorded accounts, funds and trades. Obligations, budgets and reserve targets are not tracked yet.</p>
+                <p class="coverage">Checks cover recorded accounts, funds, payouts, allocations and trades. Obligations, budgets and reserve targets are not tracked yet.</p>
               </section>
             </div>
 
@@ -222,6 +222,8 @@ export class OverviewComponent {
   readonly financeError = signal('');
   readonly balances = signal<Balances | null>(null);
   readonly recent = signal<Transaction[]>([]);
+  readonly payouts = signal<Payout[]>([]);
+  readonly allocations = signal<Allocation[]>([]);
 
   readonly tradingState = signal<LoadState>('loading');
   readonly tradingError = signal('');
@@ -229,7 +231,7 @@ export class OverviewComponent {
   readonly behaviour = signal<BehaviourSummary | null>(null);
 
   readonly activeAccounts = computed(() => this.balances()?.accounts.filter(a => a.status === 'Active').length ?? 0);
-  readonly attention = computed(() => attentionItems(this.balances(), this.behaviour()));
+  readonly attention = computed(() => attentionItems(this.balances(), this.behaviour(), this.payouts(), this.allocations()));
 
   constructor() {
     this.loadFinance();
@@ -240,11 +242,15 @@ export class OverviewComponent {
     this.financeState.set('loading');
     forkJoin({
       balances: this.finance.getBalances(),
-      recent: this.finance.getTransactions({ page: 1, pageSize: RECENT_COUNT })
+      recent: this.finance.getTransactions({ page: 1, pageSize: RECENT_COUNT }),
+      payouts: this.finance.getPayouts(),
+      allocations: this.finance.getAllocations()
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: ({ balances, recent }) => {
+      next: ({ balances, recent, payouts, allocations }) => {
         this.balances.set(balances);
         this.recent.set(recent.items);
+        this.payouts.set(payouts);
+        this.allocations.set(allocations);
         this.financeState.set('ready');
       },
       error: err => { this.financeError.set(describeHttpError(err)); this.financeState.set('error'); }
@@ -294,8 +300,42 @@ function formatMoney(m: Money): string {
 }
 
 // Derives what needs looking at from recorded data only; nothing here is a forecast or a guess
-export function attentionItems(balances: Balances | null, behaviour: BehaviourSummary | null): AttentionItem[] {
+export function attentionItems(
+  balances: Balances | null, behaviour: BehaviourSummary | null,
+  payouts: Payout[] = [], allocations: Allocation[] = []
+): AttentionItem[] {
   const items: AttentionItem[] = [];
+
+  // Money has arrived but nobody has decided where it goes
+  for (const payout of payouts.filter(p => p.status === 'Received' && !p.allocationId && p.credited)) {
+    items.push({
+      tone: 'warning', title: `Payout #${payout.id} received but not allocated`,
+      detail: `${formatMoney(payout.credited!)} credited to ${payout.receivedIntoAccountName} on ${payout.receivedOn}. Preview and confirm the split.`,
+      link: `/finance/payouts/${payout.id}`, action: 'Allocate'
+    });
+  }
+
+  // Decided, but the money has not been earmarked or moved yet
+  for (const allocation of allocations.filter(a => a.status !== 'Cancelled' && a.outstanding.amount > 0)) {
+    items.push({
+      tone: 'warning', title: `Allocation #${allocation.id} not fully settled`,
+      detail: `${formatMoney(allocation.outstanding)} of ${formatMoney(allocation.total)} is still unallocated in ${allocation.sourceAccountName}.`,
+      link: `/finance/allocations/${allocation.id}`, action: 'Settle'
+    });
+  }
+
+  // On the way, and explicitly not cash yet
+  const pending = payouts.filter(p => p.status === 'Requested' || p.status === 'Approved');
+  if (pending.length > 0) {
+    const totals = new Map<string, number>();
+    for (const p of pending) totals.set(p.requested.currency, round2((totals.get(p.requested.currency) ?? 0) + (p.approved ?? p.requested).amount));
+    items.push({
+      tone: 'info', title: `${pending.length} ${pending.length === 1 ? 'payout' : 'payouts'} on the way`,
+      detail: `${[...totals].map(([currency, amount]) => formatMoney({ currency, amount })).join(' and ')} requested or approved. Not cash until received.`,
+      link: '/finance/payouts', action: 'View payouts'
+    });
+  }
+
   if (balances) {
     const active = balances.accounts.filter(a => a.status === 'Active');
     if (active.length === 0) {
@@ -310,7 +350,7 @@ export function attentionItems(balances: Balances | null, behaviour: BehaviourSu
     if (unallocated.length > 0) {
       items.push({
         tone: 'warning', title: 'Money not assigned to a fund',
-        detail: `${unallocated.map(formatMoney).join(' and ')} is unallocated. Earmark it so each amount has a purpose.`,
+        detail: `${unallocated.map(formatMoney).join(' and ')} is unallocated. Allocate received payouts, or earmark the rest, so each amount has a purpose.`,
         link: '/finance/transactions/new', queryParams: { type: 'reallocation' }, action: 'Earmark money'
       });
     }

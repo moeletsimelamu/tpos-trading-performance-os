@@ -4,7 +4,8 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   Account, AuditEvent, Balances, CurrencyInfo, Fund, Ownership, AccountType,
-  Paged, RecordKind, Transaction, TransactionFilter
+  Paged, RecordKind, Transaction, TransactionFilter,
+  Allocation, AllocationPolicy, AllocationPreview, Payout, PayoutStatus
 } from './finance.models';
 
 export interface CreateAccountRequest {
@@ -71,6 +72,75 @@ export class FinanceApiService {
   getAuditEvents(page: number, pageSize: number): Observable<Paged<AuditEvent>> {
     const params = new HttpParams().set('page', page).set('pageSize', pageSize);
     return this.http.get<Paged<AuditEvent>>(`${this.base}/audit-events`, { params });
+  }
+
+  // ---- Payouts ----
+
+  getPayouts(status?: PayoutStatus): Observable<Payout[]> {
+    const params = status ? new HttpParams().set('status', status) : undefined;
+    return this.http.get<Payout[]>(`${this.base}/payouts`, { params });
+  }
+
+  getPayout(id: number): Observable<Payout> {
+    return this.http.get<Payout>(`${this.base}/payouts/${id}`);
+  }
+
+  createPayout(body: object, idempotencyKey: string): Observable<Payout> {
+    return this.http.post<Payout>(`${this.base}/payouts`, body, { headers: this.keyHeader(idempotencyKey) });
+  }
+
+  approvePayout(id: number, body: { amount?: number | null; date: string }): Observable<Payout> {
+    return this.http.post<Payout>(`${this.base}/payouts/${id}/approve`, body);
+  }
+
+  rejectPayout(id: number, body: { date: string; reason: string }): Observable<Payout> {
+    return this.http.post<Payout>(`${this.base}/payouts/${id}/reject`, body);
+  }
+
+  receivePayout(id: number, body: object, idempotencyKey: string): Observable<Payout> {
+    return this.http.post<Payout>(`${this.base}/payouts/${id}/receive`, body, { headers: this.keyHeader(idempotencyKey) });
+  }
+
+  undoReceipt(id: number, body: { date: string; reason: string }, idempotencyKey: string): Observable<Payout> {
+    return this.http.post<Payout>(`${this.base}/payouts/${id}/undo-receipt`, body, { headers: this.keyHeader(idempotencyKey) });
+  }
+
+  // ---- Allocation ----
+
+  getPolicies(): Observable<AllocationPolicy[]> {
+    return this.http.get<AllocationPolicy[]>(`${this.base}/allocation-policies`);
+  }
+
+  createPolicy(body: { lines: { fundId: number; percentage: number }[]; activate: boolean }): Observable<AllocationPolicy> {
+    return this.http.post<AllocationPolicy>(`${this.base}/allocation-policies`, body);
+  }
+
+  activatePolicy(id: number): Observable<AllocationPolicy> {
+    return this.http.post<AllocationPolicy>(`${this.base}/allocation-policies/${id}/activate`, {});
+  }
+
+  previewAllocation(payoutId: number, policyId?: number): Observable<AllocationPreview> {
+    return this.http.post<AllocationPreview>(`${this.base}/allocations/preview`, { payoutId, policyId });
+  }
+
+  confirmAllocation(payoutId: number, policyId: number, idempotencyKey: string): Observable<Allocation> {
+    return this.http.post<Allocation>(`${this.base}/allocations`, { payoutId, policyId }, { headers: this.keyHeader(idempotencyKey) });
+  }
+
+  getAllocations(): Observable<Allocation[]> {
+    return this.http.get<Allocation[]>(`${this.base}/allocations`);
+  }
+
+  getAllocation(id: number): Observable<Allocation> {
+    return this.http.get<Allocation>(`${this.base}/allocations/${id}`);
+  }
+
+  settleLine(allocationId: number, lineId: number, body: object, idempotencyKey: string): Observable<Allocation> {
+    return this.http.post<Allocation>(`${this.base}/allocations/${allocationId}/lines/${lineId}/settle`, body, { headers: this.keyHeader(idempotencyKey) });
+  }
+
+  cancelAllocation(id: number, reason: string): Observable<Allocation> {
+    return this.http.post<Allocation>(`${this.base}/allocations/${id}/cancel`, { reason });
   }
 
   private keyHeader(key: string): HttpHeaders {

@@ -78,7 +78,7 @@ describe('TransactionsComponent', () => {
 
   const reversible: Transaction = {
     id: 7, type: 'Income', date: '2026-10-27', recordedAt: '2026-10-27T10:00:00Z', description: 'Payout',
-    entries: [{ accountId: 10, accountName: 'Operating', fundId: 1, fundName: 'Unallocated', amount: 1350, currency: 'ZAR' }]
+    entries: [{ accountId: 10, accountName: 'Operating', fundId: 1, fundName: 'Unallocated', amount: 1350, currency: 'ZAR', role: 'Principal' }]
   };
 
   beforeEach(() => {

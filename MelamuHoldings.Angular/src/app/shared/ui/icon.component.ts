@@ -10,6 +10,8 @@ const PATHS = {
   behaviour: 'M3 12h4l2-5 4 10 2-5h6',
   accounts: 'M3 9l9-5 9 5M5.5 10.5v7M10 10.5v7M14 10.5v7M18.5 10.5v7M3 20h18',
   funds: 'M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4',
+  payouts: 'M12 3v12M7.5 10.5L12 15l4.5-4.5M4 17v3h16v-3',
+  allocation: 'M12 4v6M12 10l-6 5v5M12 10l6 5v5M12 10v10',
   transactions: 'M4 8h15l-3.5-3.5M20 16H5l3.5 3.5',
   audit: 'M9 3.5h6v3H9zM7 5H5v15h14V5h-2M9 13l2 2 4-4.5',
   'sign-out': 'M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10',

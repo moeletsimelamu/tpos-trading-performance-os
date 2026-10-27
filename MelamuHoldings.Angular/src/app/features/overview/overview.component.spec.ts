@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { OverviewComponent, attentionItems } from './overview.component';
-import { Account, Balances, Fund } from '../finance/finance.models';
+import { Account, Allocation, Balances, Fund, Payout } from '../finance/finance.models';
 import { BehaviourSummary } from '../trading/models/analytics.model';
 import { environment } from '../../../environments/environment';
 
@@ -78,6 +78,43 @@ describe('attentionItems', () => {
   });
 });
 
+describe('attentionItems for payouts and allocations', () => {
+  const payout = (overrides: Partial<Payout>): Payout => ({
+    id: 4, source: 'Prop firm', status: 'Received', requested: { amount: 1350, currency: 'USD' }, requestedOn: '2026-10-27',
+    createdAt: '2026-10-27T00:00:00Z', credited: { amount: 1350, currency: 'USD' }, receivedOn: '2026-10-27',
+    receivedIntoAccountName: 'Payouts USD', ...overrides
+  });
+  const allocation = (overrides: Partial<Allocation>): Allocation => ({
+    id: 9, payoutId: 4, payoutSource: 'Prop firm', policyId: 1, policyVersion: 1, sourceAccountId: 2, sourceAccountName: 'Payouts USD',
+    status: 'PartiallySettled', total: { amount: 1350, currency: 'USD' }, settled: { amount: 675, currency: 'USD' },
+    outstanding: { amount: 675, currency: 'USD' }, confirmedAt: '2026-10-27T00:00:00Z', lines: [], ...overrides
+  });
+
+  it('asks to allocate a received payout and to settle an open allocation', () => {
+    const titles = attentionItems(null, null, [payout({})], [allocation({})]).map(i => i.title);
+
+    expect(titles).toEqual(['Payout #4 received but not allocated', 'Allocation #9 not fully settled']);
+  });
+
+  it('ignores allocated payouts, settled or cancelled allocations', () => {
+    const items = attentionItems(null, null,
+      [payout({ allocationId: 9, allocationStatus: 'Reconciled' })],
+      [allocation({ status: 'Reconciled', outstanding: { amount: 0, currency: 'USD' } }), allocation({ id: 10, status: 'Cancelled' })]);
+
+    expect(items).toEqual([]);
+  });
+
+  it('labels requested and approved payouts as on the way, not cash', () => {
+    const items = attentionItems(null, null, [
+      payout({ id: 1, status: 'Requested', credited: null }),
+      payout({ id: 2, status: 'Approved', credited: null, approved: { amount: 600, currency: 'USD' } })
+    ]);
+
+    expect(items.map(i => i.title)).toEqual(['2 payouts on the way']);
+    expect(items[0].detail).toBe('USD 1,950.00 requested or approved. Not cash until received.');
+  });
+});
+
 describe('OverviewComponent', () => {
   let http: HttpTestingController;
 
@@ -97,6 +134,13 @@ describe('OverviewComponent', () => {
     return fixture;
   }
 
+  function flushFinance() {
+    http.expectOne(`${api}/balances`).flush(balances);
+    http.expectOne(r => r.url === `${api}/transactions`).flush({ items: [], page: 1, pageSize: 6, totalCount: 0, totalPages: 0 });
+    http.expectOne(`${api}/payouts`).flush([]);
+    http.expectOne(`${api}/allocations`).flush([]);
+  }
+
   function flushTrading(totalTrades: number) {
     http.expectOne(`${api}/analytics/summary`).flush({
       totalTrades, winRate: 50, expectancy: 79.25, averageRR: 0.46, profitFactor: 1.87,
@@ -107,8 +151,7 @@ describe('OverviewComponent', () => {
 
   it('shows each currency separately and never adds them together', async () => {
     const fixture = await render();
-    http.expectOne(`${api}/balances`).flush(balances);
-    http.expectOne(r => r.url === `${api}/transactions`).flush({ items: [], page: 1, pageSize: 6, totalCount: 0, totalPages: 0 });
+    flushFinance();
     flushTrading(20);
     await fixture.whenStable();
 
@@ -120,8 +163,7 @@ describe('OverviewComponent', () => {
 
   it('labels trading P&L as not business cash', async () => {
     const fixture = await render();
-    http.expectOne(`${api}/balances`).flush(balances);
-    http.expectOne(r => r.url === `${api}/transactions`).flush({ items: [], page: 1, pageSize: 6, totalCount: 0, totalPages: 0 });
+    flushFinance();
     flushTrading(20);
     await fixture.whenStable();
 
@@ -133,8 +175,10 @@ describe('OverviewComponent', () => {
   it('keeps the trading summary when the finance data fails to load', async () => {
     const fixture = await render();
     http.expectOne(`${api}/balances`).flush(null, { status: 403, statusText: 'Forbidden' });
-    // forkJoin abandons the ledger request once the balances fail
-    expect(http.match(r => r.url === `${api}/transactions`).every(r => r.cancelled)).toBe(true);
+    // forkJoin abandons the other finance requests once the balances fail
+    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`].includes(r.url));
+    expect(others.length).toBe(3);
+    expect(others.every(r => r.cancelled)).toBe(true);
     flushTrading(0);
     await fixture.whenStable();
 
@@ -145,7 +189,7 @@ describe('OverviewComponent', () => {
   it('shows the net amount for external flows and the moved amount for internal ones', () => {
     const component = TestBed.createComponent(OverviewComponent).componentInstance;
     const entry = (accountId: number, fundId: number, amount: number, currency = 'ZAR') =>
-      ({ accountId, accountName: '', fundId, fundName: '', amount, currency });
+      ({ accountId, accountName: '', fundId, fundName: '', amount, currency, role: 'Principal' as const });
     const base = { id: 1, date: '2026-10-27', recordedAt: '', description: '' };
 
     expect(component.headline({ ...base, type: 'Expense', entries: [entry(1, 1, -3000)] }))

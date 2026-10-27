@@ -158,4 +158,36 @@ describe('RecordTransactionComponent', () => {
 
     expect(c.impliedRate()).toBe('18.2505');
   });
+
+  it('records a conversion fee as its own entry and sends the quoted rate for reference', async () => {
+    const fixture = await render({ type: 'exchange' });
+    const c = fixture.componentInstance;
+    c.form.patchValue({
+      fromAccountId: 12, fromFundId: 1, toAccountId: 10, toFundId: 1, amountSent: 1000, amountReceived: 18250.5,
+      fee: 9.5, feeChargedTo: 'Sending', quotedRate: 18.3, date: '2026-10-27', description: 'Convert'
+    });
+
+    expect(c.preview().at(-1)).toEqual({ account: 'Payouts', fund: 'Unallocated', amount: -9.5, currency: 'USD', fee: true });
+
+    c.submit();
+    const req = http.expectOne(`${api}/transactions/exchange`);
+    expect(req.request.body).toMatchObject({ fee: 9.5, feeChargedTo: 'Sending', quotedRate: 18.3, amountSent: 1000, amountReceived: 18250.5 });
+    req.flush({ id: 50, entries: [] });
+  });
+
+  it('leaves the fee and quoted rate out when they are not given', async () => {
+    const fixture = await render({ type: 'exchange' });
+    const c = fixture.componentInstance;
+    c.form.patchValue({
+      fromAccountId: 12, fromFundId: 1, toAccountId: 10, toFundId: 1, amountSent: 1000, amountReceived: 18250.5,
+      date: '2026-10-27', description: 'Convert'
+    });
+
+    expect(c.preview().length).toBe(2);
+    c.submit();
+    const req = http.expectOne(`${api}/transactions/exchange`);
+    expect(req.request.body.fee).toBeUndefined();
+    expect(req.request.body.quotedRate).toBeUndefined();
+    req.flush({ id: 51, entries: [] });
+  });
 });

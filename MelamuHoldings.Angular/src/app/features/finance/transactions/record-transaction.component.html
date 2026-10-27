@@ -94,8 +94,31 @@
               <div class="field">
                 <label for="tx-received">Amount received {{ toCurrency() }}</label>
                 <input id="tx-received" type="number" step="0.01" formControlName="amountReceived" />
-                @if (impliedRate(); as rate) { <span class="hint">Rate {{ rate }} {{ toCurrency() }} per {{ fromCurrency() }}</span> }
+                @if (impliedRate(); as rate) { <span class="hint">Effective rate {{ rate }} {{ toCurrency() }} per {{ fromCurrency() }}, from the two amounts</span> }
                 @if (form.controls.amountReceived.touched && form.controls.amountReceived.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+              </div>
+            }
+            @if (uses('fee')) {
+              <div class="field">
+                <label for="tx-fee">Conversion fee (optional)</label>
+                <input id="tx-fee" type="number" step="0.01" formControlName="fee" />
+                <span class="hint">Only a fee charged on top of the amounts above.</span>
+                @if (form.controls.fee.touched && form.controls.fee.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+              </div>
+              <div class="field">
+                <label for="tx-fee-side">Fee charged to</label>
+                <select id="tx-fee-side" formControlName="feeChargedTo">
+                  <option value="Sending">Sending account ({{ fromCurrency() || 'its currency' }})</option>
+                  <option value="Receiving">Receiving account ({{ toCurrency() || 'its currency' }})</option>
+                </select>
+              </div>
+            }
+            @if (uses('quotedRate')) {
+              <div class="field">
+                <label for="tx-quoted">Quoted rate (optional)</label>
+                <input id="tx-quoted" type="number" step="any" formControlName="quotedRate" />
+                <span class="hint">The rate on the provider's confirmation. Stored for reference; balances use the amounts.</span>
+                @if (form.controls.quotedRate.touched && form.controls.quotedRate.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
               </div>
             }
             @if (uses('amount')) {
@@ -131,7 +154,7 @@
               <h2>Will post</h2>
               @for (e of preview(); track $index) {
                 <div class="entry">
-                  <span>{{ e.account }} · {{ e.fund }}</span>
+                  <span>{{ e.account }} · {{ e.fund }}@if (e.fee) { <span class="tag tag-warning fee-label">Fee</span> }</span>
                   <span [class.amount-in]="e.amount > 0" [class.amount-out]="e.amount < 0">{{ e.amount | money: e.currency : true }}</span>
                 </div>
               }

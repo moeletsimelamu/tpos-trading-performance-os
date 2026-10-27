@@ -1,6 +1,6 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, startWith } from 'rxjs';
 import { FinanceApiService, newIdempotencyKey, todayIso } from '../finance-api.service';
@@ -9,9 +9,10 @@ import { MoneyPipe } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { amountValidator, rateValidator } from '../amount.validator';
 
 type Field = 'accountId' | 'fundId' | 'fromAccountId' | 'fromFundId' | 'toAccountId' | 'toFundId'
-  | 'amount' | 'amountSent' | 'amountReceived' | 'category';
+  | 'amount' | 'amountSent' | 'amountReceived' | 'category' | 'fee' | 'feeChargedTo' | 'quotedRate';
 
 // Which inputs each kind of movement uses; the rest are disabled so they neither show nor validate
 const FIELDS: Record<RecordKind, Field[]> = {
@@ -20,24 +21,11 @@ const FIELDS: Record<RecordKind, Field[]> = {
   'opening-balance': ['accountId', 'fundId', 'amount'],
   'transfer': ['fromAccountId', 'fromFundId', 'toAccountId', 'toFundId', 'amount'],
   'reallocation': ['accountId', 'fromFundId', 'toFundId', 'amount'],
-  'exchange': ['fromAccountId', 'fromFundId', 'amountSent', 'toAccountId', 'toFundId', 'amountReceived']
+  'exchange': ['fromAccountId', 'fromFundId', 'amountSent', 'toAccountId', 'toFundId', 'amountReceived', 'fee', 'feeChargedTo', 'quotedRate']
 };
 const ALL_FIELDS: Field[] = [...new Set(Object.values(FIELDS).flat())];
 
-interface PreviewEntry { account: string; fund: string; amount: number; currency: string; }
-
-// Amounts are whole cents; opening balances may be negative (an overdrawn account) but never zero
-function amountValidator(allowNegative: () => boolean) {
-  return (control: AbstractControl): ValidationErrors | null => {
-    const value = control.value;
-    if (value === null || value === '') return null;
-    const n = Number(value);
-    if (!Number.isFinite(n)) return { amount: 'Enter a number.' };
-    if (Math.round(n * 100) / 100 !== n) return { amount: 'Use at most 2 decimal places.' };
-    if (allowNegative() ? n === 0 : n <= 0) return { amount: allowNegative() ? 'Must not be zero.' : 'Must be greater than zero.' };
-    return null;
-  };
-}
+interface PreviewEntry { account: string; fund: string; amount: number; currency: string; fee?: boolean; }
 
 @Component({
   selector: 'app-record-transaction',
@@ -51,6 +39,7 @@ function amountValidator(allowNegative: () => boolean) {
     .preview { margin-top: 1.25rem; border-top: 1px solid var(--border-subtle); padding-top: 0.9rem; }
     .preview h2 { font-size: 13px; font-weight: 600; margin-bottom: 0.4rem; }
     .entry { display: flex; justify-content: space-between; gap: 1rem; font-size: 13px; padding: 0.15rem 0; }
+    .fee-label { margin-left: 0.4rem; }
   `]
 })
 export class RecordTransactionComponent {
@@ -82,6 +71,10 @@ export class RecordTransactionComponent {
     amount: [null as number | null, [Validators.required, amountValidator(() => this.kind() === 'opening-balance')]],
     amountSent: [null as number | null, [Validators.required, amountValidator(() => false)]],
     amountReceived: [null as number | null, [Validators.required, amountValidator(() => false)]],
+    // Optional conversion fee charged on top, in the currency of the account it was charged to
+    fee: [null as number | null, amountValidator()],
+    feeChargedTo: ['Sending' as 'Sending' | 'Receiving'],
+    quotedRate: [null as number | null, rateValidator],
     category: ['', Validators.maxLength(50)],
     date: [todayIso(), Validators.required],
     description: ['', [Validators.required, Validators.maxLength(200)]],
@@ -127,7 +120,11 @@ export class RecordTransactionComponent {
       'reallocation': [entry(v.accountId, v.fromFundId, -amount), entry(v.accountId, v.toFundId, amount)],
       'exchange': [entry(v.fromAccountId, v.fromFundId, -Number(v.amountSent)), entry(v.toAccountId, v.toFundId, Number(v.amountReceived))]
     }[this.kind()];
-    return entries.every(e => e) ? entries as PreviewEntry[] : [];
+    if (!entries.every(e => e)) return [];
+    const fee = this.kind() === 'exchange' && Number(v.fee) > 0
+      ? (v.feeChargedTo === 'Receiving' ? entry(v.toAccountId, v.toFundId, -Number(v.fee)) : entry(v.fromAccountId, v.fromFundId, -Number(v.fee)))
+      : null;
+    return [...entries as PreviewEntry[], ...(fee ? [{ ...fee, fee: true }] : [])];
   });
 
   constructor() {
@@ -176,7 +173,7 @@ export class RecordTransactionComponent {
     }
     const v = this.form.getRawValue();
     const body: Record<string, unknown> = { date: v.date, description: v.description, reference: v.reference || undefined };
-    for (const field of FIELDS[this.kind()]) body[field] = field === 'category' ? (v.category || undefined) : v[field];
+    for (const field of FIELDS[this.kind()]) body[field] = field === 'category' ? (v.category || undefined) : (v[field] ?? undefined);
 
     this.submitting.set(true);
     this.submitError.set('');
@@ -185,7 +182,7 @@ export class RecordTransactionComponent {
       next: transaction => {
         this.recorded.set(transaction);
         this.submitting.set(false);
-        this.form.patchValue({ amount: null, amountSent: null, amountReceived: null, description: '', reference: '', category: '' });
+        this.form.patchValue({ amount: null, amountSent: null, amountReceived: null, fee: null, quotedRate: null, description: '', reference: '', category: '' });
         this.form.markAsUntouched();
         this.idempotencyKey = newIdempotencyKey();
       },

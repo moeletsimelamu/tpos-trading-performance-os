@@ -1,0 +1,174 @@
+<div class="page">
+  @switch (state()) {
+    @case ('loading') {
+      <app-page-header section="Finance · Capital allocation" title="Allocation" />
+      <div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading allocation...</span></div>
+    }
+    @case ('error') {
+      <app-page-header section="Finance · Capital allocation" title="Allocation" />
+      <app-load-error title="Could not load the allocation" [message]="error()" (retry)="load()" />
+    }
+    @case ('ready') {
+      @if (allocation(); as a) {
+        <app-page-header section="Finance · Capital allocation" [title]="'Allocation #' + a.id"
+          [description]="'Payout #' + a.payoutId + ' from ' + a.payoutSource + ', split by policy v' + a.policyVersion + '. The money is held in ' + a.sourceAccountName + ' until each line is settled.'">
+          <a class="btn" [routerLink]="['/finance/payouts', a.payoutId]">Payout #{{ a.payoutId }}</a>
+        </app-page-header>
+
+        <section class="metric-strip summary" aria-label="Allocation summary">
+          <div class="metric">
+            <span class="metric-label">Status</span>
+            <span class="metric-value"><span [class]="status[a.status].tag">{{ status[a.status].label }}</span></span>
+            <span class="metric-note">Confirmed {{ a.confirmedAt | date: 'yyyy-MM-dd' }}</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Allocated</span>
+            <span class="metric-value">{{ a.total.amount | money: a.total.currency }}</span>
+            <span class="metric-note">What was credited for the payout</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Settled</span>
+            <span class="metric-value">{{ a.settled.amount | money: a.settled.currency }}</span>
+            <span class="metric-note">Earmarked or moved</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Outstanding</span>
+            <span class="metric-value">{{ a.outstanding.amount | money: a.outstanding.currency }}</span>
+            <span class="metric-note">Still in Unallocated</span>
+          </div>
+        </section>
+
+        @if (a.status === 'Cancelled') {
+          <p class="notice notice-warning">Cancelled {{ a.cancelledAt | date: 'yyyy-MM-dd' }}: {{ a.cancellationReason }}. The payout can be allocated again.</p>
+        }
+        @if (actionError()) { <p class="notice notice-error" role="alert">{{ actionError() }}</p> }
+
+        <div class="card table-card">
+          <table class="data-table" aria-label="Allocation lines">
+            <thead>
+              <tr><th>Fund</th><th class="num">Share</th><th class="num">Amount</th><th class="num">Settled</th><th class="num">Outstanding</th><th>Settlements</th><th><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody>
+              @for (line of a.lines; track line.id) {
+                <tr>
+                  <td>{{ line.fundName }}</td>
+                  <td class="num">{{ line.percentage }}%</td>
+                  <td class="num">{{ line.amount.amount | money: line.amount.currency }}</td>
+                  <td class="num">{{ line.settled.amount | money: line.settled.currency }}</td>
+                  <td class="num">
+                    @if (line.outstanding.amount === 0) { <span class="tag tag-positive">Settled</span> }
+                    @else { {{ line.outstanding.amount | money: line.outstanding.currency }} }
+                  </td>
+                  <td>
+                    @for (s of line.settlements; track s.id) {
+                      <div class="settlement" [class.reversed]="s.reversed">
+                        <span>{{ s.method }}</span>
+                        <span>{{ s.amount.amount | money: s.amount.currency }}</span>
+                        <a [routerLink]="['/finance/transactions']" [queryParams]="{ fundId: line.fundId }">#{{ s.transactionId }}</a>
+                        @if (s.reversed) { <span class="muted">reversed</span> }
+                      </div>
+                    } @empty { <span class="muted small">None yet</span> }
+                  </td>
+                  <td class="actions">
+                    @if (a.status !== 'Cancelled' && line.outstanding.amount > 0 && settling()?.id !== line.id) {
+                      <button type="button" class="btn btn-sm" (click)="startSettling(line)">Settle</button>
+                    }
+                  </td>
+                </tr>
+                @if (settling()?.id === line.id) {
+                  <tr class="settle-row">
+                    <td colspan="7">
+                      <form [formGroup]="form" (ngSubmit)="settle()" [attr.aria-label]="'Settle ' + line.fundName">
+                        <div class="methods" role="group" aria-label="How the money is settled">
+                          @for (m of methods; track m.method) {
+                            <button type="button" class="btn btn-sm method" [attr.aria-pressed]="method() === m.method" (click)="selectMethod(m.method)">{{ m.label }}</button>
+                          }
+                        </div>
+                        <p class="method-help">{{ methodHelp() }}</p>
+                        <div class="form-grid">
+                          <div class="field">
+                            <label for="st-amount">Amount {{ currency() }}</label>
+                            <input id="st-amount" type="number" step="0.01" formControlName="amount" />
+                            <span class="hint">Up to {{ line.outstanding.amount | money: line.outstanding.currency }} outstanding.</span>
+                            @if (form.controls.amount.touched && form.controls.amount.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+                          </div>
+                          @if (method() !== 'Earmark') {
+                            <div class="field">
+                              <label for="st-to">{{ method() === 'Transfer' ? 'To account' : 'Converted into' }}</label>
+                              <select id="st-to" formControlName="toAccountId">
+                                <option [ngValue]="null" disabled>Choose an account</option>
+                                @for (acc of destinations(); track acc.id) { <option [ngValue]="acc.id">{{ acc.name }} ({{ acc.currency }})</option> }
+                              </select>
+                              @if (destinations().length === 0) {
+                                <span class="hint">No active account in {{ method() === 'Transfer' ? 'the same currency' : 'another currency' }}. <a routerLink="/finance/accounts">Add one</a>.</span>
+                              }
+                            </div>
+                          }
+                          @if (method() === 'Exchange') {
+                            <div class="field">
+                              <label for="st-received">Amount received {{ destination()?.currency ?? '' }}</label>
+                              <input id="st-received" type="number" step="0.01" formControlName="amountReceived" />
+                              @if (impliedRate(); as rate) { <span class="hint">Effective rate {{ rate }}, from the amounts</span> }
+                            </div>
+                            <div class="field">
+                              <label for="st-fee">Conversion fee (optional)</label>
+                              <input id="st-fee" type="number" step="0.01" formControlName="fee" />
+                            </div>
+                            <div class="field">
+                              <label for="st-fee-side">Fee charged to</label>
+                              <select id="st-fee-side" formControlName="feeChargedTo">
+                                <option value="Sending">{{ a.sourceAccountName }} ({{ currency() }})</option>
+                                <option value="Receiving">Receiving account ({{ destination()?.currency ?? 'its currency' }})</option>
+                              </select>
+                            </div>
+                            <div class="field">
+                              <label for="st-quoted">Quoted rate (optional)</label>
+                              <input id="st-quoted" type="number" step="any" formControlName="quotedRate" />
+                              <span class="hint">As printed by the provider; stored for reference.</span>
+                            </div>
+                          }
+                          <div class="field">
+                            <label for="st-date">Date</label>
+                            <input id="st-date" type="date" formControlName="date" />
+                          </div>
+                          <div class="field">
+                            <label for="st-ref">Reference (optional)</label>
+                            <input id="st-ref" formControlName="reference" />
+                          </div>
+                        </div>
+                        <div class="form-actions">
+                          <button type="submit" class="btn btn-primary" [disabled]="busy()">{{ busy() ? 'Recording…' : 'Record settlement' }}</button>
+                          <button type="button" class="btn-link small" (click)="settling.set(null)">Cancel</button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+
+        @if (canCancel()) {
+          <div class="cancel">
+            @if (confirmingCancel()) {
+              <form class="card" (ngSubmit)="cancel()" aria-label="Cancel allocation">
+                <div class="field">
+                  <label for="cx-reason">Why is this allocation being cancelled?</label>
+                  <input id="cx-reason" name="reason" [(ngModel)]="cancelReason" [ngModelOptions]="{ standalone: true }" maxlength="200" />
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-danger" [disabled]="busy() || !cancelReason.trim()">Cancel allocation</button>
+                  <button type="button" class="btn-link small" (click)="confirmingCancel.set(false)">Keep it</button>
+                </div>
+              </form>
+            } @else {
+              <button type="button" class="btn-link small" (click)="confirmingCancel.set(true)">Cancel this allocation</button>
+              <span class="small muted"> · only possible while nothing has been settled</span>
+            }
+          </div>
+        }
+      }
+    }
+  }
+</div>
