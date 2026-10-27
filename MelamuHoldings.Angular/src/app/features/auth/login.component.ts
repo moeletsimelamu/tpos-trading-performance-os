@@ -1,13 +1,13 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="auth-shell">
       <div class="auth-card">
@@ -35,10 +35,6 @@ import { AuthService } from '../../services/auth.service';
         <button class="btn-primary" (click)="login()" [disabled]="loading">
           {{ loading ? 'Signing in...' : 'Sign in' }}
         </button>
-
-        <p class="auth-switch mono">
-          No account? <a routerLink="/register">Register here</a>
-        </p>
       </div>
     </div>
   `,

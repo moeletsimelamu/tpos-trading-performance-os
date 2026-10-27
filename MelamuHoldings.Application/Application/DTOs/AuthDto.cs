@@ -1,15 +1,13 @@
-﻿namespace MelamuHoldings.Application.DTOs;
+﻿using System.ComponentModel.DataAnnotations;
 
-public class RegisterDto
-{
-    public string Email { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
-    public string DisplayName { get; set; } = string.Empty;
-}
+namespace MelamuHoldings.Application.DTOs;
 
 public class LoginDto
 {
+    [Required, EmailAddress, MaxLength(256)]
     public string Email { get; set; } = string.Empty;
+
+    [Required, MaxLength(256)]
     public string Password { get; set; } = string.Empty;
 }
 

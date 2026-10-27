@@ -25,10 +25,10 @@ public class UploadController : ControllerBase
     public async Task<IActionResult> Upload(IFormFile file)
     {
         if (file is null || file.Length == 0)
-            return BadRequest("No file provided.");
+            return Problem(title: "No file provided.", statusCode: StatusCodes.Status400BadRequest);
 
         if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
-            return BadRequest("Only CSV files are accepted.");
+            return Problem(title: "Only CSV files are accepted.", statusCode: StatusCodes.Status400BadRequest);
 
         using var stream = file.OpenReadStream();
         var result = await _uploadService.ProcessUploadAsync(stream, file.FileName, GetUserId());
