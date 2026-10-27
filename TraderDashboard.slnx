@@ -1,6 +1,0 @@
-<Solution>
-  <Project Path="TraderDashboard.API/TraderDashboard.API.csproj" />
-  <Project Path="TraderDashboard.Application/TraderDashboard.Application.csproj" />
-  <Project Path="TraderDashboard.Domain/TraderDashboard.Domain.csproj" />
-  <Project Path="TraderDashboard.Infrastructure/TraderDashboard.Infrastructure.csproj" />
-</Solution>

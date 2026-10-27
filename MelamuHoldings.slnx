@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="MelamuHoldings.API/MelamuHoldings.API.csproj" />
+    <Project Path="MelamuHoldings.Application/MelamuHoldings.Application.csproj" />
+    <Project Path="MelamuHoldings.Domain/MelamuHoldings.Domain.csproj" />
+    <Project Path="MelamuHoldings.Infrastructure/MelamuHoldings.Infrastructure.csproj" />
+  </Folder>
+</Solution>
