@@ -1,10 +1,14 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using MelamuHoldings.API;
 using MelamuHoldings.API.Cli;
+using MelamuHoldings.API.Controllers;
+using MelamuHoldings.Application.Finance;
 using MelamuHoldings.Application.Identity;
 using MelamuHoldings.Application.Trading;
 using MelamuHoldings.Infrastructure.Persistence;
@@ -12,9 +16,11 @@ using MelamuHoldings.Infrastructure.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Controllers, errors & Swagger
-builder.Services.AddControllers();
+// Controllers, errors & Swagger. Enums travel as their names ("Income", "Bank"), never as numbers.
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -50,7 +56,8 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy(Policies.Owner, policy => policy.RequireAuthenticatedUser().RequireRole(Roles.Owner)));
 
 // Login throttling — the limit is read when the limiter is created, so configuration added late (tests) applies
 builder.Services.AddRateLimiter(options =>
@@ -74,7 +81,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .WithExposedHeaders(FinanceHeaders.IdempotentReplayed, "Location");
     });
 });
 
@@ -83,8 +91,12 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITradeRepository, TradeRepository>();
 builder.Services.AddScoped<IStrategyRepository, StrategyRepository>();
 builder.Services.AddScoped<IUploadLogRepository, UploadLogRepository>();
+builder.Services.AddScoped<IFinanceRepository, FinanceRepository>();
 
 // Services
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<FinanceSetupService>();
+builder.Services.AddScoped<LedgerService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<OwnerAccountService>();
 builder.Services.AddScoped<JwtService>();

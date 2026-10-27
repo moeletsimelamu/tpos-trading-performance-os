@@ -45,7 +45,9 @@ public interface IFinanceRepository
     void Add(LedgerTransaction transaction);
     void Add(AuditEvent auditEvent);
 
-    // Saves everything added or changed in one database transaction.
-    // Throws UniqueConstraintViolationException when a unique index rejects the write.
+    // Saves everything added or changed. Throws UniqueConstraintViolationException when a unique index rejects the write.
     Task SaveChangesAsync();
+
+    // Runs several saves atomically, e.g. a transaction and the audit event that needs its generated id
+    Task<T> InTransactionAsync<T>(Func<Task<T>> work);
 }

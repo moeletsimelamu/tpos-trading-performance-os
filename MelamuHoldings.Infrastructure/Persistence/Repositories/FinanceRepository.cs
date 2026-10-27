@@ -121,6 +121,14 @@ public partial class FinanceRepository : IFinanceRepository
         }
     }
 
+    public async Task<T> InTransactionAsync<T>(Func<Task<T>> work)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        var result = await work();
+        await transaction.CommitAsync();
+        return result;
+    }
+
     [GeneratedRegex(@"(?:index|constraint) '([^']+)'")]
     private static partial Regex IndexNamePattern();
 }
