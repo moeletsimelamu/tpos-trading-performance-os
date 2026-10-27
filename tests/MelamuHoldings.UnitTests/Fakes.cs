@@ -1,6 +1,7 @@
-using MelamuHoldings.Application.Interfaces;
-using MelamuHoldings.Domain.Entities;
-using MelamuHoldings.Domain.Enums;
+using MelamuHoldings.Application.Identity;
+using MelamuHoldings.Application.Trading;
+using MelamuHoldings.Domain.Identity;
+using MelamuHoldings.Domain.Trading;
 
 namespace MelamuHoldings.UnitTests;
 

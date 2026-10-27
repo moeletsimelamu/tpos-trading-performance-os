@@ -5,10 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using MelamuHoldings.API.Cli;
-using MelamuHoldings.Application.Interfaces;
-using MelamuHoldings.Application.Services;
-using MelamuHoldings.Infrastructure.Data;
-using MelamuHoldings.Infrastructure.Repositories;
+using MelamuHoldings.Application.Identity;
+using MelamuHoldings.Application.Trading;
+using MelamuHoldings.Infrastructure.Persistence;
+using MelamuHoldings.Infrastructure.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 

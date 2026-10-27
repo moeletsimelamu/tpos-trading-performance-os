@@ -1,4 +1,4 @@
-using MelamuHoldings.Application.Services;
+using MelamuHoldings.Application.Trading;
 using static MelamuHoldings.UnitTests.TradeFactory;
 
 namespace MelamuHoldings.UnitTests;

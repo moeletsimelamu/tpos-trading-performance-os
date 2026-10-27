@@ -4,8 +4,8 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using MelamuHoldings.Application.Services;
-using MelamuHoldings.Infrastructure.Data;
+using MelamuHoldings.Application.Identity;
+using MelamuHoldings.Infrastructure.Persistence;
 
 namespace MelamuHoldings.IntegrationTests;
 

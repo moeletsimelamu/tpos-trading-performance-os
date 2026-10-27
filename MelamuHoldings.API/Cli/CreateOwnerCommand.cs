@@ -1,5 +1,5 @@
 using System.Text;
-using MelamuHoldings.Application.Services;
+using MelamuHoldings.Application.Identity;
 
 namespace MelamuHoldings.API.Cli;
 
