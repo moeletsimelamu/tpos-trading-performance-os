@@ -160,6 +160,9 @@ public class AllocationService
         }
         catch (UniqueConstraintViolationException ex) when (ex.IndexName == OneActiveAllocationIndex)
         {
+            // A same-key retry breaks both unique indexes and SQL Server may name either: replay if it was ours
+            if (await _repository.GetAllocationByIdempotencyKeyAsync(key) is { } winner)
+                return await ReplayAsync(winner, hash);
             throw new ConflictException($"Payout #{payout.Id} has already been allocated.");
         }
         return new AllocationResult(await ToDtoAsync(allocation), Replayed: false);

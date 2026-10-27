@@ -79,6 +79,9 @@ public class LedgerPosting
         }
         catch (UniqueConstraintViolationException ex) when (ex.IndexName == ReversalIndex)
         {
+            // A same-key retry of a reversal breaks both unique indexes and SQL Server may name either
+            if (await _repository.GetTransactionByIdempotencyKeyAsync(key) is { } winner)
+                return (Replay(winner, requestHash), true);
             throw new ConflictException($"Transaction {transaction.ReversesTransactionId} has already been reversed.");
         }
 
