@@ -29,25 +29,20 @@ describe('ShellComponent', () => {
     expect(links).toEqual(builtRoutes);
   });
 
-  it('shows planned modules as labelled, non-interactive items', async () => {
+  it('lists only destinations that exist, each with an icon', async () => {
     const el = await render();
 
-    const planned = [...el.querySelectorAll<HTMLElement>('nav .nav-planned')];
-    const plannedItems = NAVIGATION.flatMap(s => s.items).filter(i => !i.route);
-
-    expect(planned.length).toBe(plannedItems.length);
-    for (const item of planned) {
-      expect(item.tagName).toBe('SPAN');
-      expect(item.querySelector('a, button')).toBeNull();
-      expect(item.textContent).toContain('Planned');
-      expect(item.getAttribute('title')).toMatch(/Planned for Phase \d/);
-    }
+    const items = NAVIGATION.flatMap(s => s.items);
+    expect(items.every(i => i.route.startsWith('/'))).toBe(true);
+    expect(el.querySelectorAll('nav .nav-link app-icon').length).toBe(items.length);
+    expect(el.textContent).not.toContain('Planned');
   });
 
   it('carries the product identity and a sign-out control', async () => {
     const el = await render();
 
     expect(el.querySelector('.brand')?.textContent).toContain('Melamu Holdings');
+    expect(el.querySelector('.brand app-brand-mark svg')).not.toBeNull();
     expect([...el.querySelectorAll('button')].some(b => b.textContent?.includes('Sign out'))).toBe(true);
   });
 

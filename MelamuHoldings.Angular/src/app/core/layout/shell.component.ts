@@ -3,12 +3,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
+import { IconComponent } from '../../shared/ui/icon.component';
 import { NAVIGATION } from './navigation';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, BrandMarkComponent, IconComponent],
   host: { '(document:keydown.escape)': 'menuOpen.set(false)' },
   template: `
     <div class="shell" [class.menu-open]="menuOpen()">
@@ -16,17 +18,17 @@ import { NAVIGATION } from './navigation';
       <header class="topbar">
         <button type="button" class="menu-button" aria-controls="app-nav"
           [attr.aria-expanded]="menuOpen()" (click)="menuOpen.set(!menuOpen())">
-          <span class="menu-icon" aria-hidden="true"></span>
+          <app-icon [name]="menuOpen() ? 'close' : 'menu'" [size]="20" />
           <span class="visually-hidden">{{ menuOpen() ? 'Close navigation' : 'Open navigation' }}</span>
         </button>
-        <span class="topbar-brand"><span class="logo-mark" aria-hidden="true">MH</span>Melamu Holdings OS</span>
+        <a class="topbar-brand" routerLink="/"><app-brand-mark [size]="26" /><span class="wordmark">Melamu Holdings</span></a>
       </header>
 
       <nav id="app-nav" class="sidebar" aria-label="Main">
         <a class="brand" routerLink="/">
-          <span class="logo-mark" aria-hidden="true">MH</span>
+          <app-brand-mark [size]="34" tone="on-dark" />
           <span class="brand-text">
-            <span class="brand-name">Melamu Holdings</span>
+            <span class="wordmark">Melamu Holdings</span>
             <span class="brand-product">Operating System</span>
           </span>
         </a>
@@ -36,18 +38,12 @@ import { NAVIGATION } from './navigation';
             <div class="nav-section">
               <h2 class="nav-heading">{{ section.heading }}</h2>
               <ul>
-                @for (item of section.items; track item.label) {
+                @for (item of section.items; track item.route) {
                   <li>
-                    @if (item.route) {
-                      <a class="nav-link" [routerLink]="item.route" routerLinkActive="active" ariaCurrentWhenActive="page">
-                        {{ item.label }}
-                      </a>
-                    } @else {
-                      <span class="nav-planned" [attr.title]="'Not built yet. Planned for Phase ' + item.plannedPhase + ' (see PLAN.md).'">
-                        <span>{{ item.label }}</span>
-                        <span class="planned-badge">Planned</span>
-                      </span>
-                    }
+                    <a class="nav-link" [routerLink]="item.route" routerLinkActive="active" ariaCurrentWhenActive="page">
+                      <app-icon [name]="item.icon" [size]="18" />
+                      <span>{{ item.label }}</span>
+                    </a>
                   </li>
                 }
               </ul>
@@ -57,15 +53,15 @@ import { NAVIGATION } from './navigation';
 
         <div class="sidebar-footer">
           @if (auth.user(); as user) {
-            <div class="user-row">
-              <div class="user-avatar" aria-hidden="true">{{ user.displayName.charAt(0).toUpperCase() }}</div>
-              <div class="user-details">
-                <div class="user-name">{{ user.displayName }}</div>
-                <div class="user-email mono">{{ user.email }}</div>
-              </div>
+            <div class="user-avatar" aria-hidden="true">{{ user.displayName.charAt(0).toUpperCase() }}</div>
+            <div class="user-details">
+              <div class="user-name">{{ user.displayName }}</div>
+              <div class="user-email">{{ user.email }}</div>
             </div>
           }
-          <button type="button" class="btn-logout" (click)="auth.logout()">Sign out</button>
+          <button type="button" class="sign-out" (click)="auth.logout()" title="Sign out">
+            <app-icon name="sign-out" [size]="18" /><span class="visually-hidden">Sign out</span>
+          </button>
         </div>
       </nav>
 
@@ -78,115 +74,78 @@ import { NAVIGATION } from './navigation';
   `,
   styles: [`
     .shell { display: flex; height: 100vh; overflow: hidden; }
-
-    .logo-mark {
-      width: 32px; height: 32px; flex-shrink: 0;
-      border: 1px solid var(--accent-amber); border-radius: var(--radius);
-      color: var(--accent-amber);
-      display: inline-flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 12px; letter-spacing: 0.04em;
-    }
-
     .sidebar {
-      width: 240px; min-width: 240px;
-      background: var(--bg-secondary);
-      border-right: 1px solid var(--border-subtle);
-      display: flex; flex-direction: column;
+      width: var(--sidebar-width); flex-shrink: 0; display: flex; flex-direction: column;
+      background: var(--sidebar-bg); color: var(--sidebar-text);
     }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 20px 18px 18px; text-decoration: none; }
+    .brand-text { display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
+    .wordmark { font-weight: 600; font-size: 12.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sidebar-text-strong); }
+    .brand-product { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--sidebar-muted); }
 
-    .brand {
-      display: flex; align-items: center; gap: 0.7rem;
-      padding: 1.1rem 1.1rem 1rem;
-      border-bottom: 1px solid var(--border-subtle);
-      text-decoration: none;
-    }
-    .brand-text { display: flex; flex-direction: column; line-height: 1.25; }
-    .brand-name { color: var(--text-primary); font-weight: 600; font-size: 14px; }
-    .brand-product { color: var(--text-muted); font-size: 11px; letter-spacing: 0.04em; }
-
-    .nav-scroll { flex: 1; overflow-y: auto; padding: 0.75rem 0.6rem; }
-    .nav-section + .nav-section { margin-top: 1rem; }
+    .nav-scroll { flex: 1; overflow-y: auto; padding: 6px 10px 16px; }
+    .nav-section { margin-top: 18px; }
     .nav-heading {
       font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--text-muted); padding: 0 0.6rem; margin-bottom: 0.3rem;
+      color: var(--sidebar-muted); padding: 0 10px 6px;
     }
     ul { list-style: none; }
-
-    .nav-link, .nav-planned {
-      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-      padding: 0.42rem 0.6rem; border-radius: var(--radius);
-      font-size: 13.5px;
-    }
     .nav-link {
-      color: var(--text-secondary); text-decoration: none;
-      border-left: 2px solid transparent;
-      &:hover { color: var(--text-primary); background: var(--bg-card); }
-      &.active { color: var(--text-primary); background: var(--bg-card); border-left-color: var(--accent-amber); font-weight: 500; }
-    }
-    .nav-planned { color: var(--text-muted); cursor: default; }
-    .planned-badge {
-      font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
-      border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; color: var(--text-muted);
+      position: relative; display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; margin: 1px 0; border-radius: var(--radius);
+      font-size: 13.5px; color: var(--sidebar-text); text-decoration: none;
+      &:hover { background: var(--sidebar-hover); color: var(--sidebar-text-strong); }
+      &.active { background: var(--sidebar-active); color: var(--sidebar-text-strong); font-weight: 500; }
+      &.active::before {
+        content: ''; position: absolute; left: -10px; top: 7px; bottom: 7px; width: 3px;
+        border-radius: 0 2px 2px 0; background: var(--brass-500);
+      }
+      &:focus-visible { box-shadow: 0 0 0 2px var(--brass-500); }
     }
 
     .sidebar-footer {
-      padding: 0.9rem 1.1rem 1.1rem;
-      border-top: 1px solid var(--border-subtle);
-      display: flex; flex-direction: column; gap: 0.6rem;
+      display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+      border-top: 1px solid var(--sidebar-border);
     }
-    .user-row { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
     .user-avatar {
-      width: 28px; height: 28px; flex-shrink: 0;
-      background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary);
-      border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 600;
+      width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%;
+      background: var(--sidebar-active); color: var(--sidebar-text-strong);
+      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;
     }
-    .user-details { min-width: 0; }
+    .user-details { flex: 1; min-width: 0; line-height: 1.3; }
     .user-name, .user-email { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .user-name { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
-    .user-email { font-size: 11px; color: var(--text-muted); }
-    .btn-logout {
-      background: transparent; border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 0.4rem 0.75rem; color: var(--text-secondary); font: inherit; font-size: 12.5px;
-      cursor: pointer; text-align: left;
-      &:hover { border-color: var(--accent-red); color: var(--accent-red); }
+    .user-name { font-size: 13px; font-weight: 500; color: var(--sidebar-text-strong); }
+    .user-email { font-size: 11.5px; color: var(--sidebar-muted); }
+    .sign-out {
+      margin-left: auto; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      border: none; border-radius: var(--radius); background: transparent; color: var(--sidebar-text); cursor: pointer;
+      &:hover { background: var(--sidebar-hover); color: var(--sidebar-text-strong); }
+      &:focus-visible { box-shadow: 0 0 0 2px var(--brass-500); }
     }
 
-    .content { flex: 1; overflow-y: auto; padding: 2rem; min-width: 0; }
-
+    .content { flex: 1; min-width: 0; overflow-y: auto; padding: 32px 40px 48px; }
     .topbar, .backdrop { display: none; }
 
     @media (max-width: 899px) {
       .shell { flex-direction: column; }
       .topbar {
-        display: flex; align-items: center; gap: 0.75rem;
-        height: 52px; padding: 0 1rem; flex-shrink: 0;
-        background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle);
+        display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px; flex-shrink: 0;
+        background: var(--surface); border-bottom: 1px solid var(--border-subtle);
       }
-      .topbar-brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; }
-      .topbar .logo-mark { width: 26px; height: 26px; font-size: 10px; }
+      .topbar-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+      .topbar .wordmark { color: var(--text-primary); }
       .menu-button {
-        width: 36px; height: 36px; border: 1px solid var(--border); border-radius: var(--radius);
-        background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+        border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+        color: var(--text-primary); cursor: pointer;
       }
-      .menu-icon, .menu-icon::before, .menu-icon::after {
-        display: block; width: 16px; height: 2px; background: var(--text-primary); position: relative;
-      }
-      .menu-icon::before, .menu-icon::after { content: ''; position: absolute; left: 0; }
-      .menu-icon::before { top: -5px; }
-      .menu-icon::after { top: 5px; }
-
       .sidebar {
-        position: fixed; inset: 0 auto 0 0; z-index: 20; width: 272px; max-width: 85vw;
-        transform: translateX(-100%); transition: transform 0.2s ease; visibility: hidden;
+        position: fixed; inset: 0 auto 0 0; z-index: 20; width: 280px; max-width: 86vw;
+        transform: translateX(-100%); transition: transform 0.2s ease; visibility: hidden; box-shadow: var(--shadow-lg);
       }
       .menu-open .sidebar { transform: none; visibility: visible; }
-      .menu-open .backdrop { display: block; position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.55); }
-      .content { padding: 1.25rem 1rem; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .sidebar { transition: none; }
+      .menu-open .backdrop { display: block; position: fixed; inset: 0; z-index: 10; background: rgba(11, 22, 38, 0.45); }
+      .content { padding: 20px 16px 40px; }
     }
   `]
 })

@@ -1,9 +1,11 @@
-// The product's modules and their real implementation status. Planned items are shown so the
-// structure is visible, but they render as labels, not links: nothing pretends to work before it does.
+import { IconName } from '../../shared/ui/icon.component';
+
+// The destinations that exist today. Modules still being built are not listed: the navigation
+// describes the product as it is, and PLAN.md describes where it is going.
 export interface NavItem {
   label: string;
-  route?: string;       // present only for pages that exist
-  plannedPhase?: number; // PLAN.md phase that delivers it
+  route: string;
+  icon: IconName;
 }
 
 export interface NavSection {
@@ -15,41 +17,25 @@ export const NAVIGATION: NavSection[] = [
   {
     heading: 'Overview',
     items: [
-      { label: 'Executive Overview', plannedPhase: 5 }
+      { label: 'Executive overview', route: '/overview', icon: 'overview' }
     ]
   },
   {
-    heading: 'Trading Operations',
+    heading: 'Trading operations',
     items: [
-      { label: 'Performance', route: '/trading/performance' },
-      { label: 'Trades', route: '/trading/trades' },
-      { label: 'Import', route: '/trading/import' },
-      { label: 'Behaviour', route: '/trading/behaviour' },
-      { label: 'Prop Accounts', plannedPhase: 8 }
+      { label: 'Performance', route: '/trading/performance', icon: 'performance' },
+      { label: 'Trades', route: '/trading/trades', icon: 'trades' },
+      { label: 'Import', route: '/trading/import', icon: 'import' },
+      { label: 'Behaviour', route: '/trading/behaviour', icon: 'behaviour' }
     ]
   },
   {
-    heading: 'Financial Management',
+    heading: 'Finance',
     items: [
-      { label: 'Accounts', route: '/finance/accounts' },
-      { label: 'Funds', route: '/finance/funds' },
-      { label: 'Transactions', route: '/finance/transactions' },
-      { label: 'Audit Log', route: '/finance/audit' }
-    ]
-  },
-  {
-    heading: 'Capital & Wealth',
-    items: [
-      { label: 'Capital Allocation', plannedPhase: 5 },
-      { label: 'Wealth Management', plannedPhase: 7 },
-      { label: 'Business Continuity', plannedPhase: 7 },
-      { label: 'Business Planning', plannedPhase: 9 }
-    ]
-  },
-  {
-    heading: 'System',
-    items: [
-      { label: 'Settings', plannedPhase: 10 }
+      { label: 'Accounts', route: '/finance/accounts', icon: 'accounts' },
+      { label: 'Funds', route: '/finance/funds', icon: 'funds' },
+      { label: 'Transactions', route: '/finance/transactions', icon: 'transactions' },
+      { label: 'Audit log', route: '/finance/audit', icon: 'audit' }
     ]
   }
 ];
