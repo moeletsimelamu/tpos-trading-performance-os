@@ -272,6 +272,9 @@ public class FinanceAccessTests : IClassFixture<ApiFactory>
     [InlineData("/api/transactions")]
     [InlineData("/api/balances")]
     [InlineData("/api/audit-events")]
+    [InlineData("/api/payouts")]
+    [InlineData("/api/allocations")]
+    [InlineData("/api/allocation-policies")]
     public async Task Finance_endpoints_reject_anonymous_requests(string path)
     {
         Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync(path)).StatusCode);
@@ -284,6 +287,8 @@ public class FinanceAccessTests : IClassFixture<ApiFactory>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", TokenWithoutOwnerRole());
 
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/balances")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/payouts")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/allocations/preview", new { payoutId = 1 })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/trades")).StatusCode);
     }
 
