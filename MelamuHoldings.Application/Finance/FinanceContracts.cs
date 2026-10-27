@@ -19,11 +19,11 @@ public record AccountDto(
 
 public record FundDto(int Id, string Name, string? Description, bool IsSystem, IReadOnlyList<MoneyDto> Balances);
 
-public record EntryDto(int AccountId, string AccountName, int FundId, string FundName, decimal Amount, string Currency);
+public record EntryDto(int AccountId, string AccountName, int FundId, string FundName, decimal Amount, string Currency, LedgerEntryRole Role);
 
 public record TransactionDto(
     int Id, LedgerTransactionType Type, DateOnly Date, DateTime RecordedAt,
-    string Description, string? Reference, string? Category, decimal? ExchangeRate,
+    string Description, string? Reference, string? Category, decimal? ExchangeRate, decimal? QuotedRate,
     int? ReversesTransactionId, int? ReversedByTransactionId, IReadOnlyList<EntryDto> Entries);
 
 public record RecordResult(TransactionDto Transaction, bool Replayed);
@@ -118,7 +118,16 @@ public class ExchangeRequest : TransactionRequest
     [Required] public int? ToAccountId { get; set; }
     [Required] public int? ToFundId { get; set; }
     [Required] public decimal? AmountReceived { get; set; }
+
+    // A conversion fee charged on top, in the currency of the account it was charged to
+    [PositiveAmount] public decimal? Fee { get; set; }
+    public FeeChargedTo FeeChargedTo { get; set; } = FeeChargedTo.Sending;
+
+    // The rate printed on the provider's confirmation, if there was one; stored for reference only
+    public decimal? QuotedRate { get; set; }
 }
+
+public enum FeeChargedTo { Sending, Receiving }
 
 public class ReverseRequest
 {

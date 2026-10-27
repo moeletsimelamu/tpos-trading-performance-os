@@ -20,6 +20,9 @@ public class AppDbContext : DbContext
     public DbSet<LedgerTransaction> LedgerTransactions => Set<LedgerTransaction>();
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<Payout> Payouts => Set<Payout>();
+    public DbSet<AllocationPolicy> AllocationPolicies => Set<AllocationPolicy>();
+    public DbSet<Allocation> Allocations => Set<Allocation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +34,12 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new LedgerTransactionConfiguration());
         modelBuilder.ApplyConfiguration(new LedgerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new AuditEventConfiguration());
+        modelBuilder.ApplyConfiguration(new PayoutConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationPolicyConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationPolicyLineConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationLineConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationSettlementConfiguration());
         base.OnModelCreating(modelBuilder);
     }
 }

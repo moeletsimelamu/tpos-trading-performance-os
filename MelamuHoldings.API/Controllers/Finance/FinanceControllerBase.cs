@@ -35,8 +35,14 @@ public abstract partial class FinanceControllerBase : ControllerBase
         if (!result.Replayed)
             return CreatedAtRoute(TransactionsController.GetRouteName, new { id = result.Transaction.Id }, result.Transaction);
 
+        return Replayed(result.Transaction);
+    }
+
+    // 200 with the earlier result, marked so the client knows nothing new was recorded
+    protected IActionResult Replayed(object body)
+    {
         Response.Headers[FinanceHeaders.IdempotentReplayed] = "true";
-        return Ok(result.Transaction);
+        return Ok(body);
     }
 
     [GeneratedRegex("^[A-Za-z0-9_-]+$")]

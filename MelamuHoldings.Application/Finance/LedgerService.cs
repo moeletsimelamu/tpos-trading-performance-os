@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using MelamuHoldings.Application.Common;
 using MelamuHoldings.Domain.Common;
 using MelamuHoldings.Domain.Finance;
@@ -12,16 +9,13 @@ namespace MelamuHoldings.Application.Finance;
 public class LedgerService
 {
     public const int MaxPageSize = 100;
-    private const string IdempotencyIndex = "IX_LedgerTransactions_IdempotencyKey";
-    private const string ReversalIndex = "IX_LedgerTransactions_ReversesTransactionId";
-
     private readonly IFinanceRepository _repository;
-    private readonly TimeProvider _clock;
+    private readonly LedgerPosting _posting;
 
-    public LedgerService(IFinanceRepository repository, TimeProvider clock)
+    public LedgerService(IFinanceRepository repository, LedgerPosting posting)
     {
         _repository = repository;
-        _clock = clock;
+        _posting = posting;
     }
 
     public Task<RecordResult> RecordOpeningBalanceAsync(OpeningBalanceRequest request, string? idempotencyKey, int userId) =>
@@ -77,7 +71,7 @@ public class LedgerService
             return LedgerTransaction.CurrencyExchange(
                 from, await FundAsync(request.FromFundId!.Value), Money.Of(request.AmountSent!.Value, from.Currency),
                 to, await FundAsync(request.ToFundId!.Value), Money.Of(request.AmountReceived!.Value, to.Currency),
-                Details(request), recording);
+                Details(request), recording, Fee(request, from, to), request.QuotedRate);
         });
 
     public Task<RecordResult> ReverseAsync(int transactionId, ReverseRequest request, string? idempotencyKey, int userId) =>
@@ -85,6 +79,9 @@ public class LedgerService
         {
             var original = await _repository.GetTransactionAsync(transactionId)
                 ?? throw new NotFoundException($"Transaction {transactionId} does not exist.");
+            // A payout's receipt is undone from the payout, which also returns it to Approved
+            if (await _repository.GetPayoutByIncomeTransactionAsync(transactionId) is { } payout)
+                throw new DomainException($"Transaction {transactionId} records the receipt of payout #{payout.Id}. Undo the receipt from the payout instead.");
             if ((await _repository.GetReversalIdsAsync([transactionId])).Count > 0)
                 throw new ConflictException($"Transaction {transactionId} has already been reversed.");
 
@@ -117,56 +114,10 @@ public class LedgerService
         return new BalancesDto(asOf, readModel.Accounts(), readModel.Funds(), readModel.CashTotals());
     }
 
-    // The single path every money movement takes: idempotency check, build, then save with its audit event
     private async Task<RecordResult> RecordAsync(object request, string? idempotencyKey, int userId, Func<RecordingInfo, Task<LedgerTransaction>> build)
     {
-        var requestHash = Hash(request);
-        // Without a client key the request still gets a unique one, so it posts exactly once
-        var key = string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString("N") : idempotencyKey.Trim();
-
-        if (await _repository.GetTransactionByIdempotencyKeyAsync(key) is { } previous)
-            return await ReplayAsync(previous, requestHash);
-
-        var now = _clock.GetUtcNow().UtcDateTime;
-        var transaction = await build(new RecordingInfo(userId, now, key, requestHash));
-
-        try
-        {
-            await _repository.InTransactionAsync(async () =>
-            {
-                _repository.Add(transaction);
-                await _repository.SaveChangesAsync();
-                _repository.Add(AuditLog.Event(now, userId, "transaction.recorded", nameof(LedgerTransaction), transaction.Id,
-                    Summarise(transaction), new
-                    {
-                        Type = transaction.Type.ToString(), Date = transaction.TransactionDate, transaction.Description,
-                        transaction.ReversesTransactionId, transaction.ExchangeRate,
-                        Entries = transaction.Entries.Select(e => new { e.FinancialAccountId, e.FundId, e.Amount, Currency = e.Currency.Code })
-                    }));
-                await _repository.SaveChangesAsync();
-                return true;
-            });
-        }
-        catch (UniqueConstraintViolationException ex) when (ex.IndexName == IdempotencyIndex)
-        {
-            // A concurrent retry with the same key won the race: answer with its transaction
-            var winner = await _repository.GetTransactionByIdempotencyKeyAsync(key)
-                ?? throw new ConflictException("The request could not be recorded. Please retry.");
-            return await ReplayAsync(winner, requestHash);
-        }
-        catch (UniqueConstraintViolationException ex) when (ex.IndexName == ReversalIndex)
-        {
-            throw new ConflictException($"Transaction {transaction.ReversesTransactionId} has already been reversed.");
-        }
-
-        return new RecordResult(await ToDtoAsync(transaction), Replayed: false);
-    }
-
-    private async Task<RecordResult> ReplayAsync(LedgerTransaction previous, string requestHash)
-    {
-        if (previous.RequestHash != requestHash)
-            throw new ConflictException("This Idempotency-Key was already used for a different request.");
-        return new RecordResult(await ToDtoAsync(previous), Replayed: true);
+        var (transaction, replayed) = await _posting.PostAsync(request, idempotencyKey, userId, build);
+        return new RecordResult(await ToDtoAsync(transaction), replayed);
     }
 
     private async Task<TransactionDto> ToDtoAsync(LedgerTransaction transaction)
@@ -182,16 +133,10 @@ public class LedgerService
     private async Task<Fund> FundAsync(int id) =>
         await _repository.GetFundAsync(id) ?? throw new DomainException($"Fund {id} does not exist.");
 
+    private static Money? Fee(ExchangeRequest request, FinancialAccount from, FinancialAccount to) =>
+        request.Fee is not { } fee ? null
+        : Money.Of(fee, request.FeeChargedTo == FeeChargedTo.Receiving ? to.Currency : from.Currency);
+
     private static TransactionDetails Details(TransactionRequest request, string? category = null) =>
         new(request.Date!.Value, request.Description, request.Reference, category);
-
-    private static string Summarise(LedgerTransaction t) =>
-        $"Recorded {t.Type} dated {t.TransactionDate:yyyy-MM-dd} ({string.Join(", ", t.Entries.Select(e => e.Money))}): {t.Description}";
-
-    // Identifies the request body so a reused Idempotency-Key with a different payload is rejected
-    private static string Hash(object request)
-    {
-        var payload = request.GetType().FullName + JsonSerializer.Serialize(request, request.GetType());
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
-    }
 }

@@ -40,12 +40,33 @@ public interface IFinanceRepository
 
     Task<PagedResult<AuditEvent>> GetAuditEventsAsync(int page, int pageSize);
 
+    Task<List<Payout>> GetPayoutsAsync(PayoutStatus? status = null);
+    Task<Payout?> GetPayoutAsync(int id);
+    Task<Payout?> GetPayoutByIdempotencyKeyAsync(string idempotencyKey);
+    Task<Payout?> GetPayoutByIncomeTransactionAsync(int transactionId);
+
+    Task<List<AllocationPolicy>> GetPoliciesAsync();
+    Task<AllocationPolicy?> GetPolicyAsync(int id);
+    Task<AllocationPolicy?> GetActivePolicyAsync();
+    Task<int> GetLatestPolicyVersionAsync();
+
+    // Allocations come with their lines and settlements
+    Task<List<Allocation>> GetAllocationsAsync();
+    Task<Allocation?> GetAllocationAsync(int id);
+    Task<Allocation?> GetAllocationByIdempotencyKeyAsync(string idempotencyKey);
+    Task<Allocation?> GetActiveAllocationForPayoutAsync(int payoutId);
+    Task<Allocation?> GetAllocationBySettlementTransactionAsync(int transactionId);
+
     void Add(Fund fund);
     void Add(FinancialAccount account);
     void Add(LedgerTransaction transaction);
     void Add(AuditEvent auditEvent);
+    void Add(Payout payout);
+    void Add(AllocationPolicy policy);
+    void Add(Allocation allocation);
 
-    // Saves everything added or changed. Throws UniqueConstraintViolationException when a unique index rejects the write.
+    // Saves everything added or changed. Throws UniqueConstraintViolationException when a unique index rejects the write,
+    // and ConflictException when another request changed a row (payout, allocation) since it was read.
     Task SaveChangesAsync();
 
     // Runs several saves atomically, e.g. a transaction and the audit event that needs its generated id

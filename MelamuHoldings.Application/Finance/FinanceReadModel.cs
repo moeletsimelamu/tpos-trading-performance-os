@@ -61,13 +61,17 @@ public class FinanceReadModel
 
     public TransactionDto Transaction(LedgerTransaction transaction, int? reversedBy) => new(
         transaction.Id, transaction.Type, transaction.TransactionDate, transaction.RecordedAt,
-        transaction.Description, transaction.Reference, transaction.Category, transaction.ExchangeRate,
+        transaction.Description, transaction.Reference, transaction.Category, transaction.ExchangeRate, transaction.QuotedRate,
         transaction.ReversesTransactionId, reversedBy,
         transaction.Entries
-            .OrderBy(e => e.Amount)
-            .Select(e => new EntryDto(e.FinancialAccountId, AccountName(e.FinancialAccountId), e.FundId, FundName(e.FundId), e.Amount, e.Currency.Code))
+            .OrderBy(e => e.Role).ThenBy(e => e.Amount)
+            .Select(e => new EntryDto(e.FinancialAccountId, AccountName(e.FinancialAccountId), e.FundId, FundName(e.FundId), e.Amount, e.Currency.Code, e.Role))
             .ToList());
 
-    private string AccountName(int id) => _accounts.TryGetValue(id, out var a) ? a.Name : $"Account {id}";
-    private string FundName(int id) => _funds.TryGetValue(id, out var f) ? f.Name : $"Fund {id}";
+    // The (account, fund) balance in the account's currency
+    public Money Position(FinancialAccount account, int fundId) => Money.Of(
+        _positions.Where(p => p.FinancialAccountId == account.Id && p.FundId == fundId).Sum(p => p.Amount), account.Currency);
+
+    public string AccountName(int id) => _accounts.TryGetValue(id, out var a) ? a.Name : $"Account {id}";
+    public string FundName(int id) => _funds.TryGetValue(id, out var f) ? f.Name : $"Fund {id}";
 }

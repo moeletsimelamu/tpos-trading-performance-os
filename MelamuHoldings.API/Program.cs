@@ -96,7 +96,10 @@ builder.Services.AddScoped<IFinanceRepository, FinanceRepository>();
 // Services
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<FinanceSetupService>();
+builder.Services.AddScoped<LedgerPosting>();
 builder.Services.AddScoped<LedgerService>();
+builder.Services.AddScoped<PayoutService>();
+builder.Services.AddScoped<AllocationService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<OwnerAccountService>();
 builder.Services.AddScoped<JwtService>();

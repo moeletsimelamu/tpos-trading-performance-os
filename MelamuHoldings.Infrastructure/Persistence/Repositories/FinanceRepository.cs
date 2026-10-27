@@ -101,10 +101,56 @@ public partial class FinanceRepository : IFinanceRepository
         return new PagedResult<AuditEvent>(items, page, pageSize, total);
     }
 
+    public Task<List<Payout>> GetPayoutsAsync(PayoutStatus? status = null) =>
+        _context.Payouts.Where(p => status == null || p.Status == status)
+            .OrderByDescending(p => p.RequestedOn).ThenByDescending(p => p.Id).ToListAsync();
+
+    public Task<Payout?> GetPayoutAsync(int id) =>
+        _context.Payouts.FirstOrDefaultAsync(p => p.Id == id);
+
+    public Task<Payout?> GetPayoutByIdempotencyKeyAsync(string idempotencyKey) =>
+        _context.Payouts.FirstOrDefaultAsync(p => p.IdempotencyKey == idempotencyKey);
+
+    public Task<Payout?> GetPayoutByIncomeTransactionAsync(int transactionId) =>
+        _context.Payouts.FirstOrDefaultAsync(p => p.IncomeTransactionId == transactionId);
+
+    public Task<List<AllocationPolicy>> GetPoliciesAsync() =>
+        _context.AllocationPolicies.Include(p => p.Lines).OrderBy(p => p.Version).ToListAsync();
+
+    public Task<AllocationPolicy?> GetPolicyAsync(int id) =>
+        _context.AllocationPolicies.Include(p => p.Lines).FirstOrDefaultAsync(p => p.Id == id);
+
+    public Task<AllocationPolicy?> GetActivePolicyAsync() =>
+        _context.AllocationPolicies.Include(p => p.Lines).FirstOrDefaultAsync(p => p.IsActive);
+
+    public async Task<int> GetLatestPolicyVersionAsync() =>
+        await _context.AllocationPolicies.MaxAsync(p => (int?)p.Version) ?? 0;
+
+    private IQueryable<Allocation> AllocationsWithLines =>
+        _context.Allocations.Include(a => a.Lines).ThenInclude(l => l.Settlements);
+
+    public Task<List<Allocation>> GetAllocationsAsync() =>
+        AllocationsWithLines.OrderByDescending(a => a.ConfirmedAt).AsSplitQuery().ToListAsync();
+
+    public Task<Allocation?> GetAllocationAsync(int id) =>
+        AllocationsWithLines.FirstOrDefaultAsync(a => a.Id == id);
+
+    public Task<Allocation?> GetAllocationByIdempotencyKeyAsync(string idempotencyKey) =>
+        AllocationsWithLines.FirstOrDefaultAsync(a => a.IdempotencyKey == idempotencyKey);
+
+    public Task<Allocation?> GetActiveAllocationForPayoutAsync(int payoutId) =>
+        AllocationsWithLines.FirstOrDefaultAsync(a => a.PayoutId == payoutId && a.CancelledAt == null);
+
+    public Task<Allocation?> GetAllocationBySettlementTransactionAsync(int transactionId) =>
+        AllocationsWithLines.FirstOrDefaultAsync(a => a.Lines.Any(l => l.Settlements.Any(s => s.LedgerTransactionId == transactionId)));
+
     public void Add(Fund fund) => _context.Funds.Add(fund);
     public void Add(FinancialAccount account) => _context.FinancialAccounts.Add(account);
     public void Add(LedgerTransaction transaction) => _context.LedgerTransactions.Add(transaction);
     public void Add(AuditEvent auditEvent) => _context.AuditEvents.Add(auditEvent);
+    public void Add(Payout payout) => _context.Payouts.Add(payout);
+    public void Add(AllocationPolicy policy) => _context.AllocationPolicies.Add(policy);
+    public void Add(Allocation allocation) => _context.Allocations.Add(allocation);
 
     public async Task SaveChangesAsync()
     {
@@ -118,6 +164,11 @@ public partial class FinanceRepository : IFinanceRepository
             _context.ChangeTracker.Clear();
             var name = IndexNamePattern().Match(sql.Message) is { Success: true } m ? m.Groups[1].Value : "unknown";
             throw new UniqueConstraintViolationException(name, ex);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _context.ChangeTracker.Clear();
+            throw new ConflictException("This record was changed by another request at the same time. Reload it and try again.");
         }
     }
 

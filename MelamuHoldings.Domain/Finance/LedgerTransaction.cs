@@ -13,6 +13,10 @@ public enum LedgerTransactionType
     Reversal
 }
 
+// Principal entries move the money itself; fee entries record a charge taken along the way
+// (a fee deducted from a payout, a conversion fee), so fees stay visible instead of being netted away
+public enum LedgerEntryRole { Principal, Fee }
+
 // What the person entered about the transaction
 public record TransactionDetails(DateOnly Date, string Description, string? Reference = null, string? Category = null);
 
@@ -40,8 +44,13 @@ public class LedgerTransaction
     public string? Reference { get; private set; }
     public string? Category { get; private set; }
 
-    // CurrencyExchange only: units of the received currency per one unit of the sent currency
+    // CurrencyExchange only. Effective rate: units of the received currency per unit sent, calculated from the two
+    // recorded amounts, so it is evidence rather than an input
     public decimal? ExchangeRate { get; private set; }
+
+    // CurrencyExchange only, optional: the rate the provider stated on its confirmation, as entered by the operator.
+    // Kept beside the effective rate so a spread between the two stays visible. Never used in any calculation.
+    public decimal? QuotedRate { get; private set; }
 
     public int? ReversesTransactionId { get; private set; }
     public string IdempotencyKey { get; private set; } = string.Empty;
@@ -82,13 +91,23 @@ public class LedgerTransaction
         return tx;
     }
 
+    // `amount` is the gross income. A fee deducted before the money arrived is posted as a separate fee entry,
+    // so the account ends up holding exactly what was credited (gross − fee) while the fee stays on record.
     public static LedgerTransaction Income(
-        FinancialAccount account, Fund fund, Money amount, TransactionDetails details, RecordingInfo recording)
+        FinancialAccount account, Fund fund, Money amount, TransactionDetails details, RecordingInfo recording, Money? fee = null)
     {
         var tx = new LedgerTransaction(LedgerTransactionType.Income, details, recording);
         RequireUsable(account, amount);
         RequirePositive(amount);
         tx.Post(account, fund, amount);
+        if (fee is not null)
+        {
+            RequireUsable(account, fee);
+            RequirePositive(fee, "Fee");
+            if (fee >= amount)
+                throw new DomainException("The fee must be less than the gross amount: something must have been credited.");
+            tx.Post(account, fund, fee.Negate(), LedgerEntryRole.Fee);
+        }
         return tx;
     }
 
@@ -133,9 +152,12 @@ public class LedgerTransaction
         return tx;
     }
 
+    // `sent` is the amount converted and `received` the amount credited, so the effective rate is received ÷ sent.
+    // A conversion fee charged separately is a fee entry on whichever account it was charged to: its currency
+    // says which (the sent currency for the sending account, the received currency for the receiving one).
     public static LedgerTransaction CurrencyExchange(
         FinancialAccount from, Fund fromFund, Money sent, FinancialAccount to, Fund toFund, Money received,
-        TransactionDetails details, RecordingInfo recording)
+        TransactionDetails details, RecordingInfo recording, Money? fee = null, decimal? quotedRate = null)
     {
         var tx = new LedgerTransaction(LedgerTransactionType.CurrencyExchange, details, recording);
         if (from.Id == to.Id)
@@ -147,9 +169,21 @@ public class LedgerTransaction
         RequirePositive(sent);
         RequirePositive(received);
 
+        if (quotedRate is { } quoted && (quoted <= 0 || decimal.Round(quoted, 8) != quoted))
+            throw new DomainException("A quoted rate must be greater than zero with at most 8 decimal places.");
+
         tx.ExchangeRate = decimal.Round(received.Amount / sent.Amount, 8);
+        tx.QuotedRate = quotedRate;
         tx.Post(from, fromFund, sent.Negate());
         tx.Post(to, toFund, received);
+
+        if (fee is not null)
+        {
+            RequirePositive(fee, "Fee");
+            if (fee.Currency == from.Currency) tx.Post(from, fromFund, fee.Negate(), LedgerEntryRole.Fee);
+            else if (fee.Currency == to.Currency) tx.Post(to, toFund, fee.Negate(), LedgerEntryRole.Fee);
+            else throw new DomainException($"A conversion fee must be in {from.Currency} or {to.Currency}, the currencies of the two accounts.");
+        }
         return tx;
     }
 
@@ -164,15 +198,16 @@ public class LedgerTransaction
         var reversal = new LedgerTransaction(LedgerTransactionType.Reversal, details, recording)
         {
             ReversesTransactionId = Id,
-            ExchangeRate = ExchangeRate
+            ExchangeRate = ExchangeRate,
+            QuotedRate = QuotedRate
         };
         foreach (var entry in _entries)
-            reversal._entries.Add(new LedgerEntry(entry.FinancialAccountId, entry.FundId, entry.Money.Negate()));
+            reversal._entries.Add(new LedgerEntry(entry.FinancialAccountId, entry.FundId, entry.Money.Negate(), entry.Role));
         return reversal;
     }
 
-    private void Post(FinancialAccount account, Fund fund, Money amount) =>
-        _entries.Add(new LedgerEntry(account.Id, fund.Id, amount));
+    private void Post(FinancialAccount account, Fund fund, Money amount, LedgerEntryRole role = LedgerEntryRole.Principal) =>
+        _entries.Add(new LedgerEntry(account.Id, fund.Id, amount, role));
 
     private static void RequireUsable(FinancialAccount account, Money amount)
     {
@@ -181,10 +216,10 @@ public class LedgerTransaction
             throw new CurrencyMismatchException(account.Currency, amount.Currency);
     }
 
-    private static void RequirePositive(Money amount)
+    private static void RequirePositive(Money amount, string field = "Amount")
     {
         if (!amount.IsPositive)
-            throw new DomainException("Amount must be greater than zero.");
+            throw new DomainException($"{field} must be greater than zero.");
     }
 
     private static string Required(string? value, int maxLength, string field)
@@ -210,16 +245,18 @@ public class LedgerEntry
     public int FundId { get; private set; }
     public decimal Amount { get; private set; }
     public Currency Currency { get; private set; } = Currency.ZAR;
+    public LedgerEntryRole Role { get; private set; }
 
     public Money Money => Money.Of(Amount, Currency);
 
     private LedgerEntry() { }
 
-    internal LedgerEntry(int financialAccountId, int fundId, Money amount)
+    internal LedgerEntry(int financialAccountId, int fundId, Money amount, LedgerEntryRole role)
     {
         FinancialAccountId = financialAccountId;
         FundId = fundId;
         Amount = amount.Amount;
         Currency = amount.Currency;
+        Role = role;
     }
 }

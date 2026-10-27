@@ -14,6 +14,10 @@ internal static class FinanceSchema
     public static readonly ValueConverter<Currency, string> CurrencyConverter =
         new(currency => currency.Code, code => Currency.FromCode(code));
 
+    // For an optional currency (e.g. the currency a payout was credited in, unknown until it arrives)
+    public static readonly ValueConverter<Currency?, string?> OptionalCurrencyConverter =
+        new(currency => currency == null ? null : currency.Code, code => code == null ? null : Currency.FromCode(code));
+
     public static PropertyBuilder<Currency> IsCurrencyCode(this PropertyBuilder<Currency> property) =>
         property.HasConversion(CurrencyConverter).HasColumnType("char(3)").IsRequired();
 }
@@ -67,6 +71,7 @@ public class LedgerTransactionConfiguration : IEntityTypeConfiguration<LedgerTra
         builder.Property(t => t.Reference).HasMaxLength(LedgerTransaction.MaxReferenceLength);
         builder.Property(t => t.Category).HasMaxLength(LedgerTransaction.MaxCategoryLength);
         builder.Property(t => t.ExchangeRate).HasColumnType("decimal(18,8)");
+        builder.Property(t => t.QuotedRate).HasColumnType("decimal(18,8)");
         builder.Property(t => t.IdempotencyKey).HasMaxLength(LedgerTransaction.MaxIdempotencyKeyLength).IsRequired();
         builder.Property(t => t.RequestHash).HasMaxLength(64).IsRequired();
 
@@ -90,6 +95,7 @@ public class LedgerEntryConfiguration : IEntityTypeConfiguration<LedgerEntry>
         builder.ToTable("LedgerEntries", FinanceSchema.Name);
         builder.Property(e => e.Amount).HasColumnType("decimal(19,4)");
         builder.Property(e => e.Currency).IsCurrencyCode();
+        builder.Property(e => e.Role).HasConversion<string>().HasMaxLength(20);
         builder.Ignore(e => e.Money);
 
         builder.HasOne<FinancialAccount>().WithMany().HasForeignKey(e => e.FinancialAccountId).OnDelete(DeleteBehavior.Restrict);
