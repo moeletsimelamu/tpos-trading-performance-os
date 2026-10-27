@@ -1,52 +1,128 @@
-# Design
+# Design System
 
-The visual rules for Melamu Holdings OS. The tokens live in `MelamuHoldings.Angular/src/styles.scss`. Canvas charts can't read CSS variables, so `CHART` in `performance.component.ts` mirrors them.
+The visual identity and interface rules for Melamu Holdings OS.
+- **Tokens:** `MelamuHoldings.Angular/src/styles.scss`.
+- **Shared components:** `src/app/shared/ui/`.
+- **Chart colours:** `CHART` in `shared/ui/chart-theme.ts` mirrors the tokens, because canvas charts cannot read CSS variables.
+
+The audit behind these decisions is in [`UI_AUDIT.md`](UI_AUDIT.md).
+
+![Executive overview](images/executive-overview.jpg)
 
 ## Intent
 
-A serious internal tool for managing business money:
-- dense, readable tables;
+A calm, institutional workspace for running a business's money:
+- hierarchy carried by type, spacing and alignment rather than colour;
 - figures that line up;
-- colour that carries meaning;
-- nothing decorative.
+- tables for comparisons and charts only for trends;
+- every element earns its place.
 
-Explicitly avoided: gradients, glows, glassmorphism, oversized summary cards, decorative charts, and invented data to fill space.
+**Avoided:** gradients, glows, glassmorphism, oversized KPI cards, decorative charts, colour used for decoration, and placeholder data.
 
-## Tokens
+**Reference products:** Mercury, Ramp and Stripe were studied from screenshots supplied with the brief, for their qualities rather than their layouts. The live sites were not browsed. Nothing is copied: the mark, palette and layouts are Melamu Holdings' own.
+
+## Identity
+
+<img src="images/brand-mark.svg" width="64" alt="MH monogram">
+
+- **Mark:** an M and an H that share their middle stem, joined by a brass bridge, the H's crossbar. It is drawn on a navy tile with rounded corners on a 32-unit grid. Strokes are 2.6 units; the M's V meets the bridge at mid-height.
+  - Drawn once, in `BrandMarkComponent` (`<app-brand-mark>`) and `public/favicon.svg`.
+  - `tone="on-dark"` lightens the tile so it stays visible on the navy sidebar.
+  - It reads at 16 px, the favicon size.
+- **Wordmark:** `MELAMU HOLDINGS` in IBM Plex Sans semibold, uppercase, tracked +0.14em. The secondary label `OPERATING SYSTEM` is 10 px with +0.2em tracking.
+- **Where it appears:** sidebar, phone top bar, sign-in page, favicon, `theme-color`.
+- **Status:** a proposed digital product identity created for this application. It is not a registered or previously approved corporate logo.
+
+## Colour
 
 | Token | Value | Use |
 |---|---|---|
-| `--bg-primary` | `#0f1115` | Page background |
-| `--bg-secondary` | `#14171c` | Sidebar, inputs, top bar |
-| `--bg-card` | `#181b21` | Cards, active nav item |
-| `--bg-card-hover` | `#1e2229` | Table row hover |
-| `--border` / `--border-subtle` | `#2b3039` / `#22262d` | Controls / dividers and card edges |
-| `--text-primary` | `#e9ebef` | Headings, values |
-| `--text-secondary` | `#a3abb8` | Labels, secondary text |
-| `--text-muted` | `#8a929e` | Hints, placeholders, planned items (passes WCAG AA on `--bg-primary` and `--bg-card`) |
-| `--accent-amber` | `#d4a72c` | **Brand and current location only**: logo, active nav marker, primary button, focus ring |
-| `--accent-green` / `--accent-red` | `#3fb27f` / `#e5534b` | Gain / loss, success / error. Never decoration. |
-| `--accent-blue` | `#5b9bf0` | Neutral informational tags |
-| `--font-display` | IBM Plex Sans | All UI text |
-| `--font-mono` | IBM Plex Mono with tabular digits (`.mono`) | Figures, dates, codes |
-| `--radius` / `--radius-lg` | `6px` / `8px` | Controls / cards |
-| `--focus-ring` | 2px gold ring | Every keyboard-focusable element (`:focus-visible`) |
+| `--navy-900` (`--primary`, `--sidebar-bg`) | `#102036` | Brand, sidebar, primary buttons, selected tabs and toggles |
+| `--navy-800` (`--primary-hover`) | `#1c304d` | Hover on primary; the mark's tile on dark surfaces |
+| `--brass-500` | `#c9a35a` | **Only** the mark's bridge, the active-navigation marker, and focus on the sidebar |
+| `--surface-canvas` | `#f6f4ef` | Page background (warm off-white) |
+| `--surface` | `#ffffff` | Cards, tables, inputs |
+| `--surface-sunken` / `--surface-hover` | `#f9f8f5` / `#f4f2ed` | Table headers and detail rows / row hover |
+| `--border` / `--border-subtle` | `#dcd7cd` / `#ebe7df` | Controls / dividers and card edges |
+| `--text-primary` | `#172131` | Headings, values |
+| `--text-secondary` | `#4b5565` | Labels, descriptions |
+| `--text-muted` | `#646c79` | Notes and hints (4.8:1 on canvas, 5.4:1 on white) |
+| `--link` / `--focus` | `#1d5c8c` / `#2f6aa3` | Links / focus ring |
+| `--positive` / `--negative` | `#1d7a4c` / `#b4322a` | Money in and gains / money out and losses |
+| `--warning` / `--info` | `#93560a` / `#1d5c8c` | Needs attention / neutral information |
+| `--*-bg` | tints of each status | Backgrounds of tags and notices |
 
-The token names (`--accent-amber`, `--bg-card` and so on) are kept from the original app so existing pages took the new values without edits. They describe history, not hue. Rename them only together with every usage.
+**Rules**
+- Every text colour passes WCAG AA on `--surface` and `--surface-canvas`.
+- Status colour is never the only signal. It always comes with a sign (`+`/`−`), a word ("Warning", "Not assigned") or an icon.
+- Values that are neither gains nor losses (win rate, profit factor, average R, drawdown, balances) are set in `--text-primary`.
+- There is **no dark theme in this release.** Components use only semantic tokens, so a dark theme is a token-level change.
 
-## Rules
+## Typography
 
-- **Status honesty.** Navigation shows planned modules as non-link items with a "Planned" badge and their phase. A page exists only when it works.
-- **Money display.** Use the `money` pipe: `{{ amount | money: currency }}` renders `ZAR 1,350.00`, and `: true` adds a `+` for credits. Every monetary figure shows its currency code. Ledger entries are coloured with `.amount-in` / `.amount-out` by sign; nothing else is coloured for decoration. *Gap:* trading P&L figures don't have a currency yet (the journal has none); prop-account currencies arrive in Phase 8.
-- **Shared building blocks.** `.page` (page header), `.data-table` (with `.num` for right-aligned figures), `.table-card`, `.btn` / `.btn-primary` / `.btn-danger` / `.btn-link`, `.form-grid` / `.field` (label, input, `.hint`, `.error`), `.notice-success` / `.notice-error`. These live in `styles.scss` so new pages don't re-declare them.
-- **Irreversible actions ask first.** Closing an account needs a second click ("Confirm close"). Reversal needs a written reason. Native `confirm()` dialogs are not used in new pages.
-- **Charts.** Only where a trend or comparison matters. P&L bars are green or red by sign. Lines are drawn straight, never smoothed. There are no legends for single series.
-- **States.** Every data view has loading, empty (with the next action) and error (with Retry) states. Use `<app-load-error>`.
-- **Responsive.** At 900 px and above, a fixed 240 px sidebar. Below that, a top bar with a drawer. Content must not scroll horizontally at 375 px; tables scroll inside their card.
-- **Accessibility.**
-  - Each page has one `h1`.
-  - Inputs have `<label for>`.
-  - Icon-only controls have screen-reader text (`.visually-hidden`).
-  - The active nav link sets `aria-current="page"`.
-  - Motion is reduced under `prefers-reduced-motion`.
-- **Component styles stay under the 4 kB budget.** Shared helpers go in `styles.scss`.
+- **IBM Plex Sans** is used everywhere. `font-variant-numeric: tabular-nums` is set on `body`, so all figures align in columns.
+- **IBM Plex Mono** (`.mono`) is used only for identifiers and codes: audit action names, CSV column names.
+
+| Role | Size / weight |
+|---|---|
+| Page title (`h1`) | 24 px / 600 |
+| Card and section title (`h2`) | 15 px / 600 |
+| Body, table cells | 14 px and 13.5 px / 400 |
+| Labels, notes | 12.5 px and 11.5 px |
+| Section label above a title | 11.5 px / 600, uppercase, +0.08em |
+| Metric values | 22 px / 600; lead metric 30 px |
+
+## Space, layout and shape
+
+- **Spacing:** a 4 px scale (`--space-1` … `--space-10`). Cards pad 20 px; table cells pad 11 × 16 px.
+- **Content width:** pages are centred at a maximum of 1240 px (`--content-max`); Import uses 900 px.
+- **Sidebar:** 248 px, fixed, navy. Below 900 px it becomes a white top bar with a drawer.
+- **Radii:** 4, 6 and 10 px. Shadows are a single 1 px hairline (`--shadow-sm`) on surfaces, with `--shadow-lg` only for the drawer.
+
+## Components
+
+| Component | Where | Use |
+|---|---|---|
+| `<app-brand-mark>` | `shared/ui/brand-mark.component.ts` | The mark. Inputs: `size`, `tone` |
+| `<app-icon>` | `shared/ui/icon.component.ts` | The product's own stroke icon set (24-unit grid, 1.6 stroke, round ends). Decorative (`aria-hidden`); the surrounding control carries the label |
+| `<app-page-header>` | `shared/ui/page-header.component.ts` | Every page: `section` label, `title`, `description`, with action buttons projected to the right |
+| `<app-load-error>` | `shared/load-error.component.ts` | An error state with Retry |
+| `.metric-strip` / `.metric` | `styles.scss` | Summary figures on one surface. `.metric-lead` makes the headline figure larger and gives it a full row on phones. Cells are flex items, so a short row stretches instead of leaving a gap |
+| `.card`, `.card-header`, `.table-card` | `styles.scss` | Surfaces. A table card has no padding; the table owns its edges |
+| `.data-table` | `styles.scss` | Sunken header row, hairline rows, hover. `.num` right-aligns figures. The first link in a row is set as the row's title |
+| `.toolbar` | `styles.scss` | Filters inside the top of a table card |
+| `.tabs` / `.tab` | `styles.scss` | Switching one view (`role="tablist"`, `aria-selected`) |
+| `.btn`, `.btn-primary`, `.btn-danger`, `.btn-sm`, `.btn-link` | `styles.scss` | One primary action per area |
+| `.field`, `.form-grid`, `.form-actions` | `styles.scss` | Every input has a visible `<label for>` |
+| `.tag-positive/negative/warning/info` | `styles.scss` | Status pills |
+| `.notice-error/success/warning` | `styles.scss` | Inline messages |
+| `.loading-state`, `.empty-state` | `styles.scss` | Loading, and empty with the next action |
+| `.bar-track` / `.bar-fill` | `styles.scss` | Proportional bars in table cells. They diverge from a centre line when values can be negative |
+| `baseChartOptions()` | `shared/ui/chart-theme.ts` | Chart.js defaults: no legend for a single series, emphasised zero line, at most 8 unrotated date ticks, navy tooltip |
+
+## Usage conventions
+
+- **Money:**
+  - `{{ amount | money: currency }}` renders `ZAR 1,350.00`; `: true` adds `+` to credits.
+  - Currencies are shown side by side and are never added together.
+  - Trading P&L has no currency yet and is labelled as such: "Figures are in the trading account's currency, which the journal does not record yet". It is never presented as business cash.
+- **Signed figures** use a true minus sign (`−`) and a `+` for gains.
+- **Status vocabulary:** Proposed, Pending, Confirmed, Completed, Reconciled and Overdue each get one treatment.
+  - Pending: `tag-warning`. Confirmed: `tag-info`. Completed and Reconciled: `tag-positive`. Overdue: `tag-negative`. Proposed: a neutral `tag`.
+  - The words appear exactly like this wherever the states exist (Phase 5 onwards).
+- **Navigation lists only working destinations.** The roadmap lives in `PLAN.md`, not in the sidebar.
+- **Irreversible actions ask first.** Deleting a trade and closing an account each need a second click; a reversal needs a written reason. Native `confirm()` is not used.
+- **Every data view has three states:** loading, empty (with the next action) and error (with Retry). Independent panels load and fail independently: the overview still shows trading results if the finance data is refused.
+- **Charts:** a chart only for a trend over time. Straight segments with no smoothing, and labels set as "8 Oct" rather than ISO dates.
+- **Accessibility:**
+  - one `h1` per page;
+  - visible labels on every input;
+  - `aria-current="page"` on the active link;
+  - a visible focus ring on every focusable element (blue on light surfaces, brass on the sidebar);
+  - icon-only buttons carry screen-reader text;
+  - motion off under `prefers-reduced-motion`.
+- **Responsive:**
+  - no horizontal page scroll at 375 px;
+  - wide tables scroll inside their card;
+  - the breakdown bar column hides on phones.
+- **Component styles stay under the 4 kB budget.** Anything shared goes in `styles.scss`.

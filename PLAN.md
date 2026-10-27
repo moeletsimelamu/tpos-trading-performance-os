@@ -9,7 +9,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Phase 2 (stabilise) is complete and merged to `main` (PR #2; outcome in `docs/ARCHITECTURE_REVIEW.md` §10a).
 - Phase 3 (foundation) is complete; it is on `develop` and in PR #3 to `main`. The structure as built is in `docs/ARCHITECTURE.md`.
 - Phase 4 (accounts and ledger) is complete on branch `phase-4-ledger` and awaiting review. The rules as built are in `docs/FINANCIAL_DOMAIN.md`.
-- Next is Phase 5: payouts and capital allocation, the first milestone.
+- The brand and UI redesign (§6a) is complete on branch `ui-brand-redesign`, cut from `phase-4-ledger`. Findings are in `docs/UI_AUDIT.md` and the result is in `docs/DESIGN_SYSTEM.md`.
+- Next is Phase 5: payouts and capital allocation, the first milestone. The trading journal (§7a) follows it unless the owner chooses otherwise.
 
 ---
 
@@ -17,7 +18,66 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 
 **Trading generates business income. Melamu Holdings OS manages, allocates, tracks and reports on that income.**
 
-The first usable release is the **payout-to-allocation milestone** (§7, Phase 5): configure funds and policy → record a payout actually received → preview the allocation → confirm it → record real transfers → reconcile → verify balances → review history → see the result on the Executive Overview. Every other module is delivered after that, incrementally. Each module appears in the navigation only with an honest status label (`Live`, `Partial`, `Planned`).
+The first usable release is the **payout-to-allocation milestone** (§7, Phase 5): configure funds and policy → record a payout actually received → preview the allocation → confirm it → record real transfers → reconcile → verify balances → review history → see the result on the Executive Overview. Every other module is delivered after that, incrementally. A module appears in the navigation only once it works. The roadmap lives in this plan, not in the sidebar.
+
+### 1a. Operating model (founder addendum, 2026-10-27)
+
+Melamu Holdings is a long-term business and wealth-building venture. Trading is its first source of income, not its purpose. The software manages the business that trading supports.
+
+**Stages.** These are the intended direction, not achieved milestones.
+1. **Foundation:** trading operations, income actually received, operating expenses, allocation, cash visibility, continuity.
+2. **Stability:** reserves, commitments, investment contributions, progress towards objectives, reliable reporting.
+3. **Beyond trading:** other activities, investments, assets and ventures.
+
+Only the foundation is built ahead of need.
+
+**The operating cycle the product must trace end to end:**
+1. Monitor trading, including prop-firm status, fees and rules.
+2. Record a receipt, distinguishing *requested*, *approved* and *received*.
+3. Evaluate the allocation against the policy, using only money genuinely available.
+4. Confirm the allocation.
+5. Record the actual transfers: partial transfers, fees and outstanding amounts.
+6. Monitor the funds.
+7. Manage obligations, planned purchases, minimums and targets.
+8. Review the business position.
+
+**Decision questions** that significant screens should answer from records, when the records support it:
+- Can a purchase be afforded without breaching the operating minimum?
+- How much of a payout is still unallocated?
+- Which confirmed allocations are not yet transferred?
+- How much unrestricted cash is there?
+- How close is continuity to its target?
+- What is coming due?
+- Which trading accounts consume fees without producing payouts?
+
+When records are incomplete, the screen shows what is missing and its effect, rather than forcing an answer. The system warns; it never moves money, trades or commits on its own.
+
+**Rules this adds or confirms:**
+- **Currencies:** ZAR and USD now, more later without redesign.
+  - Keep the payout currency, the credited currency, the rate, fees and dates of every conversion.
+  - Mark a manually entered or estimated rate as such.
+  - Never revalue history with today's rate.
+  - Reporting-currency valuation is separate from the original transaction.
+- **Gaps against these rules in Phase 4:**
+  - a conversion fee must be recorded as a separate expense;
+  - there is no rate-source or status field.
+
+  Both are addressed with payouts in Phase 5.
+- **Ownership:**
+  - Company versus personal is explicit, never inferred from a label.
+  - "Unspecified" is surfaced for configuration; the Executive Overview already flags it.
+  - Providers such as a bank, savings or brokerage account are configuration records only. No provider logic is hard-coded.
+- **Continuity:**
+  - Two separate, configurable targets: 24 months of essential expenses, and trading-restoration capital.
+  - Never count the same money twice.
+  - A planned contribution, an outstanding allocation or a trading-account balance is not continuity cash.
+  - Shortfalls are shown as shortfalls.
+- **Trading success is not business health:**
+  - Trading P&L is not cash until a payout is recorded as received.
+  - Links between trading records and ledger records are explicit and traceable.
+  - No trading record creates a ledger entry automatically.
+- **Status vocabulary:** Proposed, Pending, Confirmed, Completed, Reconciled and Overdue mean the same thing everywhere. `docs/DESIGN_SYSTEM.md` gives each one a single visual treatment.
+- **Scale:** one operator, a modular monolith. No multi-tenancy, microservices, workflow engines or approval hierarchies until a requirement exists. Integration with other portfolio projects stays optional (§11).
 
 The system is an **operational management system, not accounting software**. It records cash movements and allocations faithfully, but it does not produce statutory financial statements, accrual-based profit, or tax figures. `docs/FINANCIAL_DOMAIN.md` will state these limits explicitly.
 
@@ -222,32 +282,49 @@ Cross-cutting:
 - **Shell**:
   - Split into an `AuthLayout` (login) and an `AppLayout` (sidebar), which fixes the sidebar showing on the login page.
   - Brand: "Melamu Holdings OS" wordmark, new favicon, `<title>`.
-- **Navigation**, each item labelled with its real status:
+- **Navigation.** It lists only destinations that work. Each group appears when its first page ships.
 
-  | Item | Contents |
-  |---|---|
-  | Executive Overview | |
-  | Trading Operations | Performance (the current dashboard), Trades, Import, Behaviour, Prop Accounts *(planned)* |
-  | Financial Management | Accounts, Funds, Transactions, Audit Log *(live since Phase 4)*; Payouts *(Phase 5)* |
-  | Capital Allocation | Allocations, Policies *(Phase 5)* |
-  | Wealth Management *(planned)* | |
-  | Business Continuity *(planned)* | |
-  | Business Planning *(planned)* | |
-  | Settings *(planned, Phase 10)* | Profile, password. Funds moved under Financial Management; currencies are a fixed supported list. |
+  | Group | Live today | Added later |
+  |---|---|---|
+  | Overview | Executive overview | |
+  | Trading operations | Performance, Trades, Import, Behaviour | Journal (§7a), Prop firm accounts (Phase 8) |
+  | Finance | Accounts, Funds, Transactions, Audit log | Payouts, Capital allocation (Phase 5) |
+  | Wealth | | Wealth management, Business continuity (Phase 7) |
+  | Business | | Business planning (Phase 9) |
+  | System | | Settings, Security (Phase 10) |
 
-  The old paths `/dashboard`, `/trades`, `/upload` and `/behaviour` redirect to their new homes.
+  The old paths `/dashboard`, `/trades`, `/upload` and `/behaviour` redirect to their new homes. `/` lands on the Executive overview.
 - **State and change detection**: signals for component state, `HttpClient` wrapped in small per-module data services. This also resolves the zoneless refresh risk (`ARCHITECTURE_REVIEW` W5).
 - **Shared components**:
   - `money` pipe that always shows the currency code;
   - status badge (`Proposed`, `Confirmed`, `Partially settled`, `Reconciled`, `Earmarked`, `Transferred`);
   - `<app-state>` for loading, empty and error states, with a retry action;
   - a submit button that disables while a request is in flight and carries the idempotency key.
-- **Design direction**:
-  - Serious internal tool: dense, readable tables; tabular numerals for figures; restrained colour (status only, not decoration).
-  - Keep the existing dark palette as the base. Retire the glow effects and the amber-on-everything styling.
-  - Charts only where a trend matters (equity curve, cash-flow by month).
-  - `docs/DESIGN.md` will hold the tokens.
+- **Design direction:** superseded by §6a and `docs/DESIGN_SYSTEM.md`.
 - **Testing**: add the Angular test target (Vitest via `@angular/build:unit-test`, the Angular 21 default) and component tests for the finance forms and the allocation preview and confirm flow.
+
+### 6a. Brand and UI redesign (done, branch `ui-brand-redesign`)
+
+Done between Phases 4 and 5, so every page from Phase 5 onwards is built on the final design system rather than reworked later.
+
+- **Identity:**
+  - an MH monogram (M and H share a stem, joined by a brass bridge);
+  - a tracked-capitals wordmark;
+  - a favicon, and a branded sign-in page.
+- **System:**
+  - a light, table-led workspace with a deep navy brand sidebar;
+  - tokens for colour, type, space, radius, shadow and status;
+  - shared components: page header, metric strip, data table, toolbar, tabs, notices, empty, loading and error states, and a product-drawn icon set.
+- **Executive overview:** a new landing page built only from existing endpoints:
+  - cash by currency;
+  - fund positions;
+  - checks for items needing attention, derived from records;
+  - recent ledger activity;
+  - a trading summary labelled as not business cash.
+
+  Income and expense by period remain Phase 6 work, behind `GET /api/overview`.
+- **Performance:** a metric strip, a readable equity curve, and one breakdown table (strategy, day, session) instead of three bar charts.
+- **Unchanged:** API contracts, calculations and domain logic. The profit-factor defect is still scheduled for Phase 8.
 
 ---
 
@@ -260,12 +337,60 @@ Each phase ends with a build, all tests green, a browser check of the touched pa
 | **2 — Stabilise** | Resolve the folder rename (decision D1) so the solution builds again: the working tree currently fails with 102 errors, while committed `develop` builds cleanly. Run the API against a scratch SQLEXPRESS database and check the existing pages in the browser. Pin a patched `System.Security.Cryptography.Pkcs` to clear the NU1903 high-severity advisory. Move the JWT key to user-secrets and rotate it. Disable open registration and add an owner-provisioning command. Add ProblemDetails and exception middleware. Validate trade DTOs. Fix the RR binding, the error states and zoneless refresh on existing pages. Remove dead code (`app.ts`, `server.ts`, SSR dependencies, `NavigationService`). Add an xUnit test project (characterisation tests for analytics and behaviour), the Angular test target, and a GitHub Actions CI workflow. | Clean build; tests pass in CI; existing four pages verified in the browser; no secret in the repository |
 | **3 — Foundation** ✅ | Module folders (the `MelamuHoldings.*` rename was done in Phase 2). Drop the never-written `BehaviourAlerts` table. New layout and navigation with status labels. Brand identity. `Money`/`Currency` domain types. `finance` schema conventions (the schema itself is created by Phase 4's first migration). Backup procedure documented. | All existing features reachable and working under the new navigation; migrations apply from scratch and to the existing databases |
 | **4 — Accounts and ledger** ✅ | Funds, financial accounts, ledger transactions and entries; income, expense, transfer, reallocation, opening balance, reversal, currency exchange. Balances by account and by fund. Audit events. Transaction list with filters and pagination. | Domain tests for every invariant in §3.2; API integration tests including 401, 400, 409 and idempotent retry; balances reconcile to entries |
-| **5 — Payouts and allocation (first milestone)** | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. A minimal Executive Overview with cash by account, fund balances and outstanding allocations. | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
+| **5 — Payouts and allocation (first milestone)** | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. Outstanding allocations added to the Executive overview (cash and fund positions are already there). | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
 | **6 — Executive Overview** | Period filters; income and expenses by period; net cash movement (labelled as cash movement, not profit); recent payouts; drill-down links to records; warnings panel. | Every figure traceable to a record list |
 | **7 — Continuity and wealth** | Obligations, continuity targets (24-month essential cover plus a separate restoration target), coverage months, earmarked versus physically separated view; investment accounts, contributions, valuation snapshots, unrealised gain/loss; budgets and planned purchases with budget-versus-actual. | Formulas documented in `FINANCIAL_DOMAIN.md` and unit-tested |
 | **8 — Trading integration** | Prop firm accounts with configurable rules and status history; trades linked to accounts; fees and resets as expenses; payouts linked to accounts; per-user strategies with CRUD; CSV duplicate detection; analytics fixes (profit factor, drawdown, date filters). | Existing analytics unchanged except the documented definition fixes; tests prove it |
 | **9 — Planning and reporting** | Objectives and milestones linked to financial targets; monthly cash-flow report; allocation history report. | Reports built only on stored data |
 | **10 — Hardening** | Full regression run; security review; migration replay; UI and accessibility pass; README and screenshots; deployment documentation; `docs/REVIEW.md`. | Definition of Done (prompt §19 plus the supplementary §9) met, with known limitations listed |
+
+### 7a. Trading journal and AI-assisted review (owner brief, 2026-10-27)
+
+The trading journal becomes a first-class workflow. It covers:
+- manual trade entry, starting from an obvious **New trade** action, with drafts;
+- reusable journal templates;
+- strategy rules and checklists;
+- psychology and post-trade review;
+- calendar and log views;
+- optional AI-assisted review grounded in recorded evidence.
+
+CSV import stays, but only as a bulk and migration path.
+
+**What exists to build on** (audited 2026-10-27):
+- **`Trade`:** user-owned. It stores date, entry time, instrument, direction, entry and exit price, risk, P&L, R, session, duration, override flag, notes and deviation notes. It has no status, no stop or target, no fees, no exit time, no currency and no trading account.
+- **`Strategy`:** a global name and description, with no owner and no rules.
+- **`UploadLog`:** CSV import history.
+- **`AnalyticsService`:** calculates every performance figure from `Trade` rows.
+- **AI:** this repository has no AI provider abstraction. The DocuMind project has an OpenAI-compatible client pattern that could be reused as a design reference, not as a dependency.
+
+**Principles:**
+- **Extend `Trade`; do not create a parallel journal-entry model.** A journal entry is the trade together with its template answers. Manually entered trades and imported trades feed the same `AnalyticsService`, so the figures can never disagree.
+- **Templates are versioned.** Each entry stores the template version, or a snapshot of its field definitions. Editing a template never reinterprets past entries.
+- **Statuses are Draft → Open → Closed → Reviewed.** Analytics count only trades with complete execution data. Drafts never count as completed trades.
+- **Checklists are kept, not rewritten.** Answers are stored with the time they were completed, and changes to a completed checklist keep their history. An unchecked informational item is not a rule violation; only mandatory rules can be violated.
+- **Attachments** are type- and size-checked and stored outside any public directory. They are served only to their owner.
+- **AI stays optional.** The journal works fully without a key.
+  - Context is bounded to the trades in question.
+  - Facts, calculations and interpretations are kept visibly separate.
+  - Journal text is treated as untrusted input to the model.
+  - Drafts are saved only when the trader confirms them, and never overwrite the trader's own words.
+  - No diagnosis, no trading signals, no autonomous actions.
+- **Import reconciliation:** a CSV import that matches an existing manual trade offers to link the two. It never duplicates the trade or overwrites its notes.
+
+**Phases** (each ends with build, tests and a browser check, like §7):
+
+| Phase | Scope |
+|---|---|
+| J1 | Audit and `docs/TRADING_JOURNAL_DESIGN.md`: workflows, domain changes, template schema, lifecycle, testing |
+| J2 | Manual journaling: New trade, drafts, edit, detail page, the extended `Trade` fields, migration |
+| J3 | Templates: create, duplicate, archive, default, preview, versioned snapshots, field-type validation |
+| J4 | Strategies and checklists: per-user strategies with rules (mandatory or optional), recorded responses, adherence |
+| J5 | Journal interface: overview (drafts, awaiting review), trade log with filters and sorting, calendar, journal document page, attachments |
+| J6 | Analytics integration: filters by account, session, strategy, adherence, emotion and rating; compliant versus non-compliant results, with sample sizes shown |
+| J7 | AI assistant: provider abstraction, bounded context, review drafts, insufficient-data handling, prompt-injection safeguards |
+| J8 | Verification and documentation |
+
+**Overlap with Phase 8:** J2 to J4 take over "per-user strategies with CRUD" and "CSV duplicate detection" from Phase 8. Prop-firm accounts (Phase 8) give the journal its *trading account* field. Until they exist, the field is optional free text.
 
 ---
 

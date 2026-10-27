@@ -8,9 +8,24 @@ A unified operating system for managing trading operations, financial performanc
 > - the trading module;
 > - **Financial Management**: accounts, funds, an auditable ledger and balances.
 >
-> Payouts, capital allocation, business continuity and wealth management are **planned, not built**. They appear in the navigation marked *Planned*.
+> Payouts, capital allocation, business continuity and wealth management are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
+
+![Executive overview](docs/images/executive-overview.jpg)
+
+*Executive overview, the landing page, shown here with scratch test data.*
+
+## What works today: executive overview
+
+The landing page shows the business as recorded:
+- cash by currency (never added across currencies);
+- fund positions;
+- what needs attention, derived from records: unallocated money, accounts below zero, ownership not stated, critical trading-behaviour alerts;
+- recent ledger activity;
+- a trading summary, labelled as not business cash until a payout is recorded.
 
 ## What works today: trading operations
+
+![Trading performance](docs/images/trading-performance.jpg)
 
 ### Trading journal
 - Import trades from CSV, with row-level validation. Valid rows are kept and failed rows are reported with their row number.
@@ -59,7 +74,7 @@ The rules and formulas are in [`docs/FINANCIAL_DOMAIN.md`](docs/FINANCIAL_DOMAIN
 
 | Layer | Technology |
 |---|---|
-| Frontend | Angular 21: standalone components, signals, zoneless change detection |
+| Frontend | Angular 21: standalone components, signals, zoneless change detection; own design system (IBM Plex, no UI framework) |
 | Backend | ASP.NET Core Web API (.NET 10), RFC 7807 ProblemDetails |
 | Database | SQL Server with Entity Framework Core 10 migrations |
 | Auth | JWT bearer tokens, BCrypt |
@@ -74,7 +89,7 @@ MelamuHoldings.Domain          Identity/, Trading/, Finance/ (Money, Currency), 
 MelamuHoldings.Application     Identity/, Trading/ services, DTOs and repository interfaces
 MelamuHoldings.Infrastructure  Persistence/ (DbContext, configurations, migrations, repositories)
 MelamuHoldings.API             Controllers/<Module>/, auth, error handling, `create-owner` command
-MelamuHoldings.Angular         core/ (auth, layout), shared/, features/trading/
+MelamuHoldings.Angular         core/ (auth, layout), shared/ (incl. ui/ design-system components), features/ (overview, trading, finance)
 tests/                         unit and API integration tests
 ```
 
@@ -123,7 +138,7 @@ You need:
    npm --prefix MelamuHoldings.Angular start
    ```
 
-   After you sign in, the trading pages are at `/trading/performance`, `/trading/trades`, `/trading/import` and `/trading/behaviour`. The sidebar also lists the planned modules, marked **Planned**.
+   Signing in lands on the Executive overview (`/overview`). The trading pages are under `/trading/…` and the finance pages under `/finance/…`.
 
 ### CSV format
 
@@ -193,7 +208,8 @@ The integration tests need SQL Server. Details and the latest results are in [`d
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how the code is organised today
 - [`docs/FINANCIAL_DOMAIN.md`](docs/FINANCIAL_DOMAIN.md): money and currency rules
 - [`docs/DATABASE_MIGRATION.md`](docs/DATABASE_MIGRATION.md): migration, backup and restore procedure, and the migration log
-- [`docs/DESIGN.md`](docs/DESIGN.md): design tokens and UI rules
+- [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md): brand identity, tokens, components and UI conventions
+- [`docs/UI_AUDIT.md`](docs/UI_AUDIT.md): the frontend audit behind the redesign
 - [`docs/SECURITY.md`](docs/SECURITY.md): access model and secrets
 - [`docs/TESTING.md`](docs/TESTING.md): test suites and results
 - [`docs/EXISTING_FEATURES.md`](docs/EXISTING_FEATURES.md): inventory of the original application

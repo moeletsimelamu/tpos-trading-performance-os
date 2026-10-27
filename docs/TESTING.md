@@ -21,7 +21,7 @@ The strategy for later phases is in `../PLAN.md` §9.
 <li>audit events;</li>
 <li>401, and 403 without the Owner role.</li>
 </ul> | SQL Server |
-| Angular unit | `MelamuHoldings.Angular/src/**/*.spec.ts` (Vitest via `@angular/build:unit-test`) | Routing (old-URL redirects, login redirect, page titles), shell navigation (built pages are links; planned modules are labelled, non-interactive items; drawer toggle), auth session and guard, HTTP error messages, and the performance, trades, login and import pages: loading, empty and error states, Retry, filters, failed delete, double submit, inline upload errors. Finance:
+| Angular unit | `MelamuHoldings.Angular/src/**/*.spec.ts` (Vitest via `@angular/build:unit-test`) | Routing (landing on the overview, old-URL redirects, login redirect, page titles), shell navigation (only live destinations, each with an icon; brand mark; drawer toggle), auth session and guard, HTTP error messages, and the performance, trades, login and import pages: loading, empty and error states, Retry, filters, two-step and failed delete, double submit, inline upload errors. Performance: the lead metric, the date range and the breakdown tabs. Executive overview: attention checks (no accounts, unallocated money in every currency, below-zero and unstated-ownership accounts, active accounts only, critical alerts only), currencies never summed, trading P&L labelled as not cash, the trading panel surviving a finance 403, headline amounts. Finance:
 <ul>
 <li>money formatting;</li>
 <li>the record form: request body, idempotency key kept on retry and renewed on change, double submit, amount validation, negative opening balance, same- vs cross-currency destinations, entry preview, implied rate;</li>
@@ -48,6 +48,35 @@ npm --prefix MelamuHoldings.Angular test -- --watch=false
 CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
+
+## Results — 2026-10-27 (branch `ui-brand-redesign`)
+
+The frontend changed only; the API, the domain and the database did not. The .NET suites were not re-run for this branch, so their latest results are the Phase 4 results below. CI runs them again on push.
+
+| Command | Result |
+|---|---|
+| `ng test --watch=false` | 68 passed, 0 failed (12 files) |
+| `ng build` (production) | Succeeded; initial bundle 306.81 kB; no budget warnings (every component style under 4 kB) |
+| `npm audit --omit=dev --audit-level=high` | 0 vulnerabilities |
+
+### Manual browser verification (redesign)
+
+Run against `MelamuHoldings_Scratch` (the Phase 4 scratch ledger and 20 sample trades) at 1366 × 860 and 375 × 812.
+
+- **Every route renders with real API data:** overview, performance, trades, import, behaviour, accounts, funds, transactions, record transaction and audit log.
+- **Sign-in:** signing out shows the branded sign-in page, and signing in lands on `/overview`.
+- **Overview figures match the Phase 4 hand calculation:**
+  - USD 350.00 and ZAR 18,250.50 cash, shown separately;
+  - Unallocated USD 350.00 and ZAR 13,250.50, flagged "Not assigned";
+  - "Earmark money" opens the record form with Earmark selected.
+- **Performance:** shows the same figures as before the redesign: +1,585.00, 50.0% (10 won · 9 lost · 1 even), +79.25, 1.87, 0.46R, −800.00. The strategy breakdown (ORB +1,860.00, London Breakout +725.00, Pullback −1,000.00) sums to the total.
+- **Phone width (375 px):** every page has `scrollWidth` 375, so there is no horizontal scroll. No metric value is clipped, and the drawer opens and closes.
+  - **Fixed during the check:** a screen-reader-only table header widened the page by 85 px; `.visually-hidden` is now pinned to its containing block.
+- **Keyboard:** Tab reaches the sidebar links with a visible brass focus ring. The favicon is served as the new `favicon.svg`.
+- **Not verified:**
+  - contrast was calculated from the token values, not measured with a tool;
+  - no screen-reader pass was done;
+  - Firefox and Safari were not checked; only the built-in Chromium pane was used.
 
 ## Results — 2026-10-27 (branch `phase-4-ledger`)
 
@@ -137,5 +166,5 @@ Done against a scratch database (`MelamuHoldings_Scratch`) holding 20 sample tra
 
 ## Known gaps
 
-- There are no end-to-end browser tests yet. The manual walkthrough above stands in until the Phase 5 financial workflow gets an automated end-to-end test.
+- There are no end-to-end browser tests yet. The redesign was checked by hand (above). The manual walkthrough above stands in until the Phase 5 financial workflow gets an automated end-to-end test.
 - Profit factor with zero losses is pinned at its current (incorrect) value by `Profit_factor_with_no_losses_currently_returns_gross_profit` until Phase 8.

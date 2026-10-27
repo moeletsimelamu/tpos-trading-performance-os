@@ -45,9 +45,12 @@ src/app/
   core/
     auth/       AuthService (signal user), authGuard, authInterceptor, LoginComponent
     http/       errorInterceptor (401 → sign out)
-    layout/     ShellComponent, NAVIGATION (module list with status), PageTitleStrategy
+    layout/     ShellComponent, NAVIGATION (the live destinations), PageTitleStrategy
   shared/       describeHttpError, LoadErrorComponent, MoneyPipe
+    ui/         BrandMarkComponent, IconComponent, PageHeaderComponent, chart-theme
   features/
+    overview/   OverviewComponent (mounted at /overview, the landing page); reads the
+                finance and trading APIs, owns no endpoints
     trading/    trading.routes.ts (mounted at /trading), TradingApiService, models,
                 performance/, trades/, import/, behaviour/
     finance/    finance.routes.ts (mounted at /finance), FinanceApiService, models,
@@ -58,12 +61,12 @@ src/app/
 
 - **Each feature module has its own lazy routes and API service.** New modules go under `features/<module>/` with a `<module>.routes.ts`.
 - **Component state uses signals.** The app has no zone.js, so plain fields don't trigger a re-render.
-- **The browser never computes an authoritative balance.** The record form's entry preview is display only; every figure shown comes from the API.
+- **The browser never computes an authoritative balance.** The record form's entry preview and the overview's per-transaction headline amount are display only; every balance shown comes from the API.
 - **Money-moving forms send an `Idempotency-Key`.** The key is kept for retries of the same values and renewed when the form changes.
 - **Old URLs (`/dashboard`, `/trades`, `/upload`, `/behaviour`) redirect** to their `/trading/...` homes.
-- **The landing page is `/trading/performance`** until the Executive Overview exists (Phase 5).
+- **The landing page is `/overview`.** It uses only existing endpoints; each panel loads and fails on its own. Its "Needs attention" items are derived from records by `attentionItems()`, never stored.
 - **Browser tab titles** come from route `title`s plus the product name.
-- **Design rules and tokens** are in [`DESIGN.md`](DESIGN.md).
+- **Design rules, tokens and shared UI components** are in [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).
 
 ## Data
 
