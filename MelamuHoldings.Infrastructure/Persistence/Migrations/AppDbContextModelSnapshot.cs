@@ -754,6 +754,9 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Currency")
+                        .HasColumnType("char(3)");
+
                     b.Property<string>("DayOfWeek")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -762,17 +765,29 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Direction")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<decimal>("EntryPrice")
+                    b.Property<decimal?>("EntryPrice")
                         .HasColumnType("decimal(18,5)");
 
-                    b.Property<TimeOnly>("EntryTime")
+                    b.Property<TimeOnly?>("EntryTime")
                         .HasColumnType("time");
 
-                    b.Property<decimal>("ExitPrice")
+                    b.Property<DateOnly?>("ExitDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("ExitPrice")
                         .HasColumnType("decimal(18,5)");
+
+                    b.Property<TimeOnly?>("ExitTime")
+                        .HasColumnType("time");
+
+                    b.Property<decimal?>("Fees")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("Instrument")
                         .IsRequired()
@@ -784,27 +799,55 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<decimal>("PnL")
+                    b.Property<decimal?>("PnL")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal>("RR")
+                    b.Property<decimal?>("PositionSize")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("RR")
                         .HasColumnType("decimal(8,2)");
 
-                    b.Property<decimal>("RiskAmount")
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("RiskAmount")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Session")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal?>("StopLoss")
+                        .HasColumnType("decimal(18,5)");
+
                     b.Property<int?>("StrategyId")
                         .HasColumnType("int");
+
+                    b.Property<decimal?>("TakeProfit")
+                        .HasColumnType("decimal(18,5)");
 
                     b.Property<DateOnly>("TradeDate")
                         .HasColumnType("date");
 
-                    b.Property<int>("TradeDuration")
+                    b.Property<int?>("TradeDuration")
                         .HasColumnType("int");
+
+                    b.Property<string>("TradingAccount")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("UploadLogId")
                         .HasColumnType("int");
@@ -819,6 +862,12 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.HasIndex("UploadLogId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("[IdempotencyKey] IS NOT NULL");
+
+                    b.HasIndex("UserId", "Status");
 
                     b.HasIndex("UserId", "TradeDate");
 

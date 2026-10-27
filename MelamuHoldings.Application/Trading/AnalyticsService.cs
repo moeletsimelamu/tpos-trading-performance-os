@@ -54,7 +54,7 @@ public class AnalyticsService
 
     public async Task<AnalyticsSummaryDto> GetSummaryAsync(int userId)
     {
-        var trades = (await _tradeRepository.GetByUserIdAsync(userId)).ToList();
+        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId));
         if (trades.Count == 0) return new AnalyticsSummaryDto();
 
         var wins = trades.Where(t => t.PnL > 0).ToList();
@@ -81,7 +81,7 @@ public class AnalyticsService
             BreakevenCount = breakevens.Count,
             WinRate = Math.Round(winRate * 100, 2),
             Expectancy = Math.Round(expectancy, 2),
-            AverageRR = Math.Round(trades.Average(t => t.RR), 2),
+            AverageRR = AverageR(trades),
             ProfitFactor = grossLoss == 0 ? grossProfit : Math.Round(grossProfit / grossLoss, 2),
             TotalPnL = Math.Round(trades.Sum(t => t.PnL), 2),
             MaxDrawdown = Math.Round(CalculateMaxDrawdown(trades), 2)
@@ -90,7 +90,7 @@ public class AnalyticsService
 
     public async Task<IEnumerable<EquityPointDto>> GetEquityCurveAsync(int userId)
     {
-        var trades = (await _tradeRepository.GetByUserIdAsync(userId))
+        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId))
             .OrderBy(t => t.TradeDate)
             .ThenBy(t => t.EntryTime)
             .ToList();
@@ -120,10 +120,10 @@ public class AnalyticsService
 
     public async Task<IEnumerable<StrategyPerformanceDto>> GetStrategyPerformanceAsync(int userId)
     {
-        var trades = (await _tradeRepository.GetByUserIdAsync(userId)).ToList();
+        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId));
 
         return trades
-            .GroupBy(t => t.Strategy?.Name ?? "Untagged")
+            .GroupBy(t => t.StrategyName ?? "Untagged")
             .Select(g =>
             {
                 var wins = g.Where(t => t.PnL > 0).ToList();
@@ -136,7 +136,7 @@ public class AnalyticsService
                     StrategyName = g.Key,
                     TotalTrades = g.Count(),
                     WinRate = Math.Round((decimal)wins.Count / g.Count() * 100, 2),
-                    AverageRR = Math.Round(g.Average(t => t.RR), 2),
+                    AverageRR = AverageR(g),
                     TotalPnL = Math.Round(g.Sum(t => t.PnL), 2),
                     ProfitFactor = grossLoss == 0 ? grossProfit : Math.Round(grossProfit / grossLoss, 2)
                 };
@@ -147,19 +147,26 @@ public class AnalyticsService
 
     public async Task<IEnumerable<TimePerformanceDto>> GetPerformanceByDayAsync(int userId)
     {
-        var trades = (await _tradeRepository.GetByUserIdAsync(userId)).ToList();
+        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId));
         return GroupByLabel(trades, t => t.DayOfWeek);
     }
 
     public async Task<IEnumerable<TimePerformanceDto>> GetPerformanceBySessionAsync(int userId)
     {
-        var trades = (await _tradeRepository.GetByUserIdAsync(userId)).ToList();
+        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId));
         return GroupByLabel(trades, t => t.Session);
     }
 
     // --- Private helpers ---
 
-    private static decimal CalculateMaxDrawdown(List<Trade> trades)
+    // Mean R over the trades that have one: a manual trade recorded without risk has no R, and is not counted as 0R
+    private static decimal AverageR(IEnumerable<CompletedTrade> trades)
+    {
+        var rs = trades.Where(t => t.RR is not null).Select(t => t.RR!.Value).ToList();
+        return rs.Count == 0 ? 0 : Math.Round(rs.Average(), 2);
+    }
+
+    private static decimal CalculateMaxDrawdown(List<CompletedTrade> trades)
     {
         decimal peak = 0;
         decimal cumulative = 0;
@@ -177,7 +184,7 @@ public class AnalyticsService
     }
 
     private static IEnumerable<TimePerformanceDto> GroupByLabel(
-        List<Trade> trades, Func<Trade, string> labelSelector)
+        List<CompletedTrade> trades, Func<CompletedTrade, string> labelSelector)
     {
         return trades
             .GroupBy(labelSelector)
@@ -190,7 +197,7 @@ public class AnalyticsService
                     TotalTrades = g.Count(),
                     WinRate = Math.Round((decimal)wins / g.Count() * 100, 2),
                     TotalPnL = Math.Round(g.Sum(t => t.PnL), 2),
-                    AverageRR = Math.Round(g.Average(t => t.RR), 2)
+                    AverageRR = AverageR(g)
                 };
             })
             .OrderByDescending(t => t.TotalPnL)

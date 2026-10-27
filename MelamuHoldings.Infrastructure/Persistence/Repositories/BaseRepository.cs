@@ -36,6 +36,6 @@ public class BaseRepository<T> : IRepository<T> where T : class
         return Task.CompletedTask;
     }
 
-    public async Task<int> SaveChangesAsync() =>
+    public virtual async Task<int> SaveChangesAsync() =>
         await _context.SaveChangesAsync();
 }

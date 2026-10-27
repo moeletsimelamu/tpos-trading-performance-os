@@ -26,6 +26,9 @@ internal class InMemoryTradeRepository : ITradeRepository
     public Task<bool> ExistsAsync(int tradeId, int userId) =>
         Task.FromResult(_trades.Any(t => t.Id == tradeId && t.UserId == userId));
 
+    public Task<Trade?> GetByIdempotencyKeyAsync(int userId, string idempotencyKey) =>
+        Task.FromResult(_trades.FirstOrDefault(t => t.UserId == userId && t.IdempotencyKey == idempotencyKey));
+
     public Task<Trade?> GetByIdAsync(int id) => Task.FromResult(_trades.FirstOrDefault(t => t.Id == id));
     public Task<IEnumerable<Trade>> GetAllAsync() => Task.FromResult<IEnumerable<Trade>>(_trades);
     public Task AddAsync(Trade entity) { _trades.Add(entity); return Task.CompletedTask; }

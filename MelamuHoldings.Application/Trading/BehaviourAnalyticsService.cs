@@ -37,7 +37,7 @@ public class BehaviourAnalyticsService
 
     public async Task<BehaviourSummaryDto> GetBehaviourSummaryAsync(int userId)
     {
-        var trades = (await _tradeRepository.GetByUserIdAsync(userId))
+        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId))
             .OrderBy(t => t.TradeDate)
             .ThenBy(t => t.EntryTime)
             .ToList();
@@ -61,7 +61,7 @@ public class BehaviourAnalyticsService
         };
     }
 
-    private static List<BehaviourAlertDto> DetectRevengeTrading(List<Trade> trades)
+    private static List<BehaviourAlertDto> DetectRevengeTrading(List<CompletedTrade> trades)
     {
         var alerts = new List<BehaviourAlertDto>();
 
@@ -93,7 +93,7 @@ public class BehaviourAnalyticsService
         return alerts;
     }
 
-    private static List<BehaviourAlertDto> DetectOvertrading(List<Trade> trades)
+    private static List<BehaviourAlertDto> DetectOvertrading(List<CompletedTrade> trades)
     {
         return trades
             .GroupBy(t => t.TradeDate)
@@ -109,10 +109,10 @@ public class BehaviourAnalyticsService
             .ToList();
     }
 
-    private static List<BehaviourAlertDto> DetectConsecutiveLosses(List<Trade> trades)
+    private static List<BehaviourAlertDto> DetectConsecutiveLosses(List<CompletedTrade> trades)
     {
         var alerts = new List<BehaviourAlertDto>();
-        var streak = new List<Trade>();
+        var streak = new List<CompletedTrade>();
 
         foreach (var trade in trades)
         {
@@ -153,7 +153,7 @@ public class BehaviourAnalyticsService
         return alerts;
     }
 
-    private static int GetMaxConsecutiveLosses(List<Trade> trades)
+    private static int GetMaxConsecutiveLosses(List<CompletedTrade> trades)
     {
         int max = 0, current = 0;
         foreach (var trade in trades)

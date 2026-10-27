@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MelamuHoldings.Application.Identity;
 using MelamuHoldings.Application.Trading;
+using MelamuHoldings.Domain.Trading;
 
 namespace MelamuHoldings.API.Controllers;
 
@@ -22,8 +23,8 @@ public class TradesController : ControllerBase
     private int GetUserId() => _jwtService.GetUserIdFromToken(User)!.Value;
 
     [HttpGet]
-    public async Task<IActionResult> GetAll() =>
-        Ok(await _tradeService.GetTradesByUserAsync(GetUserId()));
+    public async Task<IActionResult> GetAll(TradeStatus? status) =>
+        Ok(await _tradeService.GetTradesByUserAsync(GetUserId(), status));
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
@@ -32,18 +33,34 @@ public class TradesController : ControllerBase
         return trade is null ? NotFound() : Ok(trade);
     }
 
+    // 201 for a new trade; 200 plus Idempotent-Replayed when the same Idempotency-Key already created one
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateTradeDto dto)
+    public async Task<IActionResult> Create([FromBody] CreateTradeDto dto, [FromHeader(Name = FinanceHeaders.IdempotencyKey)] string? key)
     {
-        var created = await _tradeService.CreateTradeAsync(dto, GetUserId());
-        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        if (key is { Length: > 64 })
+        {
+            ModelState.AddModelError(FinanceHeaders.IdempotencyKey, "Idempotency-Key must be at most 64 characters.");
+            return ValidationProblem(ModelState);
+        }
+
+        var result = await _tradeService.CreateTradeAsync(dto, GetUserId(), key);
+        if (!result.Replayed) return CreatedAtAction(nameof(GetById), new { id = result.Trade.Id }, result.Trade);
+        Response.Headers[FinanceHeaders.IdempotentReplayed] = "true";
+        return Ok(result.Trade);
     }
 
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateTradeDto dto)
     {
-        var success = await _tradeService.UpdateTradeAsync(id, GetUserId(), dto);
-        return success ? NoContent() : NotFound();
+        var updated = await _tradeService.UpdateTradeAsync(id, GetUserId(), dto);
+        return updated is null ? NotFound() : Ok(updated);
+    }
+
+    [HttpPost("{id}/review")]
+    public async Task<IActionResult> Review(int id, [FromBody] ReviewTradeDto dto)
+    {
+        var reviewed = await _tradeService.ReviewTradeAsync(id, GetUserId(), dto);
+        return reviewed is null ? NotFound() : Ok(reviewed);
     }
 
     [HttpDelete("{id}")]
