@@ -49,6 +49,36 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-28 (branch `phase-5-payouts`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 106 passed, 0 failed |
+| `dotnet test` (Release): integration, against local SQL Server Express 2019, applying all four migrations | 48 passed, 0 failed. Stable across 4 consecutive runs. |
+| `ng test --watch=false` | 82 passed, 0 failed (13 files) |
+| `ng build` (production) | Succeeded; initial bundle 307.06 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+
+**What the new tests cover**
+- **Unit:** largest-remainder splits (the PLAN §3.4 examples, ties, 715 amounts conserved to the cent), policy rules, the payout lifecycle (order, approved ≤ requested, received ≤ approved, rejection, undo), cross-currency effective rate, allocation snapshots, derived status and reopening on reversal, over-settlement and insufficient-funds checks, fee entries on income and exchange (and their reversal), quoted-rate validation, and a regression test for culture-dependent validation.
+- **Integration:** the PLAN §8 milestone end to end (request → approve → receive → preview → confirm → earmark and transfer → partially settled → reconciled, balances checked by hand, same-key replay, new-key 409, policy v2 leaving v1 allocations untouched, 1,000.01 and 0.03 splits); 8 concurrent confirms allocate once; 6 concurrent same-key receipts post once; receipt cannot be reversed from the ledger or undone while allocated; reversing a settlement reopens its line; exchange settlement with fee and both rates; exchange with a receiving-side fee; policy validation and activation; audit events; 401/403 on the new endpoints.
+- **Angular:** receipt prefill, key kept on retry, effective-rate hint, preview and confirm with the previewed policy, settlement bodies per method (earmark, transfer destinations, exchange with fee and quoted rate), cancel only before settlement, policy draft total must be 100 %, expected payouts labelled not cash, overview attention items for payouts and allocations, exchange fee in the record form.
+
+**Bug found by the tests:** `[Range(typeof(decimal), "0.01", …)]` parses its limits with the server's culture, and this machine uses a comma decimal separator, so every request with a fee failed with a 500. Replaced by `PositiveAmountAttribute`, which parses invariantly; a unit test runs it under en-US, de-DE and af-ZA.
+
+### Manual browser verification (Phase 5)
+
+Run against `MelamuHoldings_Scratch` after applying `AddPayoutsAndAllocation`, every record labelled "scratch test":
+- Recorded a USD 1,350.00 request: listed as **Expected · not cash**.
+- Approved it, then received USD 1,340.00 into Payouts USD with a USD 10.00 fee. The ledger shows income +1,350.00 and a **Fee** entry −10.00.
+- The preview split 1,340.00 as 536 / 402 / 268 / 134 (sums exactly); confirmed as allocation #1.
+- Settled Operating Capital by **exchange**: USD 536 → ZAR 9,782.00 into Operating ZAR, USD 5.00 fee, quoted rate 18.30. Status became **Partially settled** and the cancel option disappeared.
+- Executive overview at that point: cash USD 1,149.00 (350 + 1,340 − 536 − 5) and ZAR 28,032.50 (18,250.50 + 9,782), with "Allocation #1 not fully settled — USD 804.00 of USD 1,340.00" under Needs attention. Both match the hand calculation.
+- Earmarked the other three lines: **Reconciled**, USD 0.00 outstanding.
+- The policy draft at 95 % shows the shortfall and keeps Save disabled.
+- Phone width (375 px): payouts, payout detail, allocations, allocation detail and policy pages all have `scrollWidth` 375.
+
 ## Results — 2026-10-27 (branch `ui-brand-redesign`)
 
 The frontend changed only; the API, the domain and the database did not. The .NET suites were not re-run for this branch, so their latest results are the Phase 4 results below. CI runs them again on push.
@@ -166,5 +196,5 @@ Done against a scratch database (`MelamuHoldings_Scratch`) holding 20 sample tra
 
 ## Known gaps
 
-- There are no end-to-end browser tests yet. The redesign was checked by hand (above). The manual walkthrough above stands in until the Phase 5 financial workflow gets an automated end-to-end test.
+- There are no end-to-end browser tests yet. The §8 scenario is automated at the API level and was walked through by hand in the browser. The manual walkthrough above stands in until the Phase 5 financial workflow gets an automated end-to-end test.
 - Profit factor with zero losses is pinned at its current (incorrect) value by `Profit_factor_with_no_losses_currently_returns_gross_profit` until Phase 8.

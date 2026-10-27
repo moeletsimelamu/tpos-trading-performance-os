@@ -107,9 +107,18 @@ A calm, institutional workspace for running a business's money:
   - Currencies are shown side by side and are never added together.
   - Trading P&L has no currency yet and is labelled as such: "Figures are in the trading account's currency, which the journal does not record yet". It is never presented as business cash.
 - **Signed figures** use a true minus sign (`−`) and a `+` for gains.
-- **Status vocabulary:** Proposed, Pending, Confirmed, Completed, Reconciled and Overdue each get one treatment.
-  - Pending: `tag-warning`. Confirmed: `tag-info`. Completed and Reconciled: `tag-positive`. Overdue: `tag-negative`. Proposed: a neutral `tag`.
-  - The words appear exactly like this wherever the states exist (Phase 5 onwards).
+- **Status vocabulary:** one treatment per meaning, defined once in `finance.models.ts` (`PAYOUT_STATUS`, `ALLOCATION_STATUS`) and reused everywhere.
+
+  | Meaning | Tag | Used for |
+  |---|---|---|
+  | Not yet money / not yet acted on | neutral `tag` | Payout *Requested*, allocation *Cancelled*, policy *Not in use*, Proposed (later phases) |
+  | Committed, nothing moved yet | `tag-info` | Payout *Approved*, allocation *Confirmed* |
+  | Part done, needs attention | `tag-warning` | Allocation *Partially settled*, Pending (later phases), *Not assigned* (Unallocated money), fee entries |
+  | Done and reconciled | `tag-positive` | Payout *Received*, allocation *Reconciled*, line *Settled*, policy *Active*, Completed (later phases) |
+  | Refused or overdue | `tag-negative` | Payout *Rejected*, Overdue (later phases) |
+
+  Expected amounts (requested or approved payouts) always carry the words "not cash".
+- **Progress pages** (a payout) show the steps as a vertical timeline beside a single "Next step" panel that offers only the actions the current status allows.
 - **Navigation lists only working destinations.** The roadmap lives in `PLAN.md`, not in the sidebar.
 - **Irreversible actions ask first.** Deleting a trade and closing an account each need a second click; a reversal needs a written reason. Native `confirm()` is not used.
 - **Every data view has three states:** loading, empty (with the next action) and error (with Retry). Independent panels load and fail independently: the overview still shows trading results if the finance data is refused.

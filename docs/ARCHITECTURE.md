@@ -6,17 +6,20 @@ How the code is organised today (after Phase 3). Plans for modules that aren't b
 
 ```
 MelamuHoldings.Domain/          no dependencies
-  Common/       DomainException
   Identity/     User
   Trading/      Trade, Strategy, UploadLog, TradeDirection, UploadStatus
-  Finance/      Money, Currency, Fund, FinancialAccount, LedgerTransaction (+ LedgerEntry), AuditEvent
+  Common/       DomainException, Text (length rules)
+  Finance/      Money, Currency, Fund, FinancialAccount, LedgerTransaction (+ LedgerEntry, fee role), AuditEvent,
+                Payout, AllocationPolicy (+ AllocationCalculator), Allocation (+ lines, settlements)
 MelamuHoldings.Application/     depends on Domain
   Common/       IRepository<T>, PagedResult<T>, NotFound/Conflict/UniqueConstraintViolation exceptions
   Identity/     AuthService, OwnerAccountService, JwtService, JwtOptions, Roles/Policies, auth DTOs, IUserRepository
   Trading/      TradeService, AnalyticsService, BehaviourAnalyticsService, UploadService,
                 CsvParserService, trade DTOs, repository interfaces
-  Finance/      LedgerService (every money movement), FinanceSetupService (funds, accounts),
-                FinanceReadModel (balances from entries), AuditLog, request/response contracts,
+  Finance/      LedgerPosting (the one path every ledger transaction takes: idempotency, save, audit),
+                LedgerService (direct money movements), PayoutService, AllocationService (policies,
+                preview, confirm, settle), FinanceSetupService (funds, accounts),
+                FinanceReadModel (balances from entries), AuditLog, Idempotency, request/response contracts,
                 IFinanceRepository
 MelamuHoldings.Infrastructure/  depends on Application and Domain
   Persistence/  AppDbContext, Configurations/<Module>/, Migrations/, Repositories/
@@ -33,7 +36,8 @@ tests/
 - **Modules depend in one direction.** Trading and finance records reference their `User`, but Identity knows nothing about either. Finance depends on nothing in Trading; the only planned link is an optional reference from payouts to prop accounts (Phase 8).
 - **Namespaces follow folders.** For example, `MelamuHoldings.Application.Trading`.
 - **Money rules live in Domain.** `Money`, `Currency` and the ledger factories are unit-tested without a database. See [`FINANCIAL_DOMAIN.md`](FINANCIAL_DOMAIN.md).
-- **Finance writes are use cases, not CRUD.** Each money movement has its own endpoint and `LedgerService` method. No endpoint edits a transaction or sets a balance. A change and its audit event are saved in one database transaction.
+- **Finance writes are use cases, not CRUD.** Each money movement has its own endpoint and service method, and every ledger transaction is saved through `LedgerPosting`, together with whatever depends on it (a payout receipt, an allocation settlement) and its audit event, in one database transaction. No endpoint edits a transaction or sets a balance.
+- **Concurrency.** Unique indexes stop duplicates (idempotency keys, one live allocation per payout). `rowversion` on payouts and allocations stops two requests changing the same one at once; the loser gets 409.
 - **Finance data belongs to the business, not to a login.** Every user with the `Owner` role sees the same accounts and ledger. Trading data stays per user.
 - **One `AppDbContext`.** Trading tables are in `dbo` and finance tables in the `finance` schema.
 - **Errors are ProblemDetails.** `ProblemExceptionHandler` maps `DomainException` → 422, `NotFoundException` → 404 and `ConflictException` → 409.
@@ -53,8 +57,9 @@ src/app/
                 finance and trading APIs, owns no endpoints
     trading/    trading.routes.ts (mounted at /trading), TradingApiService, models,
                 performance/, trades/, import/, behaviour/
-    finance/    finance.routes.ts (mounted at /finance), FinanceApiService, models,
-                accounts/, funds/, transactions/ (ledger + record form), audit/
+    finance/    finance.routes.ts (mounted at /finance), FinanceApiService, models, amount.validator,
+                payouts/ (list, detail with approve/receive/allocate), allocations/ (list, detail with
+                settlement, policy versions), accounts/, funds/, transactions/ (ledger + record form), audit/
 ```
 
 **Rules**

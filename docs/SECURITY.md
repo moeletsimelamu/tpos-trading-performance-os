@@ -14,11 +14,12 @@ The current access model and how secrets are handled. Remaining risks are listed
 - **Authentication:** an HS256 JWT valid for `Jwt:ExpiryHours` (default 8). The frontend keeps it in `localStorage`. That is acceptable for a single-operator local deployment; revisit before any public deployment.
 - **Authorisation:**
   - Every trading endpoint requires a valid token and is scoped to the caller's user id. Another user's trade returns 404, and an integration test covers this.
-  - Every finance endpoint (`/api/funds`, `/api/financial-accounts`, `/api/transactions`, `/api/balances`, `/api/audit-events`, `/api/currencies`) requires the **`Owner` policy**. Accounts created with `create-owner` get the `Owner` role in their token. A valid token without it gets 403, and a test covers this.
+  - Every finance endpoint (`/api/funds`, `/api/financial-accounts`, `/api/transactions`, `/api/balances`, `/api/audit-events`, `/api/currencies`, `/api/payouts`, `/api/allocations`, `/api/allocation-policies`) requires the **`Owner` policy**. Accounts created with `create-owner` get the `Owner` role in their token. A valid token without it gets 403, and a test covers this.
   - Sessions started before Phase 4 hold tokens without the role, so they must sign in again; the UI says so.
 - **Financial integrity:**
   - There is no endpoint that edits or deletes a transaction or sets a balance.
-  - Retries are idempotent (`Idempotency-Key`).
+  - Retries are idempotent (`Idempotency-Key`), and concurrent changes to one payout or allocation are rejected (`rowversion`).
+  - Allocation is a recorded decision, not an automatic action: nothing moves money until the operator records a settlement.
   - Every finance change writes an append-only audit event in the same database transaction.
   - Finance foreign keys never cascade from users.
   - No bank or brokerage credentials are stored.

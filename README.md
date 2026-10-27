@@ -8,7 +8,7 @@ A unified operating system for managing trading operations, financial performanc
 > - the trading module;
 > - **Financial Management**: accounts, funds, an auditable ledger and balances.
 >
-> Payouts, capital allocation, business continuity and wealth management are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
+> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. Business continuity, wealth management and planning are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
 
 ![Executive overview](docs/images/executive-overview.jpg)
 
@@ -47,6 +47,15 @@ The landing page shows the business as recorded:
 - **Overtrading**: more than 5 trades in a day (Critical above 10).
 - **Loss streaks**: 3 or more consecutive losses (Critical at 5).
 - **Rule deviations**: the count and P&L of trades marked as manual overrides.
+
+## What works today: payouts and capital allocation
+
+![Allocation reconciled](docs/images/allocation-reconciled.jpg)
+
+- **Payouts** move Requested → Approved → Received (or Rejected). A request or approval is never cash; receiving records what actually reached the account, with any fee deducted on the way kept visible, and posts it to Unallocated.
+- **Allocation policies** are versioned and never edited. Version 1 is 40 / 30 / 20 / 10 (Operating Capital, Business Continuity, Wealth Fund, Owner's Distribution), seeded as configuration.
+- **Allocation:** preview the split (cent-exact, largest remainder), confirm it once per payout, then settle each line by earmarking in place, transferring, or exchanging into another currency. Status (Confirmed → Partially settled → Reconciled) follows the settlements, and reversing one reopens its line.
+- **Currency conversions** keep the amounts, the effective rate calculated from them, an optional quoted rate from the provider, and any fee.
 
 ## What works today: financial management
 
@@ -189,6 +198,16 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/balances?asOf=` | Account, fund and cash balances, optionally as of a date |
 | GET | `/api/audit-events` | Audit log, newest first, paged |
 | GET | `/api/currencies` | Supported currencies |
+| GET / POST | `/api/payouts` | List payouts (optional `status`) / record a payout request |
+| GET | `/api/payouts/{id}` | One payout with its receipt and allocation status |
+| POST | `/api/payouts/{id}/{approve\|reject\|receive\|undo-receipt}` | Move a payout along; only `receive` posts to the ledger |
+| GET / POST | `/api/allocation-policies` | Policy versions / create a new version (optionally active) |
+| POST | `/api/allocation-policies/{id}/activate` | Make a version the one used for new allocations |
+| POST | `/api/allocations/preview` | Split a received payout by a policy; stores nothing |
+| GET / POST | `/api/allocations` | Allocations / confirm one |
+| GET | `/api/allocations/{id}` | One allocation with lines, settlements and derived status |
+| POST | `/api/allocations/{id}/lines/{lineId}/settle` | Settle a line by earmark, transfer or exchange |
+| POST | `/api/allocations/{id}/cancel` | Cancel, only while nothing is settled |
 
 ## Tests
 

@@ -10,7 +10,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Phase 3 (foundation) is complete; it is on `develop` and in PR #3 to `main`. The structure as built is in `docs/ARCHITECTURE.md`.
 - Phase 4 (accounts and ledger) is complete on branch `phase-4-ledger` and awaiting review. The rules as built are in `docs/FINANCIAL_DOMAIN.md`.
 - The brand and UI redesign (§6a) is complete on branch `ui-brand-redesign`, cut from `phase-4-ledger`. Findings are in `docs/UI_AUDIT.md` and the result is in `docs/DESIGN_SYSTEM.md`.
-- Next is Phase 5: payouts and capital allocation, the first milestone. The trading journal (§7a) follows it unless the owner chooses otherwise.
+- Phase 5 (payouts and allocation, the first milestone) is complete on branch `phase-5-payouts`, cut from `ui-brand-redesign`. The §8 scenario passes as an API integration test and was walked through in the browser. The rules as built are in `docs/FINANCIAL_DOMAIN.md`.
+- Next: the trading journal (§7a, J1) or Phase 6, at the owner's choice.
 
 ---
 
@@ -58,11 +59,9 @@ When records are incomplete, the screen shows what is missing and its effect, ra
   - Mark a manually entered or estimated rate as such.
   - Never revalue history with today's rate.
   - Reporting-currency valuation is separate from the original transaction.
-- **Gaps against these rules in Phase 4:**
-  - a conversion fee must be recorded as a separate expense;
-  - there is no rate-source or status field.
-
-  Both are addressed with payouts in Phase 5.
+- **Gaps against these rules in Phase 4, closed in Phase 5:**
+  - conversion fees and fees deducted from payouts are fee entries inside the transaction that incurred them;
+  - every stored rate has a known source: the effective rate is calculated from the amounts, and an optional quoted rate is entered from the provider's confirmation.
 - **Ownership:**
   - Company versus personal is explicit, never inferred from a label.
   - "Unspecified" is surfaced for configuration; the Executive Overview already flags it.
@@ -337,7 +336,7 @@ Each phase ends with a build, all tests green, a browser check of the touched pa
 | **2 — Stabilise** | Resolve the folder rename (decision D1) so the solution builds again: the working tree currently fails with 102 errors, while committed `develop` builds cleanly. Run the API against a scratch SQLEXPRESS database and check the existing pages in the browser. Pin a patched `System.Security.Cryptography.Pkcs` to clear the NU1903 high-severity advisory. Move the JWT key to user-secrets and rotate it. Disable open registration and add an owner-provisioning command. Add ProblemDetails and exception middleware. Validate trade DTOs. Fix the RR binding, the error states and zoneless refresh on existing pages. Remove dead code (`app.ts`, `server.ts`, SSR dependencies, `NavigationService`). Add an xUnit test project (characterisation tests for analytics and behaviour), the Angular test target, and a GitHub Actions CI workflow. | Clean build; tests pass in CI; existing four pages verified in the browser; no secret in the repository |
 | **3 — Foundation** ✅ | Module folders (the `MelamuHoldings.*` rename was done in Phase 2). Drop the never-written `BehaviourAlerts` table. New layout and navigation with status labels. Brand identity. `Money`/`Currency` domain types. `finance` schema conventions (the schema itself is created by Phase 4's first migration). Backup procedure documented. | All existing features reachable and working under the new navigation; migrations apply from scratch and to the existing databases |
 | **4 — Accounts and ledger** ✅ | Funds, financial accounts, ledger transactions and entries; income, expense, transfer, reallocation, opening balance, reversal, currency exchange. Balances by account and by fund. Audit events. Transaction list with filters and pagination. | Domain tests for every invariant in §3.2; API integration tests including 401, 400, 409 and idempotent retry; balances reconcile to entries |
-| **5 — Payouts and allocation (first milestone)** | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. Outstanding allocations added to the Executive overview (cash and fund positions are already there). | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
+| **5 — Payouts and allocation (first milestone)** ✅ | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. Outstanding allocations added to the Executive overview (cash and fund positions are already there). | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
 | **6 — Executive Overview** | Period filters; income and expenses by period; net cash movement (labelled as cash movement, not profit); recent payouts; drill-down links to records; warnings panel. | Every figure traceable to a record list |
 | **7 — Continuity and wealth** | Obligations, continuity targets (24-month essential cover plus a separate restoration target), coverage months, earmarked versus physically separated view; investment accounts, contributions, valuation snapshots, unrealised gain/loss; budgets and planned purchases with budget-versus-actual. | Formulas documented in `FINANCIAL_DOMAIN.md` and unit-tested |
 | **8 — Trading integration** | Prop firm accounts with configurable rules and status history; trades linked to accounts; fees and resets as expenses; payouts linked to accounts; per-user strategies with CRUD; CSV duplicate detection; analytics fixes (profit factor, drawdown, date filters). | Existing analytics unchanged except the documented definition fixes; tests prove it |
