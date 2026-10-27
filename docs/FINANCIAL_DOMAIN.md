@@ -96,6 +96,7 @@ Every money-moving request carries an `Idempotency-Key` header (1–64 character
 - **Same key, different body:** HTTP 409.
 - **Concurrent retries with one key:** the database's unique index lets exactly one through, and the others receive the winner. A test sends 8 requests at once.
 - **No key:** the request still posts exactly once, but cannot be retried safely.
+- **A retry that arrives while the first attempt is committing** may fail its own state check ("already received", "already allocated"). Before returning that error, the request looks for its key again and, if the first attempt has now committed, replays it.
 
 ### Audit trail
 

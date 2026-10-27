@@ -1,4 +1,5 @@
 using MelamuHoldings.Application.Common;
+using MelamuHoldings.Domain.Common;
 using MelamuHoldings.Domain.Finance;
 
 namespace MelamuHoldings.Application.Finance;
@@ -34,7 +35,19 @@ public class LedgerPosting
             return (Replay(previous, requestHash), true);
 
         var now = _clock.GetUtcNow().UtcDateTime;
-        var transaction = await build(new RecordingInfo(userId, now, key, requestHash));
+        LedgerTransaction transaction;
+        try
+        {
+            transaction = await build(new RecordingInfo(userId, now, key, requestHash));
+        }
+        catch (Exception ex) when (ex is DomainException or ConflictException)
+        {
+            // A concurrent retry with the same key may have committed between the key check above and the state
+            // check that just failed (e.g. "this payout is already received"). The retry gets that result, not an error.
+            if (await _repository.GetTransactionByIdempotencyKeyAsync(key) is { } winner)
+                return (Replay(winner, requestHash), true);
+            throw;
+        }
 
         try
         {

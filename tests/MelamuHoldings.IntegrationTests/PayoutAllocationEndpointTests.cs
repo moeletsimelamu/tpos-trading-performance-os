@@ -235,6 +235,32 @@ public class PayoutRuleTests : IClassFixture<ApiFactory>
         Assert.Single(allocations.EnumerateArray(), a => a.GetProperty("payoutId").GetInt32() == payout.Id());
     }
 
+    // Regression (CI, 2026-10-28): a same-key retry could pass the key check before the first request committed,
+    // then fail the state check after it did ("already allocated"/"more than outstanding") instead of replaying
+    [Fact]
+    public async Task Concurrent_same_key_confirmations_and_settlements_each_happen_once()
+    {
+        var client = await Owner();
+        var account = await client.CreateAccountAsync(Unique("Payouts"), "USD");
+        var payout = await client.ReceivedPayoutAsync(account, 500m);
+
+        var confirmKey = PayoutApi.Key();
+        var confirms = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ => client.ConfirmAsync(payout.Id(), PayoutApi.DefaultPolicyId, confirmKey)));
+        Assert.All(confirms, r => Assert.True(r.IsSuccessStatusCode, r.StatusCode.ToString()));
+        Assert.Single(confirms, r => r.StatusCode == HttpStatusCode.Created);
+        var allocation = await confirms.Single(r => r.StatusCode == HttpStatusCode.Created).JsonAsync();
+
+        var settleKey = PayoutApi.Key();
+        var line = allocation.Line(OperatingCapital).Id();
+        var settles = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ =>
+            client.SettleAsync(allocation.Id(), line, new { method = "Earmark", amount = 200m, date = Today }, settleKey)));
+        Assert.All(settles, r => Assert.True(r.IsSuccessStatusCode, r.StatusCode.ToString()));
+
+        var settled = await client.GetAsync($"/api/allocations/{allocation.Id()}").OkJsonAsync();
+        Assert.Equal(200m, settled.Line(OperatingCapital).Amount("settled"));
+        Assert.Single(settled.Line(OperatingCapital).GetProperty("settlements").EnumerateArray());
+    }
+
     [Fact]
     public async Task Retrying_a_receipt_with_the_same_key_posts_it_once()
     {

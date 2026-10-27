@@ -118,11 +118,21 @@ public class AllocationService
             return await ReplayAsync(previous, hash);
 
         var payout = await PayoutAsync(request.PayoutId!.Value);
-        await EnsureNotAllocatedAsync(payout);
-        var policy = await _repository.GetPolicyAsync(request.PolicyId!.Value)
-            ?? throw new DomainException($"Allocation policy {request.PolicyId} does not exist.");
-        var funds = await FundsAsync();
-        var allocation = Allocation.Confirm(payout, policy, funds, new RecordingInfo(userId, Now, key, hash));
+        Allocation allocation;
+        try
+        {
+            await EnsureNotAllocatedAsync(payout);
+            var policy = await _repository.GetPolicyAsync(request.PolicyId!.Value)
+                ?? throw new DomainException($"Allocation policy {request.PolicyId} does not exist.");
+            allocation = Allocation.Confirm(payout, policy, await FundsAsync(), new RecordingInfo(userId, Now, key, hash));
+        }
+        catch (ConflictException)
+        {
+            // "Already allocated" may be this very request's earlier attempt, committed since the key check above
+            if (await _repository.GetAllocationByIdempotencyKeyAsync(key) is { } winner)
+                return await ReplayAsync(winner, hash);
+            throw;
+        }
 
         try
         {
@@ -131,7 +141,7 @@ public class AllocationService
                 _repository.Add(allocation);
                 await _repository.SaveChangesAsync();
                 _repository.Add(AuditLog.Event(Now, userId, "allocation.confirmed", nameof(Allocation), allocation.Id,
-                    $"Confirmed allocation #{allocation.Id} of payout #{payout.Id}: {allocation.Total} by policy v{policy.Version} ("
+                    $"Confirmed allocation #{allocation.Id} of payout #{payout.Id}: {allocation.Total} by policy v{allocation.PolicyVersion} ("
                     + string.Join(", ", allocation.Lines.Select(l => $"{l.FundName} {l.Total}")) + ").",
                     new
                     {

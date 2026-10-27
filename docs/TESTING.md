@@ -55,7 +55,7 @@ CI (`.github/workflows/ci.yml`) runs:
 |---|---|
 | `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
 | `dotnet test` (Release): unit | 106 passed, 0 failed |
-| `dotnet test` (Release): integration, against local SQL Server Express 2019, applying all four migrations | 48 passed, 0 failed. Stable across 4 consecutive runs. |
+| `dotnet test` (Release): integration, against local SQL Server Express 2019, applying all four migrations | 49 passed, 0 failed. The four concurrency tests passed 12 runs in a row after the replay-race fix below. |
 | `ng test --watch=false` | 82 passed, 0 failed (13 files) |
 | `ng build` (production) | Succeeded; initial bundle 307.06 kB; no budget warnings |
 | `dotnet ef migrations has-pending-model-changes` | No changes |
@@ -64,6 +64,8 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Unit:** largest-remainder splits (the PLAN §3.4 examples, ties, 715 amounts conserved to the cent), policy rules, the payout lifecycle (order, approved ≤ requested, received ≤ approved, rejection, undo), cross-currency effective rate, allocation snapshots, derived status and reopening on reversal, over-settlement and insufficient-funds checks, fee entries on income and exchange (and their reversal), quoted-rate validation, and a regression test for culture-dependent validation.
 - **Integration:** the PLAN §8 milestone end to end (request → approve → receive → preview → confirm → earmark and transfer → partially settled → reconciled, balances checked by hand, same-key replay, new-key 409, policy v2 leaving v1 allocations untouched, 1,000.01 and 0.03 splits); 8 concurrent confirms allocate once; 6 concurrent same-key receipts post once; receipt cannot be reversed from the ledger or undone while allocated; reversing a settlement reopens its line; exchange settlement with fee and both rates; exchange with a receiving-side fee; policy validation and activation; audit events; 401/403 on the new endpoints.
 - **Angular:** receipt prefill, key kept on retry, effective-rate hint, preview and confirm with the previewed policy, settlement bodies per method (earmark, transfer destinations, exchange with fee and quoted rate), cancel only before settlement, policy draft total must be 100 %, expected payouts labelled not cash, overview attention items for payouts and allocations, exchange fee in the record form.
+
+**Race found by CI (first push of Phase 5):** concurrent requests with the same `Idempotency-Key` could pass the key check before the first one committed, then fail the state check after it had ("this payout is already received"), returning 422 instead of replaying. Rejected requests now re-check the key and replay the winner (`LedgerPosting`, `AllocationService.ConfirmAsync`). A new test sends 6 same-key confirmations and 6 same-key settlements at once.
 
 **Bug found by the tests:** `[Range(typeof(decimal), "0.01", …)]` parses its limits with the server's culture, and this machine uses a comma decimal separator, so every request with a fee failed with a 500. Replaced by `PositiveAmountAttribute`, which parses invariantly; a unit test runs it under en-US, de-DE and af-ZA.
 
