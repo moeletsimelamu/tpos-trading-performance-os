@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MelamuHoldings.Domain.Finance;
 using MelamuHoldings.Domain.Identity;
 using MelamuHoldings.Domain.Trading;
 using MelamuHoldings.Infrastructure.Persistence.Configurations;
@@ -14,10 +15,22 @@ public class AppDbContext : DbContext
     public DbSet<Strategy> Strategies => Set<Strategy>();
     public DbSet<UploadLog> UploadLogs => Set<UploadLog>();
 
+    public DbSet<Fund> Funds => Set<Fund>();
+    public DbSet<FinancialAccount> FinancialAccounts => Set<FinancialAccount>();
+    public DbSet<LedgerTransaction> LedgerTransactions => Set<LedgerTransaction>();
+    public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new TradeConfiguration());
+
+        modelBuilder.ApplyConfiguration(new FundConfiguration());
+        modelBuilder.ApplyConfiguration(new FinancialAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new LedgerTransactionConfiguration());
+        modelBuilder.ApplyConfiguration(new LedgerEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new AuditEventConfiguration());
         base.OnModelCreating(modelBuilder);
     }
 }
