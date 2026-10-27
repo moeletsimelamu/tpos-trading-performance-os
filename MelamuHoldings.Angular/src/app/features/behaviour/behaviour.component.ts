@@ -1,14 +1,17 @@
-import { Component, OnInit, DestroyRef, inject } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../services/api.service';
 import { BehaviourSummary } from '../../models/analytics.model';
-import { NavigationService } from '../../services/navigation.service';
+import { LoadErrorComponent } from '../../shared/load-error.component';
+import { describeHttpError } from '../../shared/http-error';
+
+type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'app-behaviour',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LoadErrorComponent],
   template: `
     <div class="behaviour-page">
       <header class="page-header">
@@ -18,13 +21,18 @@ import { NavigationService } from '../../services/navigation.service';
         </div>
       </header>
 
-      <!-- Loading State -->
-      <div class="loading-state" *ngIf="!summary">
-        <div class="spinner"></div>
-        <span class="loading-text">Loading behaviour data...</span>
-      </div>
-
-      <ng-container *ngIf="summary">
+      @switch (state()) {
+        @case ('loading') {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <span class="loading-text">Loading behaviour data...</span>
+          </div>
+        }
+        @case ('error') {
+          <app-load-error title="Could not load behaviour data" [message]="error()" (retry)="load()" />
+        }
+        @case ('ready') {
+        @if (summary(); as summary) {
 
         <!-- Metric Cards -->
         <section class="metrics-grid">
@@ -125,7 +133,9 @@ import { NavigationService } from '../../services/navigation.service';
           </p>
         </div>
 
-      </ng-container>
+        }
+        }
+      }
     </div>
   `,
   styles: [`
@@ -195,20 +205,32 @@ import { NavigationService } from '../../services/navigation.service';
     .empty-state { color: var(--accent-green); font-size: 13px; padding: 0.5rem 0; }
   `]
 })
-export class BehaviourComponent implements OnInit {
+export class BehaviourComponent {
+  private api = inject(ApiService);
   private destroyRef = inject(DestroyRef);
-  summary: BehaviourSummary | null = null;
 
-  constructor(private api: ApiService) {}
+  readonly state = signal<LoadState>('loading');
+  readonly error = signal('');
+  readonly summary = signal<BehaviourSummary | null>(null);
 
-  ngOnInit(): void {
-    this.loadData();
+  constructor() {
+    this.load();
   }
 
-  loadData(): void {
+  load(): void {
+    this.state.set('loading');
     this.api.getBehaviour()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(data => this.summary = data);
+      .subscribe({
+        next: data => {
+          this.summary.set(data);
+          this.state.set('ready');
+        },
+        error: err => {
+          this.error.set(describeHttpError(err));
+          this.state.set('error');
+        }
+      });
   }
 
   formatAlertType(type: string): string {

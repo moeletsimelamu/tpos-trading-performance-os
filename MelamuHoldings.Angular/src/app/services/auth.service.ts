@@ -1,17 +1,21 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthResponse, LoginRequest } from '../models/auth.model';
 
+const TOKEN_KEY = 'td_token';
+const USER_KEY = 'td_user';
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private http = inject(HttpClient);
+  private router = inject(Router);
   private base = `${environment.apiUrl}/auth`;
-  private tokenKey = 'td_token';
-  private userKey = 'td_user';
 
-  constructor(private http: HttpClient, private router: Router) {}
+  // Signal so the shell re-renders on sign-in/out without zone.js
+  readonly user = signal<AuthResponse | null>(readStoredUser());
 
   login(dto: LoginRequest): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.base}/login`, dto).pipe(
@@ -20,18 +24,14 @@ export class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.userKey);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    this.user.set(null);
     this.router.navigate(['/login']);
   }
 
   getToken(): string | null {
-    return localStorage.getItem(this.tokenKey);
-  }
-
-  getUser(): AuthResponse | null {
-    const raw = localStorage.getItem(this.userKey);
-    return raw ? JSON.parse(raw) : null;
+    return localStorage.getItem(TOKEN_KEY);
   }
 
   isLoggedIn(): boolean {
@@ -48,7 +48,17 @@ export class AuthService {
   }
 
   private storeSession(response: AuthResponse): void {
-    localStorage.setItem(this.tokenKey, response.token);
-    localStorage.setItem(this.userKey, JSON.stringify(response));
+    localStorage.setItem(TOKEN_KEY, response.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(response));
+    this.user.set(response);
+  }
+}
+
+function readStoredUser(): AuthResponse | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
   }
 }

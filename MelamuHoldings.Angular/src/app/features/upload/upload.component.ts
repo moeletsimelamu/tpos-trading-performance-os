@@ -1,13 +1,16 @@
-import { Component, OnInit, DestroyRef, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../services/api.service';
 import { UploadResult } from '../../models/analytics.model';
+import { LoadErrorComponent } from '../../shared/load-error.component';
+import { describeHttpError } from '../../shared/http-error';
+
+type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'app-upload',
   standalone: true,
-  imports: [CommonModule],
+  imports: [LoadErrorComponent],
   template: `
     <div class="upload-page">
       <header class="page-header">
@@ -19,60 +22,76 @@ import { UploadResult } from '../../models/analytics.model';
 
       <!-- Drop Zone -->
       <div class="card drop-zone"
-        [class.dragging]="isDragging"
-        [class.uploading]="isUploading"
+        role="button"
+        tabindex="0"
+        aria-label="Choose a CSV file to import"
+        [class.dragging]="isDragging()"
+        [class.uploading]="isUploading()"
         (dragover)="onDragOver($event)"
-        (dragleave)="onDragLeave()"
+        (dragleave)="isDragging.set(false)"
         (drop)="onDrop($event)"
-        (click)="fileInput.click()">
+        (click)="fileInput.click()"
+        (keydown.enter)="fileInput.click()">
 
-        <input #fileInput type="file" accept=".csv" style="display:none" (change)="onFileSelected($event)" />
+        <input #fileInput type="file" accept=".csv" hidden (change)="onFileSelected($event)" />
 
-        <div class="drop-icon">{{ isUploading ? '⟳' : '⊕' }}</div>
+        <div class="drop-icon">{{ isUploading() ? '⟳' : '⊕' }}</div>
         <div class="drop-title">
-          {{ isUploading ? 'Processing...' : 'Drop your CSV here' }}
+          {{ isUploading() ? 'Processing...' : 'Drop your CSV here' }}
         </div>
         <div class="drop-sub mono">
-          {{ isUploading ? 'Parsing and storing trades' : 'or click to browse · .csv files only' }}
+          {{ isUploading() ? 'Parsing and storing trades' : 'or click to browse · .csv files only' }}
         </div>
       </div>
 
+      @if (uploadError()) {
+        <p class="upload-error mono" role="alert">{{ uploadError() }}</p>
+      }
+
       <!-- Upload Result -->
-      <div class="card result-card" *ngIf="lastResult">
-        <div class="result-header">
-          <span class="result-title">Upload Complete</span>
-          <span class="tag" [class.tag-green]="lastResult.status === 'Completed'" [class.tag-red]="lastResult.status === 'Failed'">
-            {{ lastResult.status }}
-          </span>
-        </div>
-        <div class="result-stats">
-          <div class="stat">
-            <span class="stat-value mono">{{ lastResult.totalRows }}</span>
-            <span class="stat-label">Total Rows</span>
+      @if (lastResult(); as result) {
+        <div class="card result-card">
+          <div class="result-header">
+            <span class="result-title">Upload {{ result.status === 'Failed' ? 'Failed' : 'Complete' }}</span>
+            <span class="tag" [class.tag-green]="result.status === 'Completed'" [class.tag-red]="result.status === 'Failed'">
+              {{ result.status }}
+            </span>
           </div>
-          <div class="stat">
-            <span class="stat-value mono text-green">{{ lastResult.parsedRows }}</span>
-            <span class="stat-label">Imported</span>
+          <div class="result-stats">
+            <div class="stat">
+              <span class="stat-value mono">{{ result.totalRows }}</span>
+              <span class="stat-label">Total Rows</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value mono text-green">{{ result.parsedRows }}</span>
+              <span class="stat-label">Imported</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value mono text-red">{{ result.failedRows }}</span>
+              <span class="stat-label">Failed</span>
+            </div>
           </div>
-          <div class="stat">
-            <span class="stat-value mono text-red">{{ lastResult.failedRows }}</span>
-            <span class="stat-label">Failed</span>
-          </div>
+          @if (result.errors.length > 0) {
+            <div class="error-list">
+              <p class="error-heading">Parse errors:</p>
+              @for (err of result.errors; track $index) {
+                <p class="error-item mono">{{ err }}</p>
+              }
+            </div>
+          }
         </div>
-        <div class="error-list" *ngIf="lastResult && lastResult.errors && lastResult.errors.length > 0">
-          <p class="error-heading">Parse errors:</p>
-          <p class="error-item mono" *ngFor="let err of lastResult.errors">{{ err }}</p>
-        </div>
-      </div>
+      }
 
       <!-- CSV Format Guide -->
       <div class="card format-card">
         <div class="format-title">Expected CSV Format</div>
-        <p class="text-muted" style="margin-bottom: 1rem; font-size: 13px;">
+        <p class="text-muted format-intro">
           Your CSV must include a header row with these column names:
         </p>
         <div class="columns-grid">
-          <span class="col-tag mono" *ngFor="let col of expectedColumns">{{ col }}</span>
+          @for (col of expectedColumns; track col) {
+            <span class="col-tag mono">{{ col }}</span>
+          }
         </div>
       </div>
 
@@ -80,41 +99,54 @@ import { UploadResult } from '../../models/analytics.model';
       <div class="card history-card">
         <div class="history-title">Upload History</div>
 
-        <div class="loading-state" *ngIf="isLoadingLogs">
-          <div class="spinner"></div>
-          <span class="loading-text">Loading history...</span>
-        </div>
-
-        <div class="table-wrap" *ngIf="!isLoadingLogs">
-          <table *ngIf="logs.length > 0">
-            <thead>
-              <tr>
-                <th>File</th>
-                <th>Total</th>
-                <th>Imported</th>
-                <th>Failed</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let log of logs">
-                <td class="mono">{{ log.fileName }}</td>
-                <td class="mono">{{ log.totalRows }}</td>
-                <td class="mono text-green">{{ log.parsedRows }}</td>
-                <td class="mono text-red">{{ log.failedRows }}</td>
-                <td>
-                  <span class="tag"
-                    [class.tag-green]="log.status === 'Completed'"
-                    [class.tag-red]="log.status === 'Failed'"
-                    [class.tag-amber]="log.status === 'Pending'">
-                    {{ log.status }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="empty-state mono" *ngIf="logs.length === 0">No uploads yet.</p>
-        </div>
+        @switch (logsState()) {
+          @case ('loading') {
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <span class="loading-text">Loading history...</span>
+            </div>
+          }
+          @case ('error') {
+            <app-load-error title="Could not load upload history" [message]="logsError()" (retry)="loadLogs()" />
+          }
+          @case ('ready') {
+            <div class="table-wrap">
+              @if (logs().length > 0) {
+                <table>
+                  <thead>
+                    <tr>
+                      <th>File</th>
+                      <th>Total</th>
+                      <th>Imported</th>
+                      <th>Failed</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (log of logs(); track log.uploadLogId) {
+                      <tr>
+                        <td class="mono">{{ log.fileName }}</td>
+                        <td class="mono">{{ log.totalRows }}</td>
+                        <td class="mono text-green">{{ log.parsedRows }}</td>
+                        <td class="mono text-red">{{ log.failedRows }}</td>
+                        <td>
+                          <span class="tag"
+                            [class.tag-green]="log.status === 'Completed'"
+                            [class.tag-red]="log.status === 'Failed'"
+                            [class.tag-amber]="log.status === 'Pending'">
+                            {{ log.status }}
+                          </span>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <p class="empty-state mono">No uploads yet.</p>
+              }
+            </div>
+          }
+        }
       </div>
     </div>
   `,
@@ -140,10 +172,10 @@ import { UploadResult } from '../../models/analytics.model';
       background: var(--bg-card);
       text-align: center;
 
-      &:hover, &.dragging {
+      &:hover, &.dragging, &:focus-visible {
         border-color: var(--accent-amber);
         background: rgba(245, 158, 11, 0.04);
-        box-shadow: var(--glow-amber);
+        outline: none;
       }
 
       &.uploading { border-color: var(--accent-blue); pointer-events: none; }
@@ -152,6 +184,8 @@ import { UploadResult } from '../../models/analytics.model';
     .drop-icon { font-size: 2.5rem; color: var(--accent-amber); margin-bottom: 0.75rem; line-height: 1; }
     .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem; }
     .drop-sub { font-size: 12px; color: var(--text-muted); }
+
+    .upload-error { color: var(--accent-red); font-size: 12px; margin-bottom: 1rem; }
 
     .result-card { margin-bottom: 1rem; }
     .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
@@ -166,6 +200,7 @@ import { UploadResult } from '../../models/analytics.model';
 
     .format-card { margin-bottom: 1rem; }
     .format-title { font-weight: 700; font-size: 15px; margin-bottom: 0.75rem; }
+    .format-intro { margin-bottom: 1rem; font-size: 13px; }
     .columns-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .col-tag {
       background: var(--bg-secondary);
@@ -198,50 +233,53 @@ import { UploadResult } from '../../models/analytics.model';
     .empty-state { color: var(--text-muted); font-size: 13px; padding: 1rem 0; }
   `]
 })
-export class UploadComponent implements OnInit {
+export class UploadComponent {
+  private api = inject(ApiService);
   private destroyRef = inject(DestroyRef);
 
-  isDragging = false;
-  isUploading = false;
-  isLoadingLogs = true;
-  lastResult: UploadResult | null = null;
-  logs: UploadResult[] = [];
+  readonly isDragging = signal(false);
+  readonly isUploading = signal(false);
+  readonly uploadError = signal('');
+  readonly lastResult = signal<UploadResult | null>(null);
+  readonly logsState = signal<LoadState>('loading');
+  readonly logsError = signal('');
+  readonly logs = signal<UploadResult[]>([]);
 
-  expectedColumns = [
+  readonly expectedColumns = [
     'TradeDate', 'EntryTime', 'Instrument', 'Direction',
     'EntryPrice', 'ExitPrice', 'RiskAmount', 'PnL', 'RR',
     'Strategy', 'Session', 'DayOfWeek', 'TradeDuration',
     'Notes', 'IsManualOverride', 'DeviationNotes'
   ];
 
-  constructor(private api: ApiService) {}
-
-  ngOnInit(): void {
+  constructor() {
     this.loadLogs();
   }
 
   loadLogs(): void {
-    this.isLoadingLogs = true;
+    this.logsState.set('loading');
     this.api.getUploadLogs()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(logs => {
-        this.logs = logs;
-        this.isLoadingLogs = false;
+      .subscribe({
+        next: logs => {
+          this.logs.set(logs);
+          this.logsState.set('ready');
+        },
+        error: err => {
+          this.logsError.set(describeHttpError(err));
+          this.logsState.set('error');
+        }
       });
   }
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
-    this.isDragging = true;
-  }
-
-  onDragLeave(): void {
-    this.isDragging = false;
+    this.isDragging.set(true);
   }
 
   onDrop(event: DragEvent): void {
     event.preventDefault();
-    this.isDragging = false;
+    this.isDragging.set(false);
     const file = event.dataTransfer?.files[0];
     if (file) this.upload(file);
   }
@@ -249,25 +287,31 @@ export class UploadComponent implements OnInit {
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
+    input.value = '';  // allow choosing the same file again
     if (file) this.upload(file);
   }
 
   upload(file: File): void {
-    if (!file.name.endsWith('.csv')) {
-      alert('Please select a .csv file.');
+    if (this.isUploading()) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      this.uploadError.set('Please choose a .csv file.');
       return;
     }
-    this.isUploading = true;
-    this.api.uploadCsv(file).subscribe({
-      next: result => {
-        this.lastResult = result;
-        this.isUploading = false;
-        this.loadLogs();
-      },
-      error: () => {
-        this.isUploading = false;
-        alert('Upload failed. Check the API is running.');
-      }
-    });
+
+    this.uploadError.set('');
+    this.isUploading.set(true);
+    this.api.uploadCsv(file)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: result => {
+          this.lastResult.set(result);
+          this.isUploading.set(false);
+          this.loadLogs();
+        },
+        error: err => {
+          this.uploadError.set(`Upload failed: ${describeHttpError(err)}`);
+          this.isUploading.set(false);
+        }
+      });
   }
 }

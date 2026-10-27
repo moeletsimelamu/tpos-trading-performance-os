@@ -1,116 +1,140 @@
-import { Component, OnInit, DestroyRef, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../services/api.service';
 import { Trade } from '../../models/trade.model';
+import { LoadErrorComponent } from '../../shared/load-error.component';
+import { describeHttpError } from '../../shared/http-error';
+
+type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'app-trades',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [DecimalPipe, FormsModule, LoadErrorComponent],
   template: `
     <div class="trades-page">
       <header class="page-header">
         <div>
           <h1>Trades</h1>
-          <p class="text-muted mono">{{ filtered.length }} of {{ trades.length }} trades</p>
+          <p class="text-muted mono">{{ filtered().length }} of {{ trades().length }} trades</p>
         </div>
       </header>
 
-      <!-- Loading State -->
-      <div class="loading-state" *ngIf="isLoading">
-        <div class="spinner"></div>
-        <span class="loading-text">Loading trades...</span>
-      </div>
-
-      <ng-container *ngIf="!isLoading">
-
-        <!-- Filters -->
-        <div class="card filters-bar">
-          <input
-            class="filter-input"
-            type="text"
-            placeholder="Search instrument, strategy, session..."
-            [(ngModel)]="searchTerm"
-            (ngModelChange)="applyFilters()"
-          />
-          <select class="filter-select" [(ngModel)]="directionFilter" (ngModelChange)="applyFilters()">
-            <option value="">All Directions</option>
-            <option value="Long">Long</option>
-            <option value="Short">Short</option>
-          </select>
-          <select class="filter-select" [(ngModel)]="resultFilter" (ngModelChange)="applyFilters()">
-            <option value="">All Results</option>
-            <option value="win">Wins</option>
-            <option value="loss">Losses</option>
-            <option value="breakeven">Breakeven</option>
-          </select>
-          <button class="btn-clear" (click)="clearFilters()">Clear</button>
-        </div>
-
-        <!-- Table -->
-        <div class="card table-card">
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Instrument</th>
-                  <th>Direction</th>
-                  <th>Entry</th>
-                  <th>Exit</th>
-                  <th>Risk</th>
-                  <th>P&L</th>
-                  <th>RR</th>
-                  <th>Strategy</th>
-                  <th>Session</th>
-                  <th>Duration</th>
-                  <th>Override</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let trade of filtered" [class.row-win]="trade.pnL > 0" [class.row-loss]="trade.pnL < 0">
-                  <td class="mono">{{ trade.tradeDate }}</td>
-                  <td class="bold">{{ trade.instrument }}</td>
-                  <td>
-                    <span class="tag" [class.tag-green]="trade.direction === 'Long'" [class.tag-red]="trade.direction === 'Short'">
-                      {{ trade.direction }}
-                    </span>
-                  </td>
-                  <td class="mono">{{ trade.entryPrice | number:'1.2-5' }}</td>
-                  <td class="mono">{{ trade.exitPrice | number:'1.2-5' }}</td>
-                  <td class="mono">{{ trade.riskAmount | number:'1.2-2' }}</td>
-                  <td class="mono" [class.text-green]="trade.pnL > 0" [class.text-red]="trade.pnL < 0">
-                    {{ trade.pnL >= 0 ? '+' : '' }}{{ trade.pnL | number:'1.2-2' }}
-                  </td>
-                  <td class="mono" [class.text-green]="trade.rR >= 1" [class.text-red]="trade.rR < 0">
-                    {{ trade.rR | number:'1.2-2' }}R
-                  </td>
-                  <td>
-                    <span class="tag tag-blue" *ngIf="trade.strategyName">{{ trade.strategyName }}</span>
-                    <span class="text-muted" *ngIf="!trade.strategyName">—</span>
-                  </td>
-                  <td>{{ trade.session }}</td>
-                  <td class="mono">{{ trade.tradeDuration }}m</td>
-                  <td>
-                    <span class="tag tag-amber" *ngIf="trade.isManualOverride">Yes</span>
-                    <span class="text-muted" *ngIf="!trade.isManualOverride">—</span>
-                  </td>
-                  <td>
-                    <button class="btn-delete" (click)="deleteTrade(trade.id)">✕</button>
-                  </td>
-                </tr>
-                <tr *ngIf="filtered.length === 0">
-                  <td colspan="13" class="empty-state">No trades found.</td>
-                </tr>
-              </tbody>
-            </table>
+      @switch (state()) {
+        @case ('loading') {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <span class="loading-text">Loading trades...</span>
           </div>
-        </div>
+        }
+        @case ('error') {
+          <app-load-error title="Could not load trades" [message]="error()" (retry)="load()" />
+        }
+        @case ('ready') {
+          <!-- Filters -->
+          <div class="card filters-bar">
+            <input
+              class="filter-input"
+              type="text"
+              aria-label="Search trades"
+              placeholder="Search instrument, strategy, session..."
+              [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)"
+            />
+            <select class="filter-select" aria-label="Direction" [ngModel]="directionFilter()" (ngModelChange)="directionFilter.set($event)">
+              <option value="">All Directions</option>
+              <option value="Long">Long</option>
+              <option value="Short">Short</option>
+            </select>
+            <select class="filter-select" aria-label="Result" [ngModel]="resultFilter()" (ngModelChange)="resultFilter.set($event)">
+              <option value="">All Results</option>
+              <option value="win">Wins</option>
+              <option value="loss">Losses</option>
+              <option value="breakeven">Breakeven</option>
+            </select>
+            <button type="button" class="btn-clear" (click)="clearFilters()">Clear</button>
+          </div>
 
-      </ng-container>
+          @if (actionError()) {
+            <p class="action-error mono" role="alert">{{ actionError() }}</p>
+          }
+
+          <!-- Table -->
+          <div class="card table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Instrument</th>
+                    <th>Direction</th>
+                    <th>Entry</th>
+                    <th>Exit</th>
+                    <th>Risk</th>
+                    <th>P&L</th>
+                    <th>RR</th>
+                    <th>Strategy</th>
+                    <th>Session</th>
+                    <th>Duration</th>
+                    <th>Override</th>
+                    <th><span class="visually-hidden">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (trade of filtered(); track trade.id) {
+                    <tr [class.row-win]="trade.pnL > 0" [class.row-loss]="trade.pnL < 0">
+                      <td class="mono">{{ trade.tradeDate }}</td>
+                      <td class="bold">{{ trade.instrument }}</td>
+                      <td>
+                        <span class="tag" [class.tag-green]="trade.direction === 'Long'" [class.tag-red]="trade.direction === 'Short'">
+                          {{ trade.direction }}
+                        </span>
+                      </td>
+                      <td class="mono">{{ trade.entryPrice | number:'1.2-5' }}</td>
+                      <td class="mono">{{ trade.exitPrice | number:'1.2-5' }}</td>
+                      <td class="mono">{{ trade.riskAmount | number:'1.2-2' }}</td>
+                      <td class="mono" [class.text-green]="trade.pnL > 0" [class.text-red]="trade.pnL < 0">
+                        {{ trade.pnL >= 0 ? '+' : '' }}{{ trade.pnL | number:'1.2-2' }}
+                      </td>
+                      <td class="mono" [class.text-green]="trade.rr >= 1" [class.text-red]="trade.rr < 0">
+                        {{ trade.rr | number:'1.2-2' }}R
+                      </td>
+                      <td>
+                        @if (trade.strategyName) {
+                          <span class="tag tag-blue">{{ trade.strategyName }}</span>
+                        } @else {
+                          <span class="text-muted">—</span>
+                        }
+                      </td>
+                      <td>{{ trade.session }}</td>
+                      <td class="mono">{{ trade.tradeDuration }}m</td>
+                      <td>
+                        @if (trade.isManualOverride) {
+                          <span class="tag tag-amber">Yes</span>
+                        } @else {
+                          <span class="text-muted">—</span>
+                        }
+                      </td>
+                      <td>
+                        <button type="button" class="btn-delete" [attr.aria-label]="'Delete trade ' + trade.id"
+                          [disabled]="deletingId() === trade.id" (click)="deleteTrade(trade.id)">✕</button>
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="13" class="empty-state">
+                        {{ trades().length === 0 ? 'No trades recorded yet. Import a CSV from the Upload page.' : 'No trades match these filters.' }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+      }
     </div>
   `,
   styles: [`
@@ -170,6 +194,8 @@ import { Trade } from '../../models/trade.model';
       &:hover { border-color: var(--accent-red); color: var(--accent-red); }
     }
 
+    .action-error { color: var(--accent-red); font-size: 12px; margin-bottom: 0.75rem; }
+
     .table-card { padding: 0; overflow: hidden; }
     .table-wrap { overflow-x: auto; }
 
@@ -216,6 +242,7 @@ import { Trade } from '../../models/trade.model';
       font-size: 12px;
       transition: all 0.15s;
       &:hover { border-color: var(--accent-red); color: var(--accent-red); }
+      &:disabled { opacity: 0.4; cursor: wait; }
     }
 
     .empty-state {
@@ -224,68 +251,90 @@ import { Trade } from '../../models/trade.model';
       padding: 3rem;
       font-family: var(--font-mono);
     }
+
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+    }
   `]
 })
-export class TradesComponent implements OnInit {
+export class TradesComponent {
+  private api = inject(ApiService);
   private destroyRef = inject(DestroyRef);
 
-  trades: Trade[] = [];
-  filtered: Trade[] = [];
-  searchTerm = '';
-  directionFilter = '';
-  resultFilter = '';
-  isLoading = true;
+  readonly state = signal<LoadState>('loading');
+  readonly error = signal('');
+  readonly actionError = signal('');
+  readonly deletingId = signal<number | null>(null);
+  readonly trades = signal<Trade[]>([]);
+  readonly searchTerm = signal('');
+  readonly directionFilter = signal('');
+  readonly resultFilter = signal('');
 
-  constructor(private api: ApiService) {}
+  readonly filtered = computed(() => {
+    const term = this.searchTerm().toLowerCase();
+    const direction = this.directionFilter();
+    const result = this.resultFilter();
 
-  ngOnInit(): void {
-    this.loadData();
-  }
-
-  loadData(): void {
-    this.isLoading = true;
-    this.api.getTrades()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(trades => {
-        this.trades = trades;
-        this.filtered = trades;
-        this.isLoading = false;
-      });
-  }
-
-  applyFilters(): void {
-    this.filtered = this.trades.filter(trade => {
-      const term = this.searchTerm.toLowerCase();
+    return this.trades().filter(trade => {
       const matchesSearch = !term ||
         trade.instrument.toLowerCase().includes(term) ||
-        trade.strategyName?.toLowerCase().includes(term) ||
+        !!trade.strategyName?.toLowerCase().includes(term) ||
         trade.session.toLowerCase().includes(term) ||
         trade.dayOfWeek.toLowerCase().includes(term);
 
-      const matchesDirection = !this.directionFilter ||
-        trade.direction === this.directionFilter;
+      const matchesDirection = !direction || trade.direction === direction;
 
-      const matchesResult = !this.resultFilter ||
-        (this.resultFilter === 'win' && trade.pnL > 0) ||
-        (this.resultFilter === 'loss' && trade.pnL < 0) ||
-        (this.resultFilter === 'breakeven' && trade.pnL === 0);
+      const matchesResult = !result ||
+        (result === 'win' && trade.pnL > 0) ||
+        (result === 'loss' && trade.pnL < 0) ||
+        (result === 'breakeven' && trade.pnL === 0);
 
       return matchesSearch && matchesDirection && matchesResult;
     });
+  });
+
+  constructor() {
+    this.load();
+  }
+
+  load(): void {
+    this.state.set('loading');
+    this.api.getTrades()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: trades => {
+          this.trades.set(trades);
+          this.state.set('ready');
+        },
+        error: err => {
+          this.error.set(describeHttpError(err));
+          this.state.set('error');
+        }
+      });
   }
 
   clearFilters(): void {
-    this.searchTerm = '';
-    this.directionFilter = '';
-    this.resultFilter = '';
-    this.filtered = [...this.trades];
+    this.searchTerm.set('');
+    this.directionFilter.set('');
+    this.resultFilter.set('');
   }
 
   deleteTrade(id: number): void {
     if (!confirm('Delete this trade?')) return;
-    this.api.deleteTrade(id).subscribe(() => {
-      this.trades = this.trades.filter(t => t.id !== id);
-      this.applyFilters();
-    });
+
+    this.actionError.set('');
+    this.deletingId.set(id);
+    this.api.deleteTrade(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.trades.update(trades => trades.filter(t => t.id !== id));
+          this.deletingId.set(null);
+        },
+        error: err => {
+          this.actionError.set(`Trade was not deleted: ${describeHttpError(err)}`);
+          this.deletingId.set(null);
+        }
+      });
   }
 }

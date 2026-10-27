@@ -1,16 +1,17 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { describeHttpError } from '../../shared/http-error';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="auth-shell">
-      <div class="auth-card">
+      <form class="auth-card" (ngSubmit)="login()">
         <div class="auth-logo">
           <span class="logo-mark">TD</span>
           <span class="auth-title">Trader Analytics</span>
@@ -20,22 +21,25 @@ import { AuthService } from '../../services/auth.service';
         <p class="form-sub text-muted mono">Welcome back. Enter your credentials.</p>
 
         <div class="form-group">
-          <label class="form-label">Email</label>
-          <input class="form-input" type="email" [(ngModel)]="email" placeholder="trader@example.com" />
+          <label class="form-label" for="login-email">Email</label>
+          <input id="login-email" name="email" class="form-input" type="email" autocomplete="username"
+            [(ngModel)]="email" placeholder="you@example.com" />
         </div>
 
         <div class="form-group">
-          <label class="form-label">Password</label>
-          <input class="form-input" type="password" [(ngModel)]="password" placeholder="••••••••"
-            (keyup.enter)="login()" />
+          <label class="form-label" for="login-password">Password</label>
+          <input id="login-password" name="password" class="form-input" type="password" autocomplete="current-password"
+            [(ngModel)]="password" placeholder="••••••••" />
         </div>
 
-        <p class="error-msg" *ngIf="errorMsg">{{ errorMsg }}</p>
+        @if (errorMsg()) {
+          <p class="error-msg" role="alert">{{ errorMsg() }}</p>
+        }
 
-        <button class="btn-primary" (click)="login()" [disabled]="loading">
-          {{ loading ? 'Signing in...' : 'Sign in' }}
+        <button type="submit" class="btn-primary" [disabled]="loading()">
+          {{ loading() ? 'Signing in...' : 'Sign in' }}
         </button>
-      </div>
+      </form>
     </div>
   `,
   styles: [`
@@ -150,44 +154,42 @@ import { AuthService } from '../../services/auth.service';
       &:hover { opacity: 0.9; }
       &:disabled { opacity: 0.5; cursor: not-allowed; }
     }
-
-    .auth-switch {
-      text-align: center;
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 1.25rem;
-
-      a {
-        color: var(--accent-amber);
-        text-decoration: none;
-        &:hover { text-decoration: underline; }
-      }
-    }
   `]
 })
 export class LoginComponent {
+  private auth = inject(AuthService);
+  private router = inject(Router);
+
   email = '';
   password = '';
-  loading = false;
-  errorMsg = '';
-
-  constructor(private auth: AuthService, private router: Router) {}
+  readonly loading = signal(false);
+  readonly errorMsg = signal('');
 
   login(): void {
+    if (this.loading()) return;
     if (!this.email || !this.password) {
-      this.errorMsg = 'Please enter your email and password.';
+      this.errorMsg.set('Please enter your email and password.');
       return;
     }
 
-    this.loading = true;
-    this.errorMsg = '';
+    this.loading.set(true);
+    this.errorMsg.set('');
 
     this.auth.login({ email: this.email, password: this.password }).subscribe({
       next: () => this.router.navigate(['/dashboard']),
-      error: () => {
-        this.errorMsg = 'Invalid email or password.';
-        this.loading = false;
+      error: (error: HttpErrorResponse) => {
+        this.errorMsg.set(loginErrorMessage(error));
+        this.loading.set(false);
       }
     });
+  }
+}
+
+function loginErrorMessage(error: HttpErrorResponse): string {
+  switch (error.status) {
+    case 400:
+    case 401: return 'Invalid email or password.';
+    case 429: return 'Too many sign-in attempts. Wait a minute and try again.';
+    default: return describeHttpError(error);
   }
 }

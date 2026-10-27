@@ -1,3 +1,4 @@
+// Property names follow the API's System.Text.Json camelCase output: C# `RR` arrives as `rr`, `PnL` as `pnL`.
 export interface Trade {
   id: number;
   tradeDate: string;
@@ -8,7 +9,7 @@ export interface Trade {
   exitPrice: number;
   riskAmount: number;
   pnL: number;
-  rR: number;
+  rr: number;
   strategyName?: string;
   session: string;
   dayOfWeek: string;
@@ -27,7 +28,7 @@ export interface CreateTrade {
   exitPrice: number;
   riskAmount: number;
   pnL: number;
-  rR: number;
+  rr: number;
   strategyName?: string;
   session: string;
   dayOfWeek: string;
