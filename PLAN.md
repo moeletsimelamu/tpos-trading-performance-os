@@ -4,7 +4,10 @@
 
 This plan evolves the existing trading analytics application (see `docs/EXISTING_FEATURES.md` and `docs/ARCHITECTURE_REVIEW.md`) into Melamu Holdings OS. It is an incremental transformation: the .NET 10 / EF Core / SQL Server / Angular 21 stack and the layered solution stay. Trading analytics becomes the **Trading Operations** module. The financial modules are added beside it.
 
-**Status:** Phase 1 (audit) complete. Nothing beyond the audit documents has been changed. Awaiting review.
+**Status:**
+- Phase 1 (audit) is complete.
+- Phase 2 (stabilise) is complete on branch `phase-2-stabilise` and awaiting review (see `docs/ARCHITECTURE_REVIEW.md` §10a).
+- Next is Phase 3.
 
 ---
 
@@ -52,7 +55,10 @@ Rules:
 
 ### Product and solution naming
 
-Visible identity changes to **Melamu Holdings OS** in Phase 3. Code identifiers are renamed in **one controlled commit**: folders, `.csproj` files, namespaces, assembly names and `.slnx`, from `TraderDashboard.*` to the chosen prefix (recommended `MelamuHoldings.*`). The rename is verified by build, tests, `dotnet ef migrations list` and an app smoke test. The EF migration id `20260601103317_InitialCreate` is unaffected by a namespace change. The database name stays `TraderDashboard` (configuration only) unless you want it changed; that would be a backup-and-restore, never a drop.
+**Done in Phase 2.** Code identifiers were renamed in one controlled commit (`b23e3ce`): folders, `.csproj` files, namespaces, assembly names and `.slnx`, from `TraderDashboard.*` to `MelamuHoldings.*`.
+- It was verified by a clean build and by `dotnet ef migrations has-pending-model-changes` (no changes); the EF migration id `20260601103317_InitialCreate` is unaffected.
+- Development now uses a fresh `MelamuHoldings` database (decision D5). The old `TraderDashboard` database held only test trades and is left untouched.
+- The **visible** identity (wordmark, navigation labels, favicon) changes in Phase 3.
 
 ---
 
@@ -163,7 +169,7 @@ Examples (tests will assert these):
 
 ## 4. Database migration strategy
 
-1. **Back up before every migration** against a database holding real data: `BACKUP DATABASE [TraderDashboard] TO DISK = '…\TraderDashboard_<date>.bak' WITH INIT, CHECKSUM`. The restore procedure goes in `docs/DATABASE_MIGRATION.md`.
+1. **Back up before every migration** against a database holding real data: `BACKUP DATABASE [MelamuHoldings] TO DISK = '…\MelamuHoldings_<date>.bak' WITH INIT, CHECKSUM`. Today the development database is empty apart from your login, so the first backups matter once real financial records exist. The restore procedure goes in `docs/DATABASE_MIGRATION.md`.
 2. **Never delete or squash migrations.** `InitialCreate` stays.
 3. **Additive migrations only** for the finance modules, in the `finance` schema. Finance foreign keys use `Restrict`; there is no cascade from `Users` into financial data.
 4. Each migration is checked with `dotnet ef migrations script --idempotent` (SQL reviewed before it is applied), and the model is checked with `dotnet ef migrations has-pending-model-changes`.
@@ -250,7 +256,7 @@ Each phase ends with a build, all tests green, a browser check of the touched pa
 | Phase | Scope | Exit criteria |
 |---|---|---|
 | **2 — Stabilise** | Resolve the folder rename (decision D1) so the solution builds again: the working tree currently fails with 102 errors, while committed `develop` builds cleanly. Run the API against a scratch SQLEXPRESS database and check the existing pages in the browser. Pin a patched `System.Security.Cryptography.Pkcs` to clear the NU1903 high-severity advisory. Move the JWT key to user-secrets and rotate it. Disable open registration and add an owner-provisioning command. Add ProblemDetails and exception middleware. Validate trade DTOs. Fix the RR binding, the error states and zoneless refresh on existing pages. Remove dead code (`app.ts`, `server.ts`, SSR dependencies, `NavigationService`). Add an xUnit test project (characterisation tests for analytics and behaviour), the Angular test target, and a GitHub Actions CI workflow. | Clean build; tests pass in CI; existing four pages verified in the browser; no secret in the repository |
-| **3 — Foundation** | Controlled rename to `MelamuHoldings.*`. Module folders. New layout and navigation with status labels. Brand identity. `Money`/`Currency` domain types. `finance` schema groundwork. Backup procedure documented. | All existing features reachable and working under the new navigation; migrations list unchanged |
+| **3 — Foundation** | Module folders (the `MelamuHoldings.*` rename was done in Phase 2). Drop the never-written `BehaviourAlerts` table. New layout and navigation with status labels. Brand identity. `Money`/`Currency` domain types. `finance` schema groundwork. Backup procedure documented. | All existing features reachable and working under the new navigation; migrations list unchanged |
 | **4 — Accounts and ledger** | Funds, financial accounts, ledger transactions and entries; income, expense, transfer, reallocation, opening balance, reversal, currency exchange. Balances by account and by fund. Audit events. Transaction list with filters and pagination. | Domain tests for every invariant in §3.2; API integration tests including 401, 400, 409 and idempotent retry; balances reconcile to entries |
 | **5 — Payouts and allocation (first milestone)** | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. A minimal Executive Overview with cash by account, fund balances and outstanding allocations. | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
 | **6 — Executive Overview** | Period filters; income and expenses by period; net cash movement (labelled as cash movement, not profit); recent payouts; drill-down links to records; warnings panel. | Every figure traceable to a record list |
@@ -322,12 +328,12 @@ Melamu Holdings OS stays fully usable on its own. No integration code is written
 
 ---
 
-## 12. Decisions needed from you
+## 12. Decisions (answered 2026-10-27)
 
-| # | Decision | Recommendation |
+| # | Decision | Outcome |
 |---|---|---|
-| D1 | Should I complete your uncommitted `TraderDashboard.* → TPOS.*` folder rename, by fixing the `.csproj` references and committing it as is, or go straight to the final product names? | Go straight to `MelamuHoldings.*` in a single rename commit. `TPOS` is about to be obsolete, and two renames double the risk. Your on-disk files are preserved either way. |
-| D2 | Commit identity. This repository has no local git identity, so commits would use `Junior Melamu <u22715895@up.ac.za>` like the existing 9. | Set the local identity to `Moeletsi Melamu <moeletsimelamu03@gmail.com>` for new commits, as in the other portfolio repositories. Existing history stays untouched. |
-| D3 | Currencies. What currency do prop-firm payouts arrive in, and what currency are the business bank accounts and expenses in (USD payouts into a ZAR bank account)? | If payouts are USD and banking is ZAR, `CurrencyExchange` moves into Phase 4, because the first milestone needs it. |
-| D4 | Working branch. Work on `develop` and merge to `main` at phase ends, or use feature branches off `develop`? | A feature branch per phase off `develop`, merged locally. Nothing is pushed without your go-ahead. |
-| D5 | Is the existing `TraderDashboard` database holding real trades you want kept? | Assumed **yes**: back up before the first migration, keep the database name for now. |
+| D1 | Finish the `TPOS.*` rename, or go straight to the final names? | Went straight to `MelamuHoldings.*` in one commit. |
+| D2 | Commit identity | Local identity set to `Moeletsi Melamu <moeletsimelamu03@gmail.com>`; existing history untouched. |
+| D3 | Currencies | Payouts can arrive in a different currency from the bank accounts, so recording a `CurrencyExchange` (with its rate) is part of Phase 4, not later. |
+| D4 | Branching | A feature branch per phase off `develop` (`phase-2-stabilise` first); nothing pushed without approval. |
+| D5 | `TraderDashboard` data | Test data only. Development moved to a fresh `MelamuHoldings` database; `TraderDashboard` is untouched and can be dropped by the owner. |

@@ -74,13 +74,13 @@ Ordered by impact on the transformation.
 | W5 | Frontend runtime | `zone.js` is absent, so the app is zoneless. Components assign plain fields inside `subscribe()` callbacks, and in zoneless mode an HTTP response does not by itself trigger change detection. The unused `NavigationService` and the "navigation fix" commit suggest views were not refreshing. | **Needs browser verification.** The fix is signals (or `ChangeDetectorRef.markForCheck`), and that pattern should be settled before new pages copy the old one. |
 | W6 | Frontend contract | C# `RR` serialises as `rr` under System.Text.Json camel-casing, but the Angular `Trade` model reads `rR`. The RR column in the trade table is very likely empty. | Needs runtime confirmation; fix in Phase 2. |
 | W7 | Frontend UX | The dashboard, behaviour and trades pages have no error state. A failed request leaves a permanent spinner. | The new financial pages must not repeat this; existing pages need fixing. |
-| W8 | Frontend layout | `AppComponent` always renders the sidebar, including on `/login` and `/register` (with a "Sign out" button). | Cosmetic; fixed by the layout split in Phase 3. |
+| W8 | Frontend layout | `AppComponent` always renders the sidebar, including on `/login` and `/register`. *Corrected in Phase 2:* the bootstrapped `app.component.ts` is the older shell with **no Sign out button at all**; the user/Sign out shell from commit `649076c` sat unused in `app.ts`. | Fixed in Phase 2. |
 | W9 | Validation | No validation on trade DTOs. An invalid `Direction` makes `Enum.Parse` throw (HTTP 500). Negative risk or prices are accepted. | Fix in Phase 2 and establish the validation pattern the finance API will reuse. |
 | W10 | Error handling | No global exception handler. Errors are returned as plain strings with inconsistent shapes. A concurrent duplicate registration surfaces as a 500 from the unique index. | Add ProblemDetails plus an exception-handling middleware in Phase 2. |
 | W11 | Data integrity | CSV import duplicates trades on re-upload, is not atomic, and silently coerces bad times to 00:00. | Fix in Phase 2 or Phase 8. Not a blocker for finance. |
 | W12 | Data model | `Strategies` has no `UserId`, so names are shared across users. Strategy "management" is only an auto-created tag. | Make strategies per-user in Phase 8. |
 | W13 | Analytics correctness | Profit factor with zero losses returns a currency amount. Equity-curve drawdown % is computed against cumulative P&L, not equity. There are no date filters. | Fix with tests in Phase 2 or Phase 8. |
-| W14 | Dead code | `app.ts`, `server.ts` plus SSR dependencies, `NavigationService`, the `BehaviourAlerts` table (never written), and the `AnalyticsServicecs.cs` filename typo. | Clean up in Phase 2. |
+| W14 | Dead code | `app.ts` (never bootstrapped, but holding the intended user/Sign out shell; see W8), `server.ts` plus SSR dependencies, `NavigationService`, the `BehaviourAlerts` table (never written), and the `AnalyticsServicecs.cs` filename typo. | Clean up in Phase 2. |
 | W15 | Architecture | `JwtService` reads `IConfiguration` directly from the Application layer. DTOs are scattered. There is no options pattern. | Minor. Address when touching auth. |
 | W16 | Ops | No CI, no Docker, no production environment file (`apiUrl` is hard-coded to `http://localhost:5051/api`), no README on `develop`. | Phase 2 (CI) and Phase 10 (docs, deployment). |
 
@@ -137,6 +137,36 @@ Logging in needs either the owner's real password, which I must not enter, or a 
 | Existing user's data (the `Users` row and trades) | Additive migrations only. Back up the database (`BACKUP DATABASE`) before applying any migration. The script is in `DATABASE_MIGRATION.md` (Phase 3). |
 | Rebuilding the navigation hides existing pages | All four existing routes stay reachable under "Trading Operations", with redirects from the old paths. |
 | Zoneless change detection copied into new pages | Settle the pattern (signals) in Phase 2, before new UI is written. |
+
+## 10a. Phase 2 outcome (2026-10-27, branch `phase-2-stabilise`)
+
+| # | Status | What happened |
+|---|---|---|
+| W1 | **Fixed** | Renamed straight to `MelamuHoldings.*` (decision D1) in one commit that git records as 85 renames. The solution builds again. |
+| W2 | **Fixed** | `Jwt:Key` removed from `appsettings.json`. A new key is in user-secrets; startup fails if it is missing or shorter than 32 bytes. The old key remains in git history but no longer signs anything. |
+| W3 | **Fixed** | Public registration removed from the API and UI. The owner account is created with `dotnet run -- create-owner`. Login is rate-limited (5 attempts/min/IP). |
+| W4 | **Fixed** | 39 .NET unit tests, 15 API integration tests (real SQL Server), 24 Angular specs, and GitHub Actions CI. |
+| W5 | **Confirmed and fixed** | Worse than suspected: in the browser **no data page ever rendered its data**. Requests returned 200 and component state held the data, but `Zone` was undefined and the DOM stayed on "Loading…". All pages now use signals. |
+| W6 | **Confirmed and fixed** | The API returns `"rr"`; the model now reads `rr`. |
+| W7 | **Fixed** | Every page has loading, error (with Retry) and empty states. Verified by stopping and restarting the API. |
+| W8 | **Fixed** | The login route renders outside a new `ShellComponent`; Sign out works. |
+| W9 | **Fixed** | `CreateTradeDto` validation returns 400 with field errors. |
+| W10 | **Fixed** | ProblemDetails for all errors (exception handler, status pages, `Problem()`). |
+| W11 | Open (Phase 8) | CSV duplicate detection and atomic import. |
+| W12 | Open (Phase 8) | Per-user strategies. |
+| W13 | **Partly fixed** | Expectancy counted breakevens as losses and has been corrected. Profit factor with zero losses still returns gross profit (a test pins it until the Phase 8 contract change). |
+| W14 | **Fixed**, except the `BehaviourAlerts` table | Dead files and SSR packages removed. The table stays until a Phase 3 migration drops it. |
+| W15 | **Fixed** | `JwtService` uses `IOptions<JwtOptions>`. |
+| W16 | Partly | CI added. README is a short setup guide; the full README is Phase 10. |
+
+**Defects found during Phase 2:**
+
+- `GET /api/trades/{id}` and the create response never returned the strategy name. The trade was loaded with `FindAsync`, without its `Strategy`.
+- The login rate limit ignored late configuration.
+- npm 10.9.2 crashes (`edgesOut`) while resolving this project's peer dependencies, so the lockfile was regenerated with npm 11. `npm ci` on npm 10 accepts it.
+- `ng2-charts`' open `@angular/cdk >=21` peer range resolves cdk 22 on a fresh install, so `@angular/cdk` is now pinned to 21.x.
+
+**Remaining advisory:** `undici` (high) inside `@angular/build`. It is dev tooling only and not shipped. npm's only offered fix is a downgrade to Angular 20. The CI audit gate covers production dependencies.
 
 ## 10. Leave untouched initially
 

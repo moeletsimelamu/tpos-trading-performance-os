@@ -3,6 +3,14 @@
 Phase 1 audit of the trading analytics application before it becomes Melamu Holdings OS.
 Audit date: 2026-10-27. Branch inspected: `develop` (`d9f1aa5`), plus the uncommitted working tree.
 
+> **Phase 2 update (2026-10-27).** The table below records the state *as audited*.
+>
+> - Running the app showed that **no data page rendered its data** (zoneless change detection), and that the shipped sidebar had **no Sign out button**.
+> - The Sign out shell existed only in the unused `app.ts`; the "`app.ts`" row below originally had the two files swapped.
+> - Both are now fixed, along with registration, validation, RR display and error states. Everything was verified in a browser against a scratch database and is covered by automated tests.
+>
+> Per-item status is in `ARCHITECTURE_REVIEW.md` §10a.
+
 ## How to read this table
 
 **Verification status**
@@ -36,7 +44,7 @@ Audit date: 2026-10-27. Branch inspected: `develop` (`d9f1aa5`), plus the uncomm
 | Upload history | Table on the upload page. | Code-verified | **Preserve** |
 | Swagger UI | Swashbuckle 6.5.0, Development only. | Code-verified | **Improve**: keep it or move to built-in OpenApi when convenient; add JWT auth to the UI. |
 | SSR server | `src/server.ts` (Express) plus `@angular/ssr`, `@angular/platform-server`, `express`. | **Not wired**: `angular.json` has no `server` or `ssr` option, so this file is never built. | **Retire** (dead code and unused dependencies) |
-| `app.ts` | A second `AppComponent` declaration. | **Dead**: `main.ts` bootstraps `app.component.ts`. | **Retire** |
+| `app.ts` | A second `AppComponent` declaration, containing the user avatar and Sign out shell from commit `649076c`. | **Dead**: `main.ts` bootstraps `app.component.ts`, the older shell without Sign out, so that feature never shipped. | **Retire**, after moving its shell into the real layout (done in Phase 2) |
 | `NavigationService` | Re-runs a callback on navigation. | Imported by the behaviour page but never injected. Unused. | **Retire** (after verifying change detection; see the zoneless note in `ARCHITECTURE_REVIEW.md`). |
 | Automated tests | — | **Absent**. No .NET test project, no `*.spec.ts`, and `angular.json` has no `test` target, so `npm test` cannot run. | **Build** (Phase 2 onwards) |
 | CI | `.github/` directory exists but is empty. | **Absent** | **Build** (Phase 2) |
