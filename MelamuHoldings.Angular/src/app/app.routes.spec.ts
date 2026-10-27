@@ -30,9 +30,9 @@ describe('app routes', () => {
     ['/trades', '/trading/trades'],
     ['/upload', '/trading/import'],
     ['/behaviour', '/trading/behaviour'],
-    ['/', '/trading/performance'],
+    ['/', '/overview'],
     ['/trading', '/trading/performance'],
-    ['/no-such-page', '/trading/performance']
+    ['/no-such-page', '/overview']
   ])('sends %s to %s when signed in', async (from, to) => {
     signIn();
     const harness = await RouterTestingHarness.create();
@@ -56,6 +56,6 @@ describe('app routes', () => {
 
     await harness.navigateByUrl('/trading/import');
 
-    expect(TestBed.inject(Title).getTitle()).toBe('Import Journal · Melamu Holdings OS');
+    expect(TestBed.inject(Title).getTitle()).toBe('Import trades · Melamu Holdings OS');
   });
 });

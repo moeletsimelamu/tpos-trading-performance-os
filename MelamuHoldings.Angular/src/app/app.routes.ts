@@ -16,8 +16,13 @@ export const routes: Routes = [
     canActivate: [authGuard],
     canActivateChild: [authGuard],
     children: [
-      // The Executive Overview becomes the landing page once it exists (Phase 5)
-      { path: '', redirectTo: 'trading/performance', pathMatch: 'full' },
+      // Signing in lands on the business as a whole, not on one module
+      { path: '', redirectTo: 'overview', pathMatch: 'full' },
+      {
+        path: 'overview',
+        title: 'Executive overview',
+        loadComponent: () => import('./features/overview/overview.component').then(m => m.OverviewComponent)
+      },
       {
         path: 'trading',
         loadChildren: () => import('./features/trading/trading.routes').then(m => m.tradingRoutes)
