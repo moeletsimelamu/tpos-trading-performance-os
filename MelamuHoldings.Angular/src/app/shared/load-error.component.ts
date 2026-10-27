@@ -1,38 +1,30 @@
 import { Component, input, output } from '@angular/core';
+import { IconComponent } from './ui/icon.component';
 
 @Component({
   selector: 'app-load-error',
   standalone: true,
+  imports: [IconComponent],
   template: `
-    <div class="card load-error" role="alert">
-      <div>
+    <div class="load-error" role="alert">
+      <app-icon name="alert" [size]="20" />
+      <div class="load-error-body">
         <div class="load-error-title">{{ title() }}</div>
-        <div class="load-error-text mono">{{ message() }}</div>
+        <div class="load-error-text">{{ message() }}</div>
       </div>
-      <button type="button" class="btn-retry" (click)="retry.emit()">Retry</button>
+      <button type="button" class="btn btn-retry" (click)="retry.emit()"><app-icon name="refresh" [size]="16" />Retry</button>
     </div>
   `,
   styles: [`
     .load-error {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      border-left: 3px solid var(--accent-red);
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      background: var(--surface); border: 1px solid #f0c9c5; border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+      > app-icon { color: var(--negative); margin-top: 1px; }
     }
-    .load-error-title { font-weight: 700; font-size: 14px; margin-bottom: 0.25rem; }
-    .load-error-text { font-size: 12px; color: var(--text-secondary); }
-    .btn-retry {
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.45rem 1rem;
-      color: var(--text-primary);
-      font-size: 13px;
-      cursor: pointer;
-      flex-shrink: 0;
-      &:hover { border-color: var(--accent-amber); color: var(--accent-amber); }
-    }
+    .load-error-body { flex: 1; min-width: 0; }
+    .load-error-title { font-weight: 600; margin-bottom: 2px; }
+    .load-error-text { font-size: var(--text-sm); color: var(--text-secondary); }
   `]
 })
 export class LoadErrorComponent {
