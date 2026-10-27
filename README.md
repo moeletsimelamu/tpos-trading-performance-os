@@ -49,17 +49,20 @@ A unified operating system for managing trading operations, financial performanc
 ## Architecture
 
 ```
-MelamuHoldings.Domain          entities and enums (no dependencies)
-MelamuHoldings.Application     services, DTOs, repository interfaces
-MelamuHoldings.Infrastructure  EF Core DbContext, configurations, migrations, repositories
-MelamuHoldings.API             controllers, auth, error handling, `create-owner` command
-MelamuHoldings.Angular         Angular SPA
+MelamuHoldings.Domain          Identity/, Trading/, Finance/ (Money, Currency), Common/ (no dependencies)
+MelamuHoldings.Application     Identity/, Trading/ services, DTOs and repository interfaces
+MelamuHoldings.Infrastructure  Persistence/ (DbContext, configurations, migrations, repositories)
+MelamuHoldings.API             Controllers/<Module>/, auth, error handling, `create-owner` command
+MelamuHoldings.Angular         core/ (auth, layout), shared/, features/trading/
 tests/                         unit and API integration tests
 ```
 
 Dependencies point inwards:
 - API → Application → Domain.
 - Infrastructure implements the Application interfaces and is wired up at startup through dependency injection.
+- Modules depend in one direction only: trading records reference their user, never the reverse.
+
+Details are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Running locally
 
@@ -98,6 +101,8 @@ You need:
    ```bash
    npm --prefix MelamuHoldings.Angular start
    ```
+
+   After you sign in, the trading pages are at `/trading/performance`, `/trading/trades`, `/trading/import` and `/trading/behaviour`. The sidebar also lists the planned modules, marked **Planned**.
 
 ### CSV format
 
@@ -147,10 +152,14 @@ The integration tests need SQL Server. Details and the latest results are in [`d
 ## Documentation
 
 - [`PLAN.md`](PLAN.md): target architecture, financial domain model, phases and decisions
-- [`docs/EXISTING_FEATURES.md`](docs/EXISTING_FEATURES.md): inventory of the original application
-- [`docs/ARCHITECTURE_REVIEW.md`](docs/ARCHITECTURE_REVIEW.md): audit findings and Phase 2 outcome
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how the code is organised today
+- [`docs/FINANCIAL_DOMAIN.md`](docs/FINANCIAL_DOMAIN.md): money and currency rules
+- [`docs/DATABASE_MIGRATION.md`](docs/DATABASE_MIGRATION.md): migration, backup and restore procedure, and the migration log
+- [`docs/DESIGN.md`](docs/DESIGN.md): design tokens and UI rules
 - [`docs/SECURITY.md`](docs/SECURITY.md): access model and secrets
 - [`docs/TESTING.md`](docs/TESTING.md): test suites and results
+- [`docs/EXISTING_FEATURES.md`](docs/EXISTING_FEATURES.md): inventory of the original application
+- [`docs/ARCHITECTURE_REVIEW.md`](docs/ARCHITECTURE_REVIEW.md): audit findings and Phase 2 outcome
 
 ## Author
 
