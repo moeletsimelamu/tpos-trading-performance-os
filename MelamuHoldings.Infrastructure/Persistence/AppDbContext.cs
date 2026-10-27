@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
 using MelamuHoldings.Domain.Identity;
 using MelamuHoldings.Domain.Trading;
 using MelamuHoldings.Infrastructure.Persistence.Configurations;
@@ -14,7 +13,6 @@ public class AppDbContext : DbContext
     public DbSet<Trade> Trades => Set<Trade>();
     public DbSet<Strategy> Strategies => Set<Strategy>();
     public DbSet<UploadLog> UploadLogs => Set<UploadLog>();
-    public DbSet<BehaviourAlert> BehaviourAlerts => Set<BehaviourAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
