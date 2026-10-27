@@ -3,8 +3,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router, UrlTree } from '@angular/router';
 import { AuthService } from './auth.service';
-import { authGuard } from '../guards/auth.guard';
-import { environment } from '../../environments/environment';
+import { authGuard } from './auth.guard';
+import { environment } from '../../../environments/environment';
 
 // A JWT whose payload only carries `exp`; the signature is irrelevant to the client-side expiry check
 function fakeToken(expiresInSeconds: number): string {

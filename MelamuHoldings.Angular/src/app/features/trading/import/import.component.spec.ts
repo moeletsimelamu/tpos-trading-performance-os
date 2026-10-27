@@ -1,15 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { UploadComponent } from './upload.component';
-import { environment } from '../../../environments/environment';
+import { ImportComponent } from './import.component';
+import { environment } from '../../../../environments/environment';
 
-describe('UploadComponent', () => {
+describe('ImportComponent', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [UploadComponent],
+      imports: [ImportComponent],
       providers: [provideHttpClient(), provideHttpClientTesting()]
     });
     http = TestBed.inject(HttpTestingController);
@@ -18,7 +18,7 @@ describe('UploadComponent', () => {
   afterEach(() => http.verify());
 
   async function render() {
-    const fixture = TestBed.createComponent(UploadComponent);
+    const fixture = TestBed.createComponent(ImportComponent);
     await fixture.whenStable();
     http.expectOne(`${environment.apiUrl}/upload/logs`).flush([]);
     await fixture.whenStable();

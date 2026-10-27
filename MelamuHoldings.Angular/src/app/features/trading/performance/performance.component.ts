@@ -5,23 +5,23 @@ import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2
 import { ChartConfiguration, ChartData } from 'chart.js';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
-import { ApiService } from '../../services/api.service';
-import { AnalyticsSummary, TimePerformance } from '../../models/analytics.model';
-import { LoadErrorComponent } from '../../shared/load-error.component';
-import { describeHttpError } from '../../shared/http-error';
+import { TradingApiService } from '../trading-api.service';
+import { AnalyticsSummary, TimePerformance } from '../models/analytics.model';
+import { LoadErrorComponent } from '../../../shared/load-error.component';
+import { describeHttpError } from '../../../shared/http-error';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
-  selector: 'app-dashboard',
+  selector: 'app-trading-performance',
   standalone: true,
   imports: [DecimalPipe, RouterLink, BaseChartDirective, LoadErrorComponent],
   providers: [provideCharts(withDefaultRegisterables())],
   template: `
-    <div class="dashboard">
+    <div class="performance">
       <header class="page-header">
         <div>
-          <h1>Dashboard</h1>
+          <h1>Trading Performance</h1>
           <p class="text-muted mono">Performance overview · All trades</p>
         </div>
       </header>
@@ -41,7 +41,7 @@ type LoadState = 'loading' | 'ready' | 'error';
             @if (summary.totalTrades === 0) {
               <div class="card empty-card">
                 <div class="empty-title">No trades recorded yet</div>
-                <p class="text-muted">Performance metrics are calculated from your journal. <a routerLink="/upload">Import a CSV</a> to get started.</p>
+                <p class="text-muted">Performance metrics are calculated from your journal. <a routerLink="/trading/import">Import a CSV</a> to get started.</p>
               </div>
             } @else {
               <!-- KPI Cards -->
@@ -155,7 +155,7 @@ type LoadState = 'loading' | 'ready' | 'error';
     </div>
   `,
   styles: [`
-    .dashboard { max-width: 1400px; }
+    .performance { max-width: 1400px; }
 
     .page-header {
       margin-bottom: 2rem;
@@ -219,8 +219,8 @@ type LoadState = 'loading' | 'ready' | 'error';
     }
   `]
 })
-export class DashboardComponent {
-  private api = inject(ApiService);
+export class PerformanceComponent {
+  private api = inject(TradingApiService);
   private destroyRef = inject(DestroyRef);
 
   readonly state = signal<LoadState>('loading');

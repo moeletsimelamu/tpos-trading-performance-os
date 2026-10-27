@@ -2,8 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { DashboardComponent } from './dashboard.component';
-import { environment } from '../../../environments/environment';
+import { PerformanceComponent } from './performance.component';
+import { environment } from '../../../../environments/environment';
 
 const api = environment.apiUrl;
 
@@ -12,12 +12,12 @@ const emptySummary = {
   totalPnL: 0, maxDrawdown: 0, winCount: 0, lossCount: 0, breakevenCount: 0
 };
 
-describe('DashboardComponent', () => {
+describe('PerformanceComponent', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [DashboardComponent],
+      imports: [PerformanceComponent],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])]
     });
     http = TestBed.inject(HttpTestingController);
@@ -26,7 +26,7 @@ describe('DashboardComponent', () => {
   afterEach(() => http.verify());
 
   async function render() {
-    const fixture = TestBed.createComponent(DashboardComponent);
+    const fixture = TestBed.createComponent(PerformanceComponent);
     await fixture.whenStable();
     return fixture;
   }
@@ -50,7 +50,7 @@ describe('DashboardComponent', () => {
     await fixture.whenStable();
 
     expect(fixture.nativeElement.textContent).toContain('No trades recorded yet');
-    expect(fixture.nativeElement.querySelector('a[href="/upload"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/trading/import"]')).not.toBeNull();
   });
 
   it('shows an error with Retry when a request fails, and recovers on retry', async () => {

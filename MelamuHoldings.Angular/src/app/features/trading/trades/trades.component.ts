@@ -2,10 +2,10 @@ import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ApiService } from '../../services/api.service';
-import { Trade } from '../../models/trade.model';
-import { LoadErrorComponent } from '../../shared/load-error.component';
-import { describeHttpError } from '../../shared/http-error';
+import { TradingApiService } from '../trading-api.service';
+import { Trade } from '../models/trade.model';
+import { LoadErrorComponent } from '../../../shared/load-error.component';
+import { describeHttpError } from '../../../shared/http-error';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -125,7 +125,7 @@ type LoadState = 'loading' | 'ready' | 'error';
                   } @empty {
                     <tr>
                       <td colspan="13" class="empty-state">
-                        {{ trades().length === 0 ? 'No trades recorded yet. Import a CSV from the Upload page.' : 'No trades match these filters.' }}
+                        {{ trades().length === 0 ? 'No trades recorded yet. Import a CSV from the Import page.' : 'No trades match these filters.' }}
                       </td>
                     </tr>
                   }
@@ -258,7 +258,7 @@ type LoadState = 'loading' | 'ready' | 'error';
   `]
 })
 export class TradesComponent {
-  private api = inject(ApiService);
+  private api = inject(TradingApiService);
   private destroyRef = inject(DestroyRef);
 
   readonly state = signal<LoadState>('loading');

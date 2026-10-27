@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
-import { AuthService } from '../services/auth.service';
+import { AuthService } from '../auth/auth.service';
 
 @Component({
   selector: 'app-shell',
@@ -14,10 +14,10 @@ import { AuthService } from '../services/auth.service';
           <span class="logo-text">Trader<br><strong>Analytics</strong></span>
         </div>
         <ul class="nav-links">
-          <li><a routerLink="/dashboard" routerLinkActive="active"><span class="nav-icon">◈</span> Dashboard</a></li>
-          <li><a routerLink="/trades" routerLinkActive="active"><span class="nav-icon">◎</span> Trades</a></li>
-          <li><a routerLink="/upload" routerLinkActive="active"><span class="nav-icon">⊕</span> Upload</a></li>
-          <li><a routerLink="/behaviour" routerLinkActive="active"><span class="nav-icon">◉</span> Behaviour</a></li>
+          <li><a routerLink="/trading/performance" routerLinkActive="active"><span class="nav-icon">◈</span> Dashboard</a></li>
+          <li><a routerLink="/trading/trades" routerLinkActive="active"><span class="nav-icon">◎</span> Trades</a></li>
+          <li><a routerLink="/trading/import" routerLinkActive="active"><span class="nav-icon">⊕</span> Upload</a></li>
+          <li><a routerLink="/trading/behaviour" routerLinkActive="active"><span class="nav-icon">◉</span> Behaviour</a></li>
         </ul>
         <div class="sidebar-footer">
           @if (auth.user(); as user) {

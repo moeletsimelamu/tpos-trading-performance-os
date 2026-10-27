@@ -1,12 +1,13 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './guards/auth.guard';
-import { ShellComponent } from './layout/shell.component';
+import { authGuard } from './core/auth/auth.guard';
+import { ShellComponent } from './core/layout/shell.component';
 
 export const routes: Routes = [
   {
     path: 'login',
+    title: 'Sign in',
     loadComponent: () =>
-      import('./features/auth/login.component').then(m => m.LoginComponent)
+      import('./core/auth/login.component').then(m => m.LoginComponent)
   },
   {
     // Signed-in pages share the sidebar shell; the login page renders without it
@@ -15,27 +16,18 @@ export const routes: Routes = [
     canActivate: [authGuard],
     canActivateChild: [authGuard],
     children: [
-      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      // The Executive Overview becomes the landing page once it exists (Phase 5)
+      { path: '', redirectTo: 'trading/performance', pathMatch: 'full' },
       {
-        path: 'dashboard',
-        loadComponent: () =>
-          import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
+        path: 'trading',
+        loadChildren: () => import('./features/trading/trading.routes').then(m => m.tradingRoutes)
       },
-      {
-        path: 'trades',
-        loadComponent: () =>
-          import('./features/trades/trades.component').then(m => m.TradesComponent)
-      },
-      {
-        path: 'upload',
-        loadComponent: () =>
-          import('./features/upload/upload.component').then(m => m.UploadComponent)
-      },
-      {
-        path: 'behaviour',
-        loadComponent: () =>
-          import('./features/behaviour/behaviour.component').then(m => m.BehaviourComponent)
-      }
+
+      // Paths used before the Melamu Holdings OS navigation; kept so bookmarks still work
+      { path: 'dashboard', redirectTo: 'trading/performance', pathMatch: 'full' },
+      { path: 'trades', redirectTo: 'trading/trades', pathMatch: 'full' },
+      { path: 'upload', redirectTo: 'trading/import', pathMatch: 'full' },
+      { path: 'behaviour', redirectTo: 'trading/behaviour', pathMatch: 'full' }
     ]
   },
   { path: '**', redirectTo: '' }

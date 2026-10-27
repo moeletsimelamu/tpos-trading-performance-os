@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { AuthService } from './auth.service';
 import { describeHttpError } from '../../shared/http-error';
 
 @Component({
@@ -176,7 +176,7 @@ export class LoginComponent {
     this.errorMsg.set('');
 
     this.auth.login({ email: this.email, password: this.password }).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
+      next: () => this.router.navigateByUrl('/'),
       error: (error: HttpErrorResponse) => {
         this.errorMsg.set(loginErrorMessage(error));
         this.loading.set(false);

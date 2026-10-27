@@ -1,21 +1,21 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ApiService } from '../../services/api.service';
-import { UploadResult } from '../../models/analytics.model';
-import { LoadErrorComponent } from '../../shared/load-error.component';
-import { describeHttpError } from '../../shared/http-error';
+import { TradingApiService } from '../trading-api.service';
+import { UploadResult } from '../models/analytics.model';
+import { LoadErrorComponent } from '../../../shared/load-error.component';
+import { describeHttpError } from '../../../shared/http-error';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
-  selector: 'app-upload',
+  selector: 'app-trading-import',
   standalone: true,
   imports: [LoadErrorComponent],
   template: `
-    <div class="upload-page">
+    <div class="import-page">
       <header class="page-header">
         <div>
-          <h1>Upload Journal</h1>
+          <h1>Import Journal</h1>
           <p class="text-muted mono">Import trades from a CSV file</p>
         </div>
       </header>
@@ -151,7 +151,7 @@ type LoadState = 'loading' | 'ready' | 'error';
     </div>
   `,
   styles: [`
-    .upload-page { max-width: 900px; }
+    .import-page { max-width: 900px; }
 
     .page-header {
       margin-bottom: 1.5rem;
@@ -233,8 +233,8 @@ type LoadState = 'loading' | 'ready' | 'error';
     .empty-state { color: var(--text-muted); font-size: 13px; padding: 1rem 0; }
   `]
 })
-export class UploadComponent {
-  private api = inject(ApiService);
+export class ImportComponent {
+  private api = inject(TradingApiService);
   private destroyRef = inject(DestroyRef);
 
   readonly isDragging = signal(false);

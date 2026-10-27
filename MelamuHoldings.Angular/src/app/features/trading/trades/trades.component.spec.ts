@@ -2,8 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TradesComponent } from './trades.component';
-import { Trade } from '../../models/trade.model';
-import { environment } from '../../../environments/environment';
+import { Trade } from '../models/trade.model';
+import { environment } from '../../../../environments/environment';
 
 function trade(overrides: Partial<Trade>): Trade {
   return {

@@ -12,7 +12,7 @@ describe('LoginComponent', () => {
     localStorage.clear();
     TestBed.configureTestingModule({
       imports: [LoginComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'dashboard', children: [] }])]
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: '', children: [] }])]
     });
     http = TestBed.inject(HttpTestingController);
   });

@@ -1,15 +1,15 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { environment } from '../../../environments/environment';
 import {
   AnalyticsSummary, EquityPoint, StrategyPerformance,
   TimePerformance, BehaviourSummary, UploadResult
-} from '../models/analytics.model';
-import { Trade, CreateTrade } from '../models/trade.model';
+} from './models/analytics.model';
+import { Trade, CreateTrade } from './models/trade.model';
 
 @Injectable({ providedIn: 'root' })
-export class ApiService {
+export class TradingApiService {
   private base = environment.apiUrl;
 
   constructor(private http: HttpClient) {}

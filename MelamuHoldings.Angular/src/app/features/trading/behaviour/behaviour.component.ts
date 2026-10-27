@@ -1,10 +1,10 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ApiService } from '../../services/api.service';
-import { BehaviourSummary } from '../../models/analytics.model';
-import { LoadErrorComponent } from '../../shared/load-error.component';
-import { describeHttpError } from '../../shared/http-error';
+import { TradingApiService } from '../trading-api.service';
+import { BehaviourSummary } from '../models/analytics.model';
+import { LoadErrorComponent } from '../../../shared/load-error.component';
+import { describeHttpError } from '../../../shared/http-error';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -206,7 +206,7 @@ type LoadState = 'loading' | 'ready' | 'error';
   `]
 })
 export class BehaviourComponent {
-  private api = inject(ApiService);
+  private api = inject(TradingApiService);
   private destroyRef = inject(DestroyRef);
 
   readonly state = signal<LoadState>('loading');

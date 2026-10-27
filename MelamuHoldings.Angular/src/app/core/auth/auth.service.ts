@@ -2,8 +2,8 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
-import { environment } from '../../environments/environment';
-import { AuthResponse, LoginRequest } from '../models/auth.model';
+import { environment } from '../../../environments/environment';
+import { AuthResponse, LoginRequest } from './auth.model';
 
 const TOKEN_KEY = 'td_token';
 const USER_KEY = 'td_user';
