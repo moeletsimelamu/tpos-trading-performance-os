@@ -7,8 +7,9 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 **Status:**
 - Phase 1 (audit) is complete.
 - Phase 2 (stabilise) is complete and merged to `main` (PR #2; outcome in `docs/ARCHITECTURE_REVIEW.md` §10a).
-- Phase 3 (foundation) is complete on branch `phase-3-foundation` and awaiting review. The structure as built is in `docs/ARCHITECTURE.md`.
-- Next is Phase 4 (accounts and ledger, including currency exchange).
+- Phase 3 (foundation) is complete; it is on `develop` and in PR #3 to `main`. The structure as built is in `docs/ARCHITECTURE.md`.
+- Phase 4 (accounts and ledger) is complete on branch `phase-4-ledger` and awaiting review. The rules as built are in `docs/FINANCIAL_DOMAIN.md`.
+- Next is Phase 5: payouts and capital allocation, the first milestone.
 
 ---
 
@@ -227,12 +228,12 @@ Cross-cutting:
   |---|---|
   | Executive Overview | |
   | Trading Operations | Performance (the current dashboard), Trades, Import, Behaviour, Prop Accounts *(planned)* |
-  | Financial Management | Accounts, Transactions, Payouts |
-  | Capital Allocation | Allocations, Policies |
+  | Financial Management | Accounts, Funds, Transactions, Audit Log *(live since Phase 4)*; Payouts *(Phase 5)* |
+  | Capital Allocation | Allocations, Policies *(Phase 5)* |
   | Wealth Management *(planned)* | |
   | Business Continuity *(planned)* | |
   | Business Planning *(planned)* | |
-  | Settings | Funds, Currencies, Profile |
+  | Settings *(planned, Phase 10)* | Profile, password. Funds moved under Financial Management; currencies are a fixed supported list. |
 
   The old paths `/dashboard`, `/trades`, `/upload` and `/behaviour` redirect to their new homes.
 - **State and change detection**: signals for component state, `HttpClient` wrapped in small per-module data services. This also resolves the zoneless refresh risk (`ARCHITECTURE_REVIEW` W5).
@@ -258,7 +259,7 @@ Each phase ends with a build, all tests green, a browser check of the touched pa
 |---|---|---|
 | **2 — Stabilise** | Resolve the folder rename (decision D1) so the solution builds again: the working tree currently fails with 102 errors, while committed `develop` builds cleanly. Run the API against a scratch SQLEXPRESS database and check the existing pages in the browser. Pin a patched `System.Security.Cryptography.Pkcs` to clear the NU1903 high-severity advisory. Move the JWT key to user-secrets and rotate it. Disable open registration and add an owner-provisioning command. Add ProblemDetails and exception middleware. Validate trade DTOs. Fix the RR binding, the error states and zoneless refresh on existing pages. Remove dead code (`app.ts`, `server.ts`, SSR dependencies, `NavigationService`). Add an xUnit test project (characterisation tests for analytics and behaviour), the Angular test target, and a GitHub Actions CI workflow. | Clean build; tests pass in CI; existing four pages verified in the browser; no secret in the repository |
 | **3 — Foundation** ✅ | Module folders (the `MelamuHoldings.*` rename was done in Phase 2). Drop the never-written `BehaviourAlerts` table. New layout and navigation with status labels. Brand identity. `Money`/`Currency` domain types. `finance` schema conventions (the schema itself is created by Phase 4's first migration). Backup procedure documented. | All existing features reachable and working under the new navigation; migrations apply from scratch and to the existing databases |
-| **4 — Accounts and ledger** | Funds, financial accounts, ledger transactions and entries; income, expense, transfer, reallocation, opening balance, reversal, currency exchange. Balances by account and by fund. Audit events. Transaction list with filters and pagination. | Domain tests for every invariant in §3.2; API integration tests including 401, 400, 409 and idempotent retry; balances reconcile to entries |
+| **4 — Accounts and ledger** ✅ | Funds, financial accounts, ledger transactions and entries; income, expense, transfer, reallocation, opening balance, reversal, currency exchange. Balances by account and by fund. Audit events. Transaction list with filters and pagination. | Domain tests for every invariant in §3.2; API integration tests including 401, 400, 409 and idempotent retry; balances reconcile to entries |
 | **5 — Payouts and allocation (first milestone)** | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. A minimal Executive Overview with cash by account, fund balances and outstanding allocations. | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
 | **6 — Executive Overview** | Period filters; income and expenses by period; net cash movement (labelled as cash movement, not profit); recent payouts; drill-down links to records; warnings panel. | Every figure traceable to a record list |
 | **7 — Continuity and wealth** | Obligations, continuity targets (24-month essential cover plus a separate restoration target), coverage months, earmarked versus physically separated view; investment accounts, contributions, valuation snapshots, unrealised gain/loss; budgets and planned purchases with budget-versus-actual. | Formulas documented in `FINANCIAL_DOMAIN.md` and unit-tested |

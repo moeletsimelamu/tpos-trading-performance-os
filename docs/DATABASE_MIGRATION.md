@@ -64,5 +64,6 @@ dotnet ef database update <PreviousMigrationName> --project MelamuHoldings.Infra
 |---|---|---|---|---|
 | `20260601103317_InitialCreate` | 2026-06-01 (original app) | Users, Trades, Strategies, UploadLogs, BehaviourAlerts | — | — |
 | `20261027135646_RemoveUnusedBehaviourAlerts` | 2026-10-27, dev `MelamuHoldings` and `MelamuHoldings_Scratch` | Drops `BehaviourAlerts`. The application never wrote to it; alerts are computed on each request. `Down` recreates it. | None. The table was empty in every database. | `MelamuHoldings_20261027_pre-RemoveUnusedBehaviourAlerts.bak`, verified with `RESTORE VERIFYONLY` |
+| `20261027144346_AddFinanceLedger` | 2026-10-27, dev `MelamuHoldings` and `MelamuHoldings_Scratch` | Creates the `finance` schema: `Funds`, `FinancialAccounts`, `LedgerTransactions`, `LedgerEntries`, `AuditEvents`, with Restrict foreign keys and unique indexes (idempotency key, reversed transaction, names). Seeds the five default funds. `Down` drops the five tables. | Additive; existing tables untouched. | `MelamuHoldings_20261027_pre-AddFinanceLedger.bak`, verified with `RESTORE VERIFYONLY` |
 
 The old `TraderDashboard` database (test data only, decision D5) is no longer used and has not been migrated.

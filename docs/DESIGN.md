@@ -37,7 +37,9 @@ The token names (`--accent-amber`, `--bg-card` and so on) are kept from the orig
 ## Rules
 
 - **Status honesty.** Navigation shows planned modules as non-link items with a "Planned" badge and their phase. A page exists only when it works.
-- **Money display.** Show the currency code beside every monetary figure. Don't colour a figure green or red unless its sign means gain or loss. *Gap:* trading P&L figures don't have a currency yet (the journal has none); prop-account currencies arrive in Phase 8.
+- **Money display.** Use the `money` pipe: `{{ amount | money: currency }}` renders `ZAR 1,350.00`, and `: true` adds a `+` for credits. Every monetary figure shows its currency code. Ledger entries are coloured with `.amount-in` / `.amount-out` by sign; nothing else is coloured for decoration. *Gap:* trading P&L figures don't have a currency yet (the journal has none); prop-account currencies arrive in Phase 8.
+- **Shared building blocks.** `.page` (page header), `.data-table` (with `.num` for right-aligned figures), `.table-card`, `.btn` / `.btn-primary` / `.btn-danger` / `.btn-link`, `.form-grid` / `.field` (label, input, `.hint`, `.error`), `.notice-success` / `.notice-error`. These live in `styles.scss` so new pages don't re-declare them.
+- **Irreversible actions ask first.** Closing an account needs a second click ("Confirm close"). Reversal needs a written reason. Native `confirm()` dialogs are not used in new pages.
 - **Charts.** Only where a trend or comparison matters. P&L bars are green or red by sign. Lines are drawn straight, never smoothed. There are no legends for single series.
 - **States.** Every data view has loading, empty (with the next action) and error (with Retry) states. Use `<app-load-error>`.
 - **Responsive.** At 900 px and above, a fixed 240 px sidebar. Below that, a top bar with a drawer. Content must not scroll horizontally at 375 px; tables scroll inside their card.

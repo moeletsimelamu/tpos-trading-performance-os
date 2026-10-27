@@ -7,9 +7,27 @@ The strategy for later phases is in `../PLAN.md` §9.
 
 | Suite | Location | What it covers | Needs |
 |---|---|---|---|
-| .NET unit | `tests/MelamuHoldings.UnitTests` | `Money`/`Currency` rules (minor units, rounding modes, currency mismatch, equality), trading analytics (summary, expectancy, drawdown, equity curve, strategy breakdown), behaviour detection, CSV parsing, trade DTO validation, owner provisioning, login, JWT options | Nothing |
-| API integration | `tests/MelamuHoldings.IntegrationTests` | The real API via `WebApplicationFactory`: login and ProblemDetails, rate limiting, missing signing key, anonymous access (401), trade validation (400), cross-user isolation, CSV upload into behaviour analytics, JSON contract (`rr`) | SQL Server |
-| Angular unit | `MelamuHoldings.Angular/src/**/*.spec.ts` (Vitest via `@angular/build:unit-test`) | Routing (old-URL redirects, login redirect, page titles), shell navigation (built pages are links; planned modules are labelled, non-interactive items; drawer toggle), auth session and guard, HTTP error messages, and the performance, trades, login and import pages: loading, empty and error states, Retry, filters, failed delete, double submit, inline upload errors | Node 22 |
+| .NET unit | `tests/MelamuHoldings.UnitTests` | `Money`/`Currency` rules (minor units, rounding modes, currency mismatch, equality), ledger rules (each transaction type's entries and zero-sum, currency and closed-account checks, exchange rate, reversal, dates, closing at zero, system fund), trading analytics (summary, expectancy, drawdown, equity curve, strategy breakdown), behaviour detection, CSV parsing, trade DTO validation, owner provisioning, login, JWT options | Nothing |
+| API integration | `tests/MelamuHoldings.IntegrationTests` | The real API via `WebApplicationFactory`: login and ProblemDetails, rate limiting, missing signing key, anonymous access (401), trade validation (400), cross-user isolation, CSV upload into behaviour analytics, JSON contract (`rr`). Finance:
+<ul>
+<li>a full flow with hand-checked account, fund and cash totals;</li>
+<li>idempotent retries, including 8 concurrent requests posting once;</li>
+<li>reversal once only;</li>
+<li>400 vs 422 cases;</li>
+<li>one opening balance per account and fund;</li>
+<li>closing an account;</li>
+<li>filtering and paging;</li>
+<li>as-of balances;</li>
+<li>audit events;</li>
+<li>401, and 403 without the Owner role.</li>
+</ul> | SQL Server |
+| Angular unit | `MelamuHoldings.Angular/src/**/*.spec.ts` (Vitest via `@angular/build:unit-test`) | Routing (old-URL redirects, login redirect, page titles), shell navigation (built pages are links; planned modules are labelled, non-interactive items; drawer toggle), auth session and guard, HTTP error messages, and the performance, trades, login and import pages: loading, empty and error states, Retry, filters, failed delete, double submit, inline upload errors. Finance:
+<ul>
+<li>money formatting;</li>
+<li>the record form: request body, idempotency key kept on retry and renewed on change, double submit, amount validation, negative opening balance, same- vs cross-currency destinations, entry preview, implied rate;</li>
+<li>accounts: totals, close at zero only, 409 shown;</li>
+<li>ledger: URL filters, signed entries, reversal with key, reversal eligibility.</li>
+</ul> | Node 22 |
 
 ### Integration test database
 
@@ -31,7 +49,40 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
-## Results — 2026-10-27 (branch `phase-3-foundation`)
+## Results — 2026-10-27 (branch `phase-4-ledger`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 75 passed, 0 failed |
+| `dotnet test` (Release): integration, against local SQL Server Express 2019, applying all three migrations | 33 passed, 0 failed. Stable across 4 consecutive runs; no test databases left behind. |
+| `ng test --watch=false` | 58 passed, 0 failed (11 files) |
+| `ng build` (production) | Succeeded; initial bundle 310.28 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev --audit-level=high` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+
+### Manual browser verification (Phase 4)
+
+Run against `MelamuHoldings_Scratch` after applying `AddFinanceLedger`, with every record labelled "scratch test".
+
+Recorded:
+- **Through the UI:** an account (Payouts USD); income of USD 1,350, with the account preselected from the URL and the preview showing "Payouts USD · Unallocated, USD +1,350.00"; a currency exchange of USD 1,000 → ZAR 18,250.50, where the "to" list offered only ZAR accounts and the rate hint read 18.2505; and an earmark of ZAR 5,000 from Unallocated to Business Continuity.
+- **Through the API:** two ZAR accounts, a ZAR 2,000 transfer to Reserve, and a deliberately wrong ZAR 3,000 expense.
+- **Reversed through the ledger page:** the wrong expense, with a reason. #6 reverses #5, and #5 shows "Reversed by #6".
+
+Checked:
+- **Accounts page, all matching the hand calculation:**
+  - Payouts USD 350.00.
+  - Operating ZAR 16,250.50 (Unallocated 13,250.50 + Business Continuity 3,000.00).
+  - Reserve ZAR 2,000.00.
+  - Cash totals USD 350.00 and ZAR 18,250.50.
+- **Funds page:** Unallocated USD 350.00 and ZAR 13,250.50; Business Continuity ZAR 5,000.00.
+- **Audit log:** all nine changes in order.
+- **Phone width (375 px):** no horizontal page scroll; the ledger table scrolls inside its card; the form uses one column.
+- **Fixed during the check:** links used the browser's default dark blue, and `.btn-link` buttons had a light default background.
+
+## Results — Phase 3 (branch `phase-3-foundation`)
 
 | Command | Result |
 |---|---|

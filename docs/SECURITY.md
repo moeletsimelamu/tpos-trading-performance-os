@@ -12,7 +12,16 @@ The current access model and how secrets are handled. Remaining risks are listed
 
   It prompts for email, display name and password. The password has a 12-character minimum and is masked at a terminal. It is stored as a BCrypt hash.
 - **Authentication:** an HS256 JWT valid for `Jwt:ExpiryHours` (default 8). The frontend keeps it in `localStorage`. That is acceptable for a single-operator local deployment; revisit before any public deployment.
-- **Authorisation:** every trading endpoint requires a valid token and is scoped to the caller's user id. Another user's trade returns 404, and an integration test covers this. Phase 4 adds an `Owner` policy for the finance endpoints.
+- **Authorisation:**
+  - Every trading endpoint requires a valid token and is scoped to the caller's user id. Another user's trade returns 404, and an integration test covers this.
+  - Every finance endpoint (`/api/funds`, `/api/financial-accounts`, `/api/transactions`, `/api/balances`, `/api/audit-events`, `/api/currencies`) requires the **`Owner` policy**. Accounts created with `create-owner` get the `Owner` role in their token. A valid token without it gets 403, and a test covers this.
+  - Sessions started before Phase 4 hold tokens without the role, so they must sign in again; the UI says so.
+- **Financial integrity:**
+  - There is no endpoint that edits or deletes a transaction or sets a balance.
+  - Retries are idempotent (`Idempotency-Key`).
+  - Every finance change writes an append-only audit event in the same database transaction.
+  - Finance foreign keys never cascade from users.
+  - No bank or brokerage credentials are stored.
 - **Login throttling:** `Auth:LoginAttemptsPerMinute` (default 5) per client IP. Excess attempts get HTTP 429.
 
 ## Secrets
@@ -45,4 +54,4 @@ dotnet user-secrets set "Jwt:Key" "<at least 32 random characters>" --project Me
 ## Open items
 
 - HTTPS and HSTS enforcement, CORS origins, and secret management for an actual deployment are documented in Phase 10.
-- An append-only audit trail for financial changes arrives with the finance modules in Phase 4.
+- The audit log is append-only at the API level. A database administrator could still alter the table directly. Tamper evidence (for example hash-chaining events) is not implemented.

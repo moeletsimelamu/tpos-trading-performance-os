@@ -4,7 +4,11 @@ A unified operating system for managing trading operations, financial performanc
 
 > **Status: in transformation.** This repository started as the *Trader Performance Analytics Dashboard* and is being evolved into Melamu Holdings OS in phases (see [`PLAN.md`](PLAN.md)).
 >
-> **What works today** is the trading module described below. The financial modules (accounts, payouts, capital allocation, continuity, wealth) are **planned, not built**.
+> **What works today:**
+> - the trading module;
+> - **Financial Management**: accounts, funds, an auditable ledger and balances.
+>
+> Payouts, capital allocation, business continuity and wealth management are **planned, not built**. They appear in the navigation marked *Planned*.
 
 ## What works today: trading operations
 
@@ -29,10 +33,27 @@ A unified operating system for managing trading operations, financial performanc
 - **Loss streaks**: 3 or more consecutive losses (Critical at 5).
 - **Rule deviations**: the count and P&L of trades marked as manual overrides.
 
-### Access
+## What works today: financial management
+
+- **Accounts:** real places money is held (Bank, Cash, Brokerage), each in one fixed currency with stated ownership. They close only at a zero balance. No credentials are stored.
+- **Funds:** what money is earmarked for. The defaults are Unallocated, Operating Capital, Business Continuity, Wealth Fund and Owner's Distribution. One account can hold several funds.
+- **Ledger:** record income, expenses, transfers, earmarks (between funds inside one account), currency exchanges (USD → ZAR at the rate you actually got) and opening balances.
+  - Entries are never edited.
+  - Mistakes are reversed, once, with a reason.
+  - Retries are safe, because each submission carries an idempotency key.
+- **Balances:** always summed from entries.
+  - Per account, with a per-fund breakdown.
+  - Per fund, in each currency; currencies are never added together.
+  - Cash totals for Bank and Cash accounts.
+  - Optionally as of a date.
+- **Audit log:** every finance change, with who made it and when.
+
+The rules and formulas are in [`docs/FINANCIAL_DOMAIN.md`](docs/FINANCIAL_DOMAIN.md). This is an operational record of money, not accounting software.
+
+## Access
 - **Single operator.** There is no public sign-up; the owner account is created from the command line.
 - JWT authentication (8-hour tokens) with BCrypt password hashing and login rate limiting.
-- Every query is scoped to the signed-in user.
+- **Trading data** is scoped to the signed-in user. **Finance data** belongs to the business and requires the Owner role.
 
 ## Tech stack
 
@@ -136,6 +157,23 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/analytics/by-day` | Performance by day of week |
 | GET | `/api/analytics/by-session` | Performance by session |
 | GET | `/api/analytics/behaviour` | Behavioural alerts and metrics |
+
+**Finance endpoints** require the Owner role. Money-moving POSTs accept an `Idempotency-Key` header: a retry with the same key returns the original (`Idempotent-Replayed: true`) instead of posting twice.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET / POST | `/api/funds` | List funds with per-currency balances / create a fund |
+| PUT | `/api/funds/{id}` | Rename or describe a fund (not the system fund's name) |
+| GET / POST | `/api/financial-accounts` | List accounts with balances / create an account |
+| GET / PUT | `/api/financial-accounts/{id}` | One account / update name, ownership, institution, notes |
+| POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |
+| POST | `/api/transactions/{opening-balance\|income\|expense\|transfer\|reallocation\|exchange}` | Record a money movement |
+| POST | `/api/transactions/{id}/reverse` | Reverse a transaction (once, with a reason) |
+| GET | `/api/transactions` | The ledger; filter by `from`, `to`, `type`, `accountId`, `fundId`; paged |
+| GET | `/api/transactions/{id}` | One transaction with its entries |
+| GET | `/api/balances?asOf=` | Account, fund and cash balances, optionally as of a date |
+| GET | `/api/audit-events` | Audit log, newest first, paged |
+| GET | `/api/currencies` | Supported currencies |
 
 ## Tests
 
