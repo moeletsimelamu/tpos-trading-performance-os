@@ -52,8 +52,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization();
 
-// Login throttling
-var loginAttemptsPerMinute = builder.Configuration.GetValue("Auth:LoginAttemptsPerMinute", 5);
+// Login throttling — the limit is read when the limiter is created, so configuration added late (tests) applies
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -61,7 +60,8 @@ builder.Services.AddRateLimiter(options =>
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions
         {
-            PermitLimit = loginAttemptsPerMinute,
+            PermitLimit = context.RequestServices.GetRequiredService<IConfiguration>()
+                .GetValue("Auth:LoginAttemptsPerMinute", 5),
             Window = TimeSpan.FromMinutes(1)
         }));
 });

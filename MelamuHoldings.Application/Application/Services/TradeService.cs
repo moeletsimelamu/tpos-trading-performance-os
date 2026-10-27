@@ -24,10 +24,7 @@ public class TradeService
 
     public async Task<TradeResponseDto?> GetTradeByIdAsync(int tradeId, int userId)
     {
-        var exists = await _tradeRepository.ExistsAsync(tradeId, userId);
-        if (!exists) return null;
-
-        var trade = await _tradeRepository.GetByIdAsync(tradeId);
+        var trade = await _tradeRepository.GetForUserAsync(tradeId, userId);
         return trade is null ? null : MapToResponseDto(trade);
     }
 
@@ -39,6 +36,7 @@ public class TradeService
         {
             UserId = userId,
             StrategyId = strategy?.Id,
+            Strategy = strategy,
             TradeDate = dto.TradeDate,
             EntryTime = dto.EntryTime,
             Instrument = dto.Instrument,

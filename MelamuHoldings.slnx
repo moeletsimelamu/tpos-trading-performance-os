@@ -5,4 +5,8 @@
     <Project Path="MelamuHoldings.Domain/MelamuHoldings.Domain.csproj" />
     <Project Path="MelamuHoldings.Infrastructure/MelamuHoldings.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MelamuHoldings.IntegrationTests/MelamuHoldings.IntegrationTests.csproj" />
+    <Project Path="tests/MelamuHoldings.UnitTests/MelamuHoldings.UnitTests.csproj" />
+  </Folder>
 </Solution>

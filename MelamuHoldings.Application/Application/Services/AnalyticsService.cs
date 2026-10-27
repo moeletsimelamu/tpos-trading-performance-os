@@ -71,7 +71,8 @@ public class AnalyticsService
         var avgLoss = losses.Count > 0 ? grossLoss / losses.Count : 0;
 
         // Expectancy = (WinRate × AvgWin) - (LossRate × AvgLoss)
-        var lossRate = 1 - winRate;
+        // LossRate counts losing trades only; breakevens contribute zero, so this equals the mean P&L per trade
+        var lossRate = (decimal)losses.Count / trades.Count;
         var expectancy = (winRate * avgWin) - (lossRate * avgLoss);
 
         return new AnalyticsSummaryDto

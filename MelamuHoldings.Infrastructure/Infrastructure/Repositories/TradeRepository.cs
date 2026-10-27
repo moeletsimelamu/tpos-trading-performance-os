@@ -33,6 +33,11 @@ public class TradeRepository : BaseRepository<Trade>, ITradeRepository
             .Where(t => t.UserId == userId && t.StrategyId == strategyId)
             .ToListAsync();
 
+    public async Task<Trade?> GetForUserAsync(int tradeId, int userId) =>
+        await _context.Trades
+            .Include(t => t.Strategy)
+            .FirstOrDefaultAsync(t => t.Id == tradeId && t.UserId == userId);
+
     public async Task<bool> ExistsAsync(int tradeId, int userId) =>
         await _context.Trades
             .AnyAsync(t => t.Id == tradeId && t.UserId == userId);
