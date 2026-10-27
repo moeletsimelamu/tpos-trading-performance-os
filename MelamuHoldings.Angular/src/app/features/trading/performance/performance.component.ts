@@ -169,7 +169,7 @@ type LoadState = 'loading' | 'ready' | 'error';
 
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
@@ -196,6 +196,10 @@ type LoadState = 'loading' | 'ready' | 'error';
       display: grid;
       grid-template-columns: 2fr 1fr;
       gap: 1rem;
+    }
+
+    @media (max-width: 899px) {
+      .charts-grid { grid-template-columns: 1fr; }
     }
 
     .charts-row-2 { margin-top: 1rem; }
@@ -236,8 +240,8 @@ export class PerformanceComponent {
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
-      x: { ticks: { color: '#8888a0', font: { family: 'DM Mono', size: 10 } }, grid: { color: '#1e1e2a' } },
-      y: { ticks: { color: '#8888a0', font: { family: 'DM Mono', size: 10 } }, grid: { color: '#1e1e2a' } }
+      x: { ticks: { color: CHART.tick, font: { family: CHART.font, size: 10 } }, grid: { color: CHART.grid } },
+      y: { ticks: { color: CHART.tick, font: { family: CHART.font, size: 10 } }, grid: { color: CHART.grid } }
     }
   };
 
@@ -263,18 +267,18 @@ export class PerformanceComponent {
             labels: equity.map(p => p.date),
             datasets: [{
               data: equity.map(p => p.cumulativePnL),
-              borderColor: '#10b981',
-              backgroundColor: 'rgba(16,185,129,0.08)',
+              borderColor: CHART.positive,
+              backgroundColor: CHART.positiveFill,
               fill: true,
-              tension: 0.4,
-              pointRadius: 3,
-              pointBackgroundColor: '#10b981'
+              tension: 0,  // straight segments: no smoothing that implies moves between data points
+              pointRadius: 2,
+              pointBackgroundColor: CHART.positive
             }]
           });
           this.strategyChartData.set(pnlBarChart(
-            strategies.map(s => ({ label: s.strategyName, totalPnL: s.totalPnL })), 'rgba(16,185,129,0.7)'));
-          this.dayChartData.set(pnlBarChart(days, 'rgba(16,185,129,0.7)'));
-          this.sessionChartData.set(pnlBarChart(sessions, 'rgba(59,130,246,0.7)'));
+            strategies.map(s => ({ label: s.strategyName, totalPnL: s.totalPnL }))));
+          this.dayChartData.set(pnlBarChart(days));
+          this.sessionChartData.set(pnlBarChart(sessions));
           this.state.set('ready');
         },
         error: err => {
@@ -285,13 +289,24 @@ export class PerformanceComponent {
   }
 }
 
-function pnlBarChart(rows: Pick<TimePerformance, 'label' | 'totalPnL'>[], positiveColour: string): ChartData<'bar'> {
+// Canvas charts cannot read CSS variables, so these mirror the tokens in styles.scss
+const CHART = {
+  tick: '#a3abb8',
+  grid: '#22262d',
+  font: 'IBM Plex Mono',
+  positive: '#3fb27f',
+  positiveFill: 'rgba(63, 178, 127, 0.08)',
+  negative: '#e5534b'
+};
+
+// Green for gains and red for losses on every P&L bar chart
+function pnlBarChart(rows: Pick<TimePerformance, 'label' | 'totalPnL'>[]): ChartData<'bar'> {
   return {
     labels: rows.map(r => r.label),
     datasets: [{
       data: rows.map(r => r.totalPnL),
-      backgroundColor: rows.map(r => r.totalPnL >= 0 ? positiveColour : 'rgba(239,68,68,0.7)'),
-      borderRadius: 4
+      backgroundColor: rows.map(r => r.totalPnL >= 0 ? CHART.positive : CHART.negative),
+      borderRadius: 2
     }]
   };
 }

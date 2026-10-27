@@ -13,12 +13,12 @@ import { describeHttpError } from '../../shared/http-error';
     <div class="auth-shell">
       <form class="auth-card" (ngSubmit)="login()">
         <div class="auth-logo">
-          <span class="logo-mark">TD</span>
-          <span class="auth-title">Trader Analytics</span>
+          <span class="logo-mark" aria-hidden="true">MH</span>
+          <span class="auth-title">Melamu Holdings OS</span>
         </div>
 
-        <h2 class="form-heading">Sign in</h2>
-        <p class="form-sub text-muted mono">Welcome back. Enter your credentials.</p>
+        <h1 class="form-heading">Sign in</h1>
+        <p class="form-sub text-muted">Operator access only. Accounts are created on the server.</p>
 
         <div class="form-group">
           <label class="form-label" for="login-email">Email</label>
@@ -69,33 +69,33 @@ import { describeHttpError } from '../../shared/http-error';
     }
 
     .logo-mark {
-      width: 36px;
-      height: 36px;
-      background: var(--accent-amber);
-      color: var(--bg-primary);
-      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--accent-amber);
+      color: var(--accent-amber);
+      border-radius: var(--radius);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      font-size: 13px;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.04em;
     }
 
     .auth-title {
-      font-weight: 700;
+      font-weight: 600;
       font-size: 15px;
       color: var(--text-primary);
     }
 
     .form-heading {
-      font-family: var(--font-display);
-      font-size: 1.5rem;
-      font-weight: 800;
+      font-size: 1.4rem;
+      font-weight: 700;
       margin-bottom: 0.35rem;
     }
 
     .form-sub {
-      font-size: 12px;
+      font-size: 13px;
       margin-bottom: 1.75rem;
     }
 
@@ -140,12 +140,12 @@ import { describeHttpError } from '../../shared/http-error';
     .btn-primary {
       width: 100%;
       background: var(--accent-amber);
-      color: var(--bg-primary);
+      color: #14110a;
       border: none;
       border-radius: var(--radius);
-      padding: 0.75rem;
+      padding: 0.7rem;
       font-family: var(--font-display);
-      font-weight: 700;
+      font-weight: 600;
       font-size: 14px;
       cursor: pointer;
       transition: opacity 0.15s;
