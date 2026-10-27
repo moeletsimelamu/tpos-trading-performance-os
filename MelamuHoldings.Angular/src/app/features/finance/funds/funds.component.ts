@@ -8,22 +8,20 @@ import { Fund } from '../finance.models';
 import { MoneyPipe } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'app-finance-funds',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent],
+  imports: [ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent],
   template: `
     <div class="page">
-      <header>
-        <div>
-          <h1>Funds</h1>
-          <p>What money is earmarked for. A fund is a purpose, not a bank account; one account can hold several funds.</p>
-        </div>
+      <app-page-header section="Finance" title="Funds"
+        description="What money is earmarked for. A fund is a purpose, not a bank account; one account can hold several funds.">
         <button type="button" class="btn" (click)="startCreate()">New fund</button>
-      </header>
+      </app-page-header>
 
       @if (editing() !== undefined) {
         <form class="card form-card" [formGroup]="form" (ngSubmit)="save()" [attr.aria-label]="editing() ? 'Edit fund' : 'New fund'">
@@ -61,10 +59,10 @@ type LoadState = 'loading' | 'ready' | 'error';
                   <tr>
                     <td>
                       <a [routerLink]="['/finance/transactions']" [queryParams]="{ fundId: f.id }">{{ f.name }}</a>
-                      @if (f.isSystem) { <span class="tag tag-blue system">System</span> }
+                      @if (f.isSystem) { <span class="tag tag-info system">System</span> }
                     </td>
                     <td class="small">{{ f.description ?? '' }}</td>
-                    <td class="num mono">
+                    <td class="num">
                       @for (b of f.balances; track b.currency) { <div>{{ b.amount | money: b.currency }}</div> }
                       @empty { <span class="muted">Nothing recorded</span> }
                     </td>

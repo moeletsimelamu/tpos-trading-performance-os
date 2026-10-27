@@ -8,6 +8,7 @@ import { Account, Fund, RECORD_KINDS, RecordKind, Transaction, UNALLOCATED_FUND_
 import { MoneyPipe } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
 type Field = 'accountId' | 'fundId' | 'fromAccountId' | 'fromFundId' | 'toAccountId' | 'toFundId'
   | 'amount' | 'amountSent' | 'amountReceived' | 'category';
@@ -41,11 +42,11 @@ function amountValidator(allowNegative: () => boolean) {
 @Component({
   selector: 'app-record-transaction',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent],
+  imports: [ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent],
   templateUrl: './record-transaction.component.html',
   styles: [`
     .kinds { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
-    .kind[aria-pressed='true'] { border-color: var(--accent-amber); color: var(--accent-amber); }
+    .kind[aria-pressed='true'] { background: var(--primary); border-color: var(--primary); color: var(--text-inverse); }
     .kind-help { color: var(--text-secondary); font-size: 13px; margin-bottom: 1rem; }
     .preview { margin-top: 1.25rem; border-top: 1px solid var(--border-subtle); padding-top: 0.9rem; }
     .preview h2 { font-size: 13px; font-weight: 600; margin-bottom: 0.4rem; }

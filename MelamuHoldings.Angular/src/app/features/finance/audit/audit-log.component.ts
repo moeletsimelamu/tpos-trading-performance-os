@@ -5,21 +5,18 @@ import { FinanceApiService } from '../finance-api.service';
 import { AuditEvent, Paged } from '../finance.models';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'app-finance-audit-log',
   standalone: true,
-  imports: [DatePipe, LoadErrorComponent],
+  imports: [DatePipe, LoadErrorComponent, PageHeaderComponent],
   template: `
     <div class="page">
-      <header>
-        <div>
-          <h1>Audit log</h1>
-          <p>Every change to accounts, funds and the ledger, newest first. Entries cannot be edited or removed.</p>
-        </div>
-      </header>
+      <app-page-header section="Finance" title="Audit log"
+        description="Every change to accounts, funds and the ledger, newest first. Entries cannot be edited or removed."></app-page-header>
 
       @switch (state()) {
         @case ('loading') {
@@ -39,7 +36,7 @@ type LoadState = 'loading' | 'ready' | 'error';
                   <tbody>
                     @for (event of e.items; track event.id) {
                       <tr>
-                        <td class="mono small nowrap">{{ event.occurredAt | date: 'yyyy-MM-dd HH:mm' }}</td>
+                        <td class="small nowrap secondary">{{ event.occurredAt | date: 'yyyy-MM-dd HH:mm' }}</td>
                         <td class="mono small">{{ event.action }}</td>
                         <td>{{ event.summary }}</td>
                       </tr>

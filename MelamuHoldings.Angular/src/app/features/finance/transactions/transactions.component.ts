@@ -9,6 +9,7 @@ import { Account, Fund, Paged, Transaction, TransactionFilter, TransactionType, 
 import { MoneyPipe } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
 const PAGE_SIZE = 25;
@@ -16,16 +17,13 @@ const PAGE_SIZE = 25;
 @Component({
   selector: 'app-finance-transactions',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink, MoneyPipe, LoadErrorComponent],
+  imports: [DatePipe, FormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent],
   template: `
     <div class="page">
-      <header>
-        <div>
-          <h1>Transactions</h1>
-          <p>The ledger. Entries are never edited; a mistake is corrected by reversing it.</p>
-        </div>
+      <app-page-header section="Finance" title="Transactions"
+        description="The ledger. Entries are never edited; a mistake is corrected by reversing it.">
         <a class="btn btn-primary" routerLink="/finance/transactions/new">Record transaction</a>
-      </header>
+      </app-page-header>
 
       <form class="card filters" (ngSubmit)="applyFilters()" aria-label="Filter transactions">
         <div class="field"><label for="f-from">From</label><input id="f-from" type="date" name="from" [(ngModel)]="draft.from" /></div>
@@ -75,8 +73,8 @@ const PAGE_SIZE = 25;
                   <tbody>
                     @for (t of r.items; track t.id) {
                       <tr class="row" (click)="toggle(t.id)" [class.open]="expanded() === t.id">
-                        <td class="mono nowrap">{{ t.date }}</td>
-                        <td><span class="tag" [class.tag-blue]="t.type !== 'Reversal'" [class.tag-amber]="t.type === 'Reversal'">{{ typeLabel(t.type) }}</span></td>
+                        <td class="nowrap secondary">{{ t.date }}</td>
+                        <td><span class="tag" [class.tag-info]="t.type !== 'Reversal'" [class.tag-warning]="t.type === 'Reversal'">{{ typeLabel(t.type) }}</span></td>
                         <td>
                           <button type="button" class="btn-link row-toggle" [attr.aria-expanded]="expanded() === t.id">{{ t.description }}</button>
                           @if (t.reference) { <div class="muted small">Ref {{ t.reference }}</div> }
@@ -85,7 +83,7 @@ const PAGE_SIZE = 25;
                           @for (e of t.entries; track $index) {
                             <div class="entry">
                               <span>{{ e.accountName }} · {{ e.fundName }}</span>
-                              <span class="mono" [class.amount-in]="e.amount > 0" [class.amount-out]="e.amount < 0">{{ e.amount | money: e.currency : true }}</span>
+                              <span [class.amount-in]="e.amount > 0" [class.amount-out]="e.amount < 0">{{ e.amount | money: e.currency : true }}</span>
                             </div>
                           }
                         </td>
@@ -135,11 +133,11 @@ const PAGE_SIZE = 25;
   styles: [`
     .filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; margin-bottom: 1rem; padding: 1rem; }
     .filter-actions { display: flex; gap: 0.75rem; align-items: center; padding-bottom: 0.3rem; }
-    .row { cursor: pointer; &:hover { background: var(--bg-card-hover); } }
+    .row { cursor: pointer; &:hover { background: var(--surface-hover); } }
     .row-toggle { color: var(--text-primary); text-align: left; }
     .entry { display: flex; justify-content: space-between; gap: 1rem; }
     .nowrap { white-space: nowrap; }
-    .detail td { background: var(--bg-secondary); }
+    .detail td { background: var(--surface-sunken); }
     .detail-grid { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
     .reverse { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; .grow { flex: 1; min-width: 220px; } }
     .pager { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }

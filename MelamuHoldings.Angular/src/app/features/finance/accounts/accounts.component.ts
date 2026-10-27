@@ -7,24 +7,22 @@ import { Account, AccountType, Balances, CurrencyInfo, Ownership } from '../fina
 import { MoneyPipe } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'app-finance-accounts',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent],
+  imports: [ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent],
   template: `
     <div class="page">
-      <header>
-        <div>
-          <h1>Accounts</h1>
-          <p>Real places money is held. Balances are summed from recorded transactions.</p>
-        </div>
+      <app-page-header section="Finance" title="Accounts"
+        description="Real places money is held. Balances are summed from recorded transactions.">
         <button type="button" class="btn" (click)="showForm.set(!showForm())" [attr.aria-expanded]="showForm()">
           {{ showForm() ? 'Cancel' : 'New account' }}
         </button>
-      </header>
+      </app-page-header>
 
       @if (showForm()) {
         <form class="card form-card" [formGroup]="form" (ngSubmit)="create()" aria-label="New account">
@@ -76,17 +74,23 @@ type LoadState = 'loading' | 'ready' | 'error';
         }
         @case ('ready') {
           @if (balances(); as b) {
-            <section class="totals" aria-label="Cash totals">
-              <span class="totals-label">Cash in Bank and Cash accounts</span>
-              @for (t of b.cashTotals; track t.currency) {
-                <span class="mono total">{{ t.amount | money: t.currency }}</span>
-              } @empty {
-                <span class="muted">No cash recorded yet</span>
-              }
-            </section>
+            @if (b.cashTotals.length > 0) {
+              <section class="metric-strip totals" aria-label="Cash totals">
+                @for (t of b.cashTotals; track t.currency) {
+                  <div class="metric">
+                    <span class="metric-label">Cash · {{ t.currency }}</span>
+                    <span class="metric-value">{{ t.amount | money: t.currency }}</span>
+                    <span class="metric-note">Bank and cash accounts</span>
+                  </div>
+                }
+              </section>
+            }
 
             @if (b.accounts.length === 0) {
-              <div class="card">No accounts yet. Add the account payouts arrive in, then record its opening balance.</div>
+              <div class="card empty-state">
+                <h2>No accounts yet</h2>
+                <p>Add the account payouts arrive in, then record its opening balance.</p>
+              </div>
             } @else {
               <div class="card table-card">
                 <table class="data-table">
@@ -102,10 +106,10 @@ type LoadState = 'loading' | 'ready' | 'error';
                         </td>
                         <td>{{ a.type }}</td>
                         <td>{{ a.ownership }}</td>
-                        <td class="num mono">{{ a.balance.amount | money: a.balance.currency }}</td>
+                        <td class="num">{{ a.balance.amount | money: a.balance.currency }}</td>
                         <td class="small">
                           @for (f of a.funds; track f.fundId) {
-                            <div>{{ f.fundName }} <span class="mono">{{ f.balance.amount | money: f.balance.currency }}</span></div>
+                            <div>{{ f.fundName }} <span>{{ f.balance.amount | money: f.balance.currency }}</span></div>
                           } @empty { <span class="muted">—</span> }
                         </td>
                         <td class="actions">
@@ -134,12 +138,10 @@ type LoadState = 'loading' | 'ready' | 'error';
     </div>
   `,
   styles: [`
-    .form-card { margin-bottom: 1.25rem; }
-    .totals { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 1.25rem; margin-bottom: 1rem; }
-    .totals-label { font-size: 12px; color: var(--text-secondary); }
-    .total { font-size: 1.15rem; font-weight: 500; }
+    .form-card { margin-bottom: var(--space-5); }
+    .totals { margin-bottom: var(--space-5); }
     .closed td { color: var(--text-muted); }
-    .actions { white-space: nowrap; display: flex; gap: 0.75rem; align-items: center; }
+    .actions { white-space: nowrap; display: flex; gap: var(--space-3); align-items: center; justify-content: flex-end; }
   `]
 })
 export class AccountsComponent {

@@ -1,11 +1,8 @@
 <div class="page">
-  <header>
-    <div>
-      <h1>Record transaction</h1>
-      <p>Record money that has actually moved. Planned or pending amounts do not belong in the ledger.</p>
-    </div>
-    <a class="btn" routerLink="/finance/transactions">Back to ledger</a>
-  </header>
+  <app-page-header section="Finance" title="Record transaction"
+        description="Record money that has actually moved. Planned or pending amounts do not belong in the ledger.">
+        <a class="btn" routerLink="/finance/transactions">Back to ledger</a>
+      </app-page-header>
 
   @switch (loadState()) {
     @case ('loading') {
@@ -135,7 +132,7 @@
               @for (e of preview(); track $index) {
                 <div class="entry">
                   <span>{{ e.account }} · {{ e.fund }}</span>
-                  <span class="mono" [class.amount-in]="e.amount > 0" [class.amount-out]="e.amount < 0">{{ e.amount | money: e.currency : true }}</span>
+                  <span [class.amount-in]="e.amount > 0" [class.amount-out]="e.amount < 0">{{ e.amount | money: e.currency : true }}</span>
                 </div>
               }
             </section>
