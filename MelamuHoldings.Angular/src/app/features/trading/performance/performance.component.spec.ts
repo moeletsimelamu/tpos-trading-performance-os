@@ -53,6 +53,36 @@ describe('PerformanceComponent', () => {
     expect(fixture.nativeElement.querySelector('a[href="/trading/import"]')).not.toBeNull();
   });
 
+  it('leads with total P&L and switches the breakdown table between views', async () => {
+    const fixture = await render();
+    http.expectOne(`${api}/analytics/summary`).flush({
+      ...emptySummary, totalTrades: 3, totalPnL: 425.5, winRate: 66.7, winCount: 2, lossCount: 1
+    });
+    http.expectOne(`${api}/analytics/equity-curve`).flush([
+      { date: '2026-10-05', cumulativePnL: 100, dailyPnL: 100, drawdown: 0 },
+      { date: '2026-10-06', cumulativePnL: 425.5, dailyPnL: 325.5, drawdown: 0 }
+    ]);
+    http.expectOne(`${api}/analytics/by-strategy`).flush([
+      { strategyName: 'ORB', totalTrades: 2, winRate: 100, averageRR: 1.5, totalPnL: 525.5, profitFactor: 0 },
+      { strategyName: 'Pullback', totalTrades: 1, winRate: 0, averageRR: -1, totalPnL: -100, profitFactor: 0 }
+    ]);
+    http.expectOne(`${api}/analytics/by-day`).flush([{ label: 'Monday', totalTrades: 3, winRate: 66.7, totalPnL: 425.5, averageRR: 0.67 }]);
+    http.expectOne(`${api}/analytics/by-session`).flush([]);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('.metric-lead')?.textContent).toContain('+425.50');
+    expect(el.textContent).toContain('from 5 Oct 2026 to 6 Oct 2026');
+    expect([...el.querySelectorAll('#breakdown-panel tbody tr')].map(r => r.querySelector('td')?.textContent))
+      .toEqual(['ORB', 'Pullback']);
+    expect(el.querySelector('#breakdown-panel tbody tr:last-child')?.textContent).toContain('−100.00');
+
+    (el.querySelector('#tab-day') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(el.querySelector('#breakdown-panel thead th')?.textContent).toBe('Day');
+    expect(el.querySelector('#breakdown-panel tbody')?.textContent).toContain('Monday');
+  });
+
   it('shows an error with Retry when a request fails, and recovers on retry', async () => {
     const fixture = await render();
     http.expectOne(`${api}/analytics/summary`).flush(null, { status: 0, statusText: 'Unknown Error' });

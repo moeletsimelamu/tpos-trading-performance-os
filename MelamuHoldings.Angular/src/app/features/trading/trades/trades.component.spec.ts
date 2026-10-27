@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { TradesComponent } from './trades.component';
 import { Trade } from '../models/trade.model';
 import { environment } from '../../../../environments/environment';
@@ -20,15 +21,12 @@ describe('TradesComponent', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [TradesComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()]
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])]
     });
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => {
-    http.verify();
-    vi.restoreAllMocks();
-  });
+  afterEach(() => http.verify());
 
   async function renderWith(trades: Trade[]) {
     const fixture = TestBed.createComponent(TradesComponent);
@@ -71,7 +69,6 @@ describe('TradesComponent', () => {
   });
 
   it('keeps the trade and shows an error when delete fails', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const fixture = await renderWith([trade({ id: 7 })]);
 
     fixture.componentInstance.deleteTrade(7);
@@ -80,5 +77,21 @@ describe('TradesComponent', () => {
 
     expect(fixture.componentInstance.trades().length).toBe(1);
     expect(fixture.nativeElement.textContent).toContain('Trade was not deleted');
+  });
+
+  it('asks before deleting: the first click only offers Confirm delete', async () => {
+    const fixture = await renderWith([trade({ id: 7 })]);
+    const el = fixture.nativeElement as HTMLElement;
+
+    (el.querySelector('button[aria-label="Delete trade 7"]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    http.expectNone(`${environment.apiUrl}/trades/7`);
+
+    const confirm = [...el.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Confirm delete') as HTMLButtonElement;
+    confirm.click();
+    http.expectOne(`${environment.apiUrl}/trades/7`).flush(null);
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.trades().length).toBe(0);
   });
 });

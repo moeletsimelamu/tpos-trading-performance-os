@@ -4,24 +4,21 @@ import { TradingApiService } from '../trading-api.service';
 import { UploadResult } from '../models/analytics.model';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { IconComponent } from '../../../shared/ui/icon.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'app-trading-import',
   standalone: true,
-  imports: [LoadErrorComponent],
+  imports: [LoadErrorComponent, PageHeaderComponent, IconComponent],
   template: `
-    <div class="import-page">
-      <header class="page-header">
-        <div>
-          <h1>Import Journal</h1>
-          <p class="text-muted mono">Import trades from a CSV file</p>
-        </div>
-      </header>
+    <div class="page narrow">
+      <app-page-header section="Trading operations" title="Import trades"
+        description="Bring trade history in from a CSV export. Valid rows are kept; rows that fail are listed with their row number." />
 
-      <!-- Drop Zone -->
-      <div class="card drop-zone"
+      <div class="drop-zone"
         role="button"
         tabindex="0"
         aria-label="Choose a CSV file to import"
@@ -35,202 +32,121 @@ type LoadState = 'loading' | 'ready' | 'error';
 
         <input #fileInput type="file" accept=".csv" hidden (change)="onFileSelected($event)" />
 
-        <div class="drop-icon">{{ isUploading() ? '⟳' : '⊕' }}</div>
-        <div class="drop-title">
-          {{ isUploading() ? 'Processing...' : 'Drop your CSV here' }}
-        </div>
-        <div class="drop-sub mono">
-          {{ isUploading() ? 'Parsing and storing trades' : 'or click to browse · .csv files only' }}
-        </div>
+        @if (isUploading()) {
+          <div class="spinner" aria-hidden="true"></div>
+          <div class="drop-title">Importing…</div>
+          <div class="drop-sub">Reading rows and saving trades</div>
+        } @else {
+          <app-icon name="import" [size]="28" />
+          <div class="drop-title">Drop a CSV file here, or choose one</div>
+          <div class="drop-sub">.csv only, up to 10 MB</div>
+        }
       </div>
 
       @if (uploadError()) {
-        <p class="upload-error mono" role="alert">{{ uploadError() }}</p>
+        <p class="notice notice-error" role="alert">{{ uploadError() }}</p>
       }
 
-      <!-- Upload Result -->
       @if (lastResult(); as result) {
-        <div class="card result-card">
+        <section class="card result" aria-labelledby="result-heading">
           <div class="result-header">
-            <span class="result-title">Upload {{ result.status === 'Failed' ? 'Failed' : 'Complete' }}</span>
-            <span class="tag" [class.tag-green]="result.status === 'Completed'" [class.tag-red]="result.status === 'Failed'">
-              {{ result.status }}
-            </span>
+            <h2 id="result-heading">{{ result.status === 'Failed' ? 'Import failed' : 'Import complete' }}</h2>
+            <span class="tag" [class.tag-positive]="result.status === 'Completed'" [class.tag-negative]="result.status === 'Failed'">{{ result.status }}</span>
           </div>
-          <div class="result-stats">
-            <div class="stat">
-              <span class="stat-value mono">{{ result.totalRows }}</span>
-              <span class="stat-label">Total Rows</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value mono text-green">{{ result.parsedRows }}</span>
-              <span class="stat-label">Imported</span>
-            </div>
-            <div class="stat">
-              <span class="stat-value mono text-red">{{ result.failedRows }}</span>
-              <span class="stat-label">Failed</span>
-            </div>
-          </div>
+          <dl class="result-stats">
+            <div><dt>Rows read</dt><dd>{{ result.totalRows }}</dd></div>
+            <div><dt>Imported</dt><dd>{{ result.parsedRows }}</dd></div>
+            <div><dt>Failed</dt><dd [class.text-negative]="result.failedRows > 0">{{ result.failedRows }}</dd></div>
+          </dl>
           @if (result.errors.length > 0) {
             <div class="error-list">
-              <p class="error-heading">Parse errors:</p>
-              @for (err of result.errors; track $index) {
-                <p class="error-item mono">{{ err }}</p>
-              }
+              <h3>Rows that were not imported</h3>
+              <ul>
+                @for (err of result.errors; track $index) { <li>{{ err }}</li> }
+              </ul>
             </div>
           }
-        </div>
+        </section>
       }
 
-      <!-- CSV Format Guide -->
-      <div class="card format-card">
-        <div class="format-title">Expected CSV Format</div>
-        <p class="text-muted format-intro">
-          Your CSV must include a header row with these column names:
-        </p>
-        <div class="columns-grid">
-          @for (col of expectedColumns; track col) {
-            <span class="col-tag mono">{{ col }}</span>
-          }
+      <section class="card format" aria-labelledby="format-heading">
+        <h2 id="format-heading">Expected columns</h2>
+        <p class="secondary small">The file needs a header row with these names. <code>Direction</code> is Long or Short; prices must be above zero.</p>
+        <div class="columns">
+          @for (col of expectedColumns; track col) { <code>{{ col }}</code> }
         </div>
-      </div>
+      </section>
 
-      <!-- Upload History -->
-      <div class="card history-card">
-        <div class="history-title">Upload History</div>
+      <section class="card table-card history" aria-labelledby="history-heading">
+        <div class="card-header"><h2 id="history-heading">Import history</h2></div>
 
         @switch (logsState()) {
           @case ('loading') {
-            <div class="loading-state">
-              <div class="spinner"></div>
-              <span class="loading-text">Loading history...</span>
-            </div>
+            <div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading history...</span></div>
           }
           @case ('error') {
             <app-load-error title="Could not load upload history" [message]="logsError()" (retry)="loadLogs()" />
           }
           @case ('ready') {
-            <div class="table-wrap">
-              @if (logs().length > 0) {
-                <table>
-                  <thead>
+            @if (logs().length > 0) {
+              <table class="data-table">
+                <thead>
+                  <tr><th>File</th><th class="num">Rows</th><th class="num">Imported</th><th class="num">Failed</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  @for (log of logs(); track log.uploadLogId) {
                     <tr>
-                      <th>File</th>
-                      <th>Total</th>
-                      <th>Imported</th>
-                      <th>Failed</th>
-                      <th>Status</th>
+                      <td>{{ log.fileName }}</td>
+                      <td class="num">{{ log.totalRows }}</td>
+                      <td class="num">{{ log.parsedRows }}</td>
+                      <td class="num">{{ log.failedRows }}</td>
+                      <td>
+                        <span class="tag" [class.tag-positive]="log.status === 'Completed'" [class.tag-negative]="log.status === 'Failed'"
+                          [class.tag-warning]="log.status === 'Pending'">{{ log.status }}</span>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    @for (log of logs(); track log.uploadLogId) {
-                      <tr>
-                        <td class="mono">{{ log.fileName }}</td>
-                        <td class="mono">{{ log.totalRows }}</td>
-                        <td class="mono text-green">{{ log.parsedRows }}</td>
-                        <td class="mono text-red">{{ log.failedRows }}</td>
-                        <td>
-                          <span class="tag"
-                            [class.tag-green]="log.status === 'Completed'"
-                            [class.tag-red]="log.status === 'Failed'"
-                            [class.tag-amber]="log.status === 'Pending'">
-                            {{ log.status }}
-                          </span>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              } @else {
-                <p class="empty-state mono">No uploads yet.</p>
-              }
-            </div>
+                  }
+                </tbody>
+              </table>
+            } @else {
+              <p class="empty-state small">No imports yet.</p>
+            }
           }
         }
-      </div>
+      </section>
     </div>
   `,
   styles: [`
-    .import-page { max-width: 900px; }
-
-    .page-header {
-      margin-bottom: 1.5rem;
-      h1 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 800; }
-    }
-
+    .narrow { max-width: 900px; }
     .drop-zone {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 3rem;
-      border: 2px dashed var(--border);
-      border-radius: var(--radius-lg);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      margin-bottom: 1rem;
-      background: var(--bg-card);
-      text-align: center;
-
-      &:hover, &.dragging, &:focus-visible {
-        border-color: var(--accent-amber);
-        background: rgba(245, 158, 11, 0.04);
-        outline: none;
-      }
-
-      &.uploading { border-color: var(--accent-blue); pointer-events: none; }
+      display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+      padding: var(--space-10) var(--space-6); text-align: center; cursor: pointer;
+      background: var(--surface); border: 1.5px dashed var(--border); border-radius: var(--radius-lg);
+      color: var(--text-secondary); transition: border-color var(--transition), background var(--transition);
+      &:hover, &.dragging, &:focus-visible { border-color: var(--navy-700); background: var(--surface-sunken); }
+      &.uploading { pointer-events: none; }
+      app-icon { color: var(--navy-700); }
     }
-
-    .drop-icon { font-size: 2.5rem; color: var(--accent-amber); margin-bottom: 0.75rem; line-height: 1; }
-    .drop-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem; }
-    .drop-sub { font-size: 12px; color: var(--text-muted); }
-
-    .upload-error { color: var(--accent-red); font-size: 12px; margin-bottom: 1rem; }
-
-    .result-card { margin-bottom: 1rem; }
-    .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
-    .result-title { font-weight: 700; font-size: 15px; }
-    .result-stats { display: flex; gap: 2rem; margin-bottom: 1rem; }
-    .stat { display: flex; flex-direction: column; gap: 0.2rem; }
-    .stat-value { font-size: 1.5rem; font-weight: 500; }
-    .stat-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
-
-    .error-heading { font-size: 12px; color: var(--accent-red); margin-bottom: 0.5rem; font-weight: 600; }
-    .error-item { font-size: 12px; color: var(--text-secondary); margin-bottom: 0.25rem; }
-
-    .format-card { margin-bottom: 1rem; }
-    .format-title { font-weight: 700; font-size: 15px; margin-bottom: 0.75rem; }
-    .format-intro { margin-bottom: 1rem; font-size: 13px; }
-    .columns-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .col-tag {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 3px 10px;
-      font-size: 12px;
-      color: var(--accent-amber);
+    .spinner { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--navy-900); animation: spin 0.7s linear infinite; }
+    .drop-title { font-size: var(--text-md); font-weight: 600; color: var(--text-primary); }
+    .drop-sub { font-size: var(--text-sm); color: var(--text-muted); }
+    .card { margin-top: var(--space-5); }
+    h2 { font-size: var(--text-md); }
+    .result-header { display: flex; align-items: center; justify-content: space-between; }
+    .result-stats {
+      display: flex; gap: var(--space-8); margin: var(--space-4) 0;
+      dt { font-size: var(--text-sm); color: var(--text-secondary); }
+      dd { font-size: var(--text-lg); font-weight: 600; }
     }
-
-    .history-title { font-weight: 700; font-size: 15px; margin-bottom: 1rem; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th {
-      padding: 0.6rem 0.75rem;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-secondary);
-      border-bottom: 1px solid var(--border);
+    .error-list {
+      border-top: 1px solid var(--border-subtle); padding-top: var(--space-3);
+      h3 { font-size: var(--text-sm); margin-bottom: var(--space-2); }
+      ul { list-style: none; font-size: var(--text-sm); color: var(--text-secondary); display: grid; gap: 2px; }
     }
-    td {
-      padding: 0.65rem 0.75rem;
-      border-bottom: 1px solid var(--border-subtle);
-      color: var(--text-data);
-    }
-    tr:last-child td { border-bottom: none; }
-    .empty-state { color: var(--text-muted); font-size: 13px; padding: 1rem 0; }
+    .format p { margin: var(--space-1) 0 var(--space-3); }
+    .columns { display: flex; flex-wrap: wrap; gap: 6px; }
+    code { font-family: var(--font-mono); font-size: 12px; background: var(--neutral-bg); border-radius: var(--radius-sm); padding: 2px 6px; }
+    .empty-state.small { padding: var(--space-6); }
   `]
 })
 export class ImportComponent {

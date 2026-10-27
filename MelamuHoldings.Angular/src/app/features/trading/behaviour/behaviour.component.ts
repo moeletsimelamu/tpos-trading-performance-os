@@ -1,208 +1,121 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TradingApiService } from '../trading-api.service';
 import { BehaviourSummary } from '../models/analytics.model';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { IconComponent } from '../../../shared/ui/icon.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'app-behaviour',
   standalone: true,
-  imports: [CommonModule, LoadErrorComponent],
+  imports: [DecimalPipe, LoadErrorComponent, PageHeaderComponent, IconComponent],
   template: `
-    <div class="behaviour-page">
-      <header class="page-header">
-        <div>
-          <h1>Behaviour Analytics</h1>
-          <p class="text-muted mono">Patterns, discipline metrics, and risk flags</p>
-        </div>
-      </header>
+    <div class="page">
+      <app-page-header section="Trading operations" title="Behaviour"
+        description="Patterns detected in the journal: trades after losses, busy days, loss streaks and rule overrides." />
 
       @switch (state()) {
         @case ('loading') {
-          <div class="loading-state">
-            <div class="spinner"></div>
-            <span class="loading-text">Loading behaviour data...</span>
-          </div>
+          <div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading behaviour data...</span></div>
         }
         @case ('error') {
           <app-load-error title="Could not load behaviour data" [message]="error()" (retry)="load()" />
         }
         @case ('ready') {
-        @if (summary(); as summary) {
-
-        <!-- Metric Cards -->
-        <section class="metrics-grid">
-          <div class="card metric-card">
-            <span class="metric-label">Revenge Trading</span>
-            <span class="metric-value mono" [class.text-red]="summary.revengeTradingCount > 0" [class.text-green]="summary.revengeTradingCount === 0">
-              {{ summary.revengeTradingCount }}
-            </span>
-            <span class="metric-sub">detected instances</span>
-          </div>
-
-          <div class="card metric-card">
-            <span class="metric-label">Overtrading Days</span>
-            <span class="metric-value mono" [class.text-red]="summary.overtradingDayCount > 0" [class.text-green]="summary.overtradingDayCount === 0">
-              {{ summary.overtradingDayCount }}
-            </span>
-            <span class="metric-sub">days above limit</span>
-          </div>
-
-          <div class="card metric-card">
-            <span class="metric-label">Max Loss Streak</span>
-            <span class="metric-value mono" [class.text-red]="summary.maxConsecutiveLosses >= 3" [class.text-amber]="summary.maxConsecutiveLosses === 2">
-              {{ summary.maxConsecutiveLosses }}
-            </span>
-            <span class="metric-sub">consecutive losses</span>
-          </div>
-
-          <div class="card metric-card">
-            <span class="metric-label">Strategy Deviations</span>
-            <span class="metric-value mono" [class.text-red]="summary.strategyDeviationCount > 0" [class.text-green]="summary.strategyDeviationCount === 0">
-              {{ summary.strategyDeviationCount }}
-            </span>
-            <span class="metric-sub">manual overrides</span>
-          </div>
-
-          <div class="card metric-card">
-            <span class="metric-label">Deviation P&L Impact</span>
-            <span class="metric-value mono"
-              [class.text-green]="summary.deviationPnLImpact > 0"
-              [class.text-red]="summary.deviationPnLImpact < 0">
-              {{ summary.deviationPnLImpact >= 0 ? '+' : '' }}{{ summary.deviationPnLImpact | number:'1.2-2' }}
-            </span>
-            <span class="metric-sub">P&L from deviations</span>
-          </div>
-
-          <div class="card metric-card">
-            <span class="metric-label">Total Alerts</span>
-            <span class="metric-value mono" [class.text-red]="summary.alerts.length > 0" [class.text-green]="summary.alerts.length === 0">
-              {{ summary.alerts.length }}
-            </span>
-            <span class="metric-sub">behaviour flags</span>
-          </div>
-        </section>
-
-        <!-- Deviation Insight -->
-        <div class="card insight-card" *ngIf="summary.strategyDeviationCount > 0">
-          <div class="insight-icon">⚠</div>
-          <div class="insight-body">
-            <div class="insight-title">Strategy Deviation Insight</div>
-            <div class="insight-text">
-              You deviated from your strategy rules
-              <strong>{{ summary.strategyDeviationCount }} time{{ summary.strategyDeviationCount > 1 ? 's' : '' }}</strong>.
-              These trades resulted in a total P&L of
-              <strong [class.text-green]="summary.deviationPnLImpact >= 0" [class.text-red]="summary.deviationPnLImpact < 0">
-                {{ summary.deviationPnLImpact >= 0 ? '+' : '' }}{{ summary.deviationPnLImpact | number:'1.2-2' }}
-              </strong>.
-              {{ summary.deviationPnLImpact < 0 ? 'Deviating from your rules is costing you money.' : 'These deviations were profitable, but consistency builds long-term edge.' }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Alert Feed -->
-        <div class="card alerts-card">
-          <div class="alerts-header">
-            <span class="alerts-title">Alert Feed</span>
-            <span class="tag tag-amber mono">{{ summary.alerts.length }} alerts</span>
-          </div>
-
-          <div class="alert-list" *ngIf="summary.alerts.length > 0">
-            <div class="alert-item" *ngFor="let alert of summary.alerts"
-              [class.alert-warning]="alert.severity === 'Warning'"
-              [class.alert-critical]="alert.severity === 'Critical'">
-              <div class="alert-left">
-                <span class="alert-type">{{ formatAlertType(alert.alertType) }}</span>
-                <span class="alert-desc">{{ alert.description }}</span>
+          @if (summary(); as summary) {
+            <section class="metric-strip" aria-label="Behaviour summary">
+              <div class="metric">
+                <span class="metric-label">Revenge trading</span>
+                <span class="metric-value">{{ summary.revengeTradingCount }}</span>
+                <span class="metric-note">Trades within 20 min of a loss</span>
               </div>
-              <div class="alert-right">
-                <span class="tag" [class.tag-amber]="alert.severity === 'Warning'" [class.tag-red]="alert.severity === 'Critical'">
-                  {{ alert.severity }}
+              <div class="metric">
+                <span class="metric-label">Overtrading days</span>
+                <span class="metric-value">{{ summary.overtradingDayCount }}</span>
+                <span class="metric-note">More than 5 trades in a day</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Longest loss streak</span>
+                <span class="metric-value">{{ summary.maxConsecutiveLosses }}</span>
+                <span class="metric-note">Consecutive losing trades</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Rule overrides</span>
+                <span class="metric-value">{{ summary.strategyDeviationCount }}</span>
+                <span class="metric-note">Trades marked as manual overrides</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Override P&amp;L</span>
+                <span class="metric-value" [class.text-positive]="summary.deviationPnLImpact > 0" [class.text-negative]="summary.deviationPnLImpact < 0">
+                  {{ summary.deviationPnLImpact > 0 ? '+' : '' }}{{ summary.deviationPnLImpact | number:'1.2-2' }}
                 </span>
-                <span class="alert-date mono">{{ alert.detectedOnDate }}</span>
+                <span class="metric-note">Combined P&amp;L of overrides</span>
               </div>
-            </div>
-          </div>
+            </section>
 
-          <p class="empty-state mono" *ngIf="summary.alerts.length === 0">
-            ✓ No behaviour alerts detected. Clean trading record.
-          </p>
-        </div>
+            @if (summary.strategyDeviationCount > 0) {
+              <div class="notice notice-warning insight">
+                <app-icon name="info" [size]="18" />
+                <p>
+                  <strong>{{ summary.strategyDeviationCount }} {{ summary.strategyDeviationCount === 1 ? 'trade was' : 'trades were' }} taken as manual overrides</strong>
+                  of the strategy's rules, with a combined P&amp;L of
+                  {{ summary.deviationPnLImpact > 0 ? '+' : '' }}{{ summary.deviationPnLImpact | number:'1.2-2' }}.
+                  Review them to see whether the override was justified.
+                </p>
+              </div>
+            }
 
-        }
+            <section class="card table-card alerts" aria-labelledby="alerts-heading">
+              <div class="card-header">
+                <h2 id="alerts-heading">Alerts</h2>
+                <span class="card-note">{{ summary.alerts.length }} detected</span>
+              </div>
+              @if (summary.alerts.length > 0) {
+                <ul class="alert-list">
+                  @for (alert of summary.alerts; track $index) {
+                    <li class="alert-item">
+                      <app-icon name="alert" [size]="18" [class.critical]="alert.severity === 'Critical'" />
+                      <div class="alert-body">
+                        <p class="alert-type">{{ formatAlertType(alert.alertType) }}</p>
+                        <p class="alert-desc">{{ alert.description }}</p>
+                      </div>
+                      <div class="alert-meta">
+                        <span class="tag" [class.tag-warning]="alert.severity === 'Warning'" [class.tag-negative]="alert.severity === 'Critical'">{{ alert.severity }}</span>
+                        <span class="small muted">{{ alert.detectedOnDate }}</span>
+                      </div>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="empty-state small">No behaviour alerts detected in the journal.</p>
+              }
+            </section>
+          }
         }
       }
     </div>
   `,
   styles: [`
-    .behaviour-page { max-width: 1100px; }
-
-    .page-header {
-      margin-bottom: 1.5rem;
-      h1 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 800; }
-    }
-
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-
-    .metric-card { display: flex; flex-direction: column; gap: 0.2rem; }
-
-    .metric-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-secondary);
-      font-weight: 600;
-    }
-
-    .metric-value { font-size: 2rem; font-weight: 500; line-height: 1.2; }
-
-    .metric-sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
-
-    .insight-card {
-      display: flex;
-      align-items: flex-start;
-      gap: 1rem;
-      margin-bottom: 1rem;
-      border-left: 3px solid var(--accent-amber);
-    }
-
-    .insight-icon { font-size: 1.25rem; color: var(--accent-amber); flex-shrink: 0; margin-top: 2px; }
-    .insight-title { font-weight: 700; font-size: 14px; margin-bottom: 0.35rem; }
-    .insight-text { font-size: 13px; color: var(--text-secondary); line-height: 1.6; strong { color: var(--text-primary); } }
-
-    .alerts-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
-    .alerts-title { font-weight: 700; font-size: 15px; }
-    .alert-list { display: flex; flex-direction: column; gap: 0.5rem; }
-
+    .insight { margin: var(--space-5) 0 0; app-icon { margin-top: 1px; } }
+    .alerts { margin-top: var(--space-5); }
+    .alert-list { list-style: none; }
     .alert-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.85rem 1rem;
-      border-radius: var(--radius);
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-subtle);
-      gap: 1rem;
-      &.alert-warning { border-left: 3px solid var(--accent-amber); }
-      &.alert-critical { border-left: 3px solid var(--accent-red); }
+      display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) var(--space-5);
+      border-bottom: 1px solid var(--border-subtle);
+      &:last-child { border-bottom: none; }
+      app-icon { color: var(--warning); margin-top: 2px; }
+      app-icon.critical { color: var(--negative); }
     }
-
-    .alert-left { display: flex; flex-direction: column; gap: 0.2rem; }
-    .alert-type { font-size: 12px; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.05em; }
-    .alert-desc { font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); }
-    .alert-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; flex-shrink: 0; }
-    .alert-date { font-size: 11px; color: var(--text-muted); }
-
-    .empty-state { color: var(--accent-green); font-size: 13px; padding: 0.5rem 0; }
+    .alert-body { flex: 1; min-width: 0; }
+    .alert-type { font-weight: 500; }
+    .alert-desc { font-size: var(--text-sm); color: var(--text-secondary); }
+    .alert-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+    .empty-state.small { padding: var(--space-6); }
   `]
 })
 export class BehaviourComponent {
@@ -235,9 +148,9 @@ export class BehaviourComponent {
 
   formatAlertType(type: string): string {
     switch (type) {
-      case 'RevengeTrading': return 'Revenge Trading';
+      case 'RevengeTrading': return 'Revenge trading';
       case 'Overtrading': return 'Overtrading';
-      case 'ConsecutiveLosses': return 'Loss Streak';
+      case 'ConsecutiveLosses': return 'Loss streak';
       default: return type;
     }
   }

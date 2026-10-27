@@ -1,257 +1,138 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TradingApiService } from '../trading-api.service';
 import { Trade } from '../models/trade.model';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
+import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
+import { IconComponent } from '../../../shared/ui/icon.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
 @Component({
   selector: 'app-trades',
   standalone: true,
-  imports: [DecimalPipe, FormsModule, LoadErrorComponent],
+  imports: [DecimalPipe, FormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent, IconComponent],
   template: `
-    <div class="trades-page">
-      <header class="page-header">
-        <div>
-          <h1>Trades</h1>
-          <p class="text-muted mono">{{ filtered().length }} of {{ trades().length }} trades</p>
-        </div>
-      </header>
+    <div class="page">
+      <app-page-header section="Trading operations" title="Trades"
+        [description]="filtered().length + ' of ' + trades().length + ' trades'">
+        <a class="btn" routerLink="/trading/import"><app-icon name="import" [size]="16" />Import trades</a>
+      </app-page-header>
 
       @switch (state()) {
         @case ('loading') {
-          <div class="loading-state">
-            <div class="spinner"></div>
-            <span class="loading-text">Loading trades...</span>
-          </div>
+          <div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading trades...</span></div>
         }
         @case ('error') {
           <app-load-error title="Could not load trades" [message]="error()" (retry)="load()" />
         }
         @case ('ready') {
-          <!-- Filters -->
-          <div class="card filters-bar">
-            <input
-              class="filter-input"
-              type="text"
-              aria-label="Search trades"
-              placeholder="Search instrument, strategy, session..."
-              [ngModel]="searchTerm()"
-              (ngModelChange)="searchTerm.set($event)"
-            />
-            <select class="filter-select" aria-label="Direction" [ngModel]="directionFilter()" (ngModelChange)="directionFilter.set($event)">
-              <option value="">All Directions</option>
-              <option value="Long">Long</option>
-              <option value="Short">Short</option>
-            </select>
-            <select class="filter-select" aria-label="Result" [ngModel]="resultFilter()" (ngModelChange)="resultFilter.set($event)">
-              <option value="">All Results</option>
-              <option value="win">Wins</option>
-              <option value="loss">Losses</option>
-              <option value="breakeven">Breakeven</option>
-            </select>
-            <button type="button" class="btn-clear" (click)="clearFilters()">Clear</button>
-          </div>
+          @if (actionError()) { <p class="notice notice-error" role="alert">{{ actionError() }}</p> }
 
-          @if (actionError()) {
-            <p class="action-error mono" role="alert">{{ actionError() }}</p>
-          }
-
-          <!-- Table -->
           <div class="card table-card">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Instrument</th>
-                    <th>Direction</th>
-                    <th>Entry</th>
-                    <th>Exit</th>
-                    <th>Risk</th>
-                    <th>P&L</th>
-                    <th>RR</th>
-                    <th>Strategy</th>
-                    <th>Session</th>
-                    <th>Duration</th>
-                    <th>Override</th>
-                    <th><span class="visually-hidden">Actions</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (trade of filtered(); track trade.id) {
-                    <tr [class.row-win]="trade.pnL > 0" [class.row-loss]="trade.pnL < 0">
-                      <td class="mono">{{ trade.tradeDate }}</td>
-                      <td class="bold">{{ trade.instrument }}</td>
-                      <td>
-                        <span class="tag" [class.tag-green]="trade.direction === 'Long'" [class.tag-red]="trade.direction === 'Short'">
-                          {{ trade.direction }}
-                        </span>
-                      </td>
-                      <td class="mono">{{ trade.entryPrice | number:'1.2-5' }}</td>
-                      <td class="mono">{{ trade.exitPrice | number:'1.2-5' }}</td>
-                      <td class="mono">{{ trade.riskAmount | number:'1.2-2' }}</td>
-                      <td class="mono" [class.text-green]="trade.pnL > 0" [class.text-red]="trade.pnL < 0">
-                        {{ trade.pnL >= 0 ? '+' : '' }}{{ trade.pnL | number:'1.2-2' }}
-                      </td>
-                      <td class="mono" [class.text-green]="trade.rr >= 1" [class.text-red]="trade.rr < 0">
-                        {{ trade.rr | number:'1.2-2' }}R
-                      </td>
-                      <td>
-                        @if (trade.strategyName) {
-                          <span class="tag tag-blue">{{ trade.strategyName }}</span>
-                        } @else {
-                          <span class="text-muted">—</span>
-                        }
-                      </td>
-                      <td>{{ trade.session }}</td>
-                      <td class="mono">{{ trade.tradeDuration }}m</td>
-                      <td>
-                        @if (trade.isManualOverride) {
-                          <span class="tag tag-amber">Yes</span>
-                        } @else {
-                          <span class="text-muted">—</span>
-                        }
-                      </td>
-                      <td>
-                        <button type="button" class="btn-delete" [attr.aria-label]="'Delete trade ' + trade.id"
-                          [disabled]="deletingId() === trade.id" (click)="deleteTrade(trade.id)">✕</button>
-                      </td>
-                    </tr>
-                  } @empty {
-                    <tr>
-                      <td colspan="13" class="empty-state">
-                        {{ trades().length === 0 ? 'No trades recorded yet. Import a CSV from the Import page.' : 'No trades match these filters.' }}
-                      </td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
+            <div class="toolbar" role="search">
+              <div class="field grow">
+                <label for="trade-search">Search</label>
+                <input id="trade-search" type="search" placeholder="Instrument, strategy, session or day"
+                  [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" />
+              </div>
+              <div class="field">
+                <label for="trade-direction">Direction</label>
+                <select id="trade-direction" [ngModel]="directionFilter()" (ngModelChange)="directionFilter.set($event)">
+                  <option value="">All directions</option>
+                  <option value="Long">Long</option>
+                  <option value="Short">Short</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="trade-result">Result</label>
+                <select id="trade-result" [ngModel]="resultFilter()" (ngModelChange)="resultFilter.set($event)">
+                  <option value="">All results</option>
+                  <option value="win">Wins</option>
+                  <option value="loss">Losses</option>
+                  <option value="breakeven">Breakeven</option>
+                </select>
+              </div>
+              <button type="button" class="btn" (click)="clearFilters()">Clear</button>
             </div>
+
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Instrument</th>
+                  <th>Direction</th>
+                  <th class="num">Entry</th>
+                  <th class="num">Exit</th>
+                  <th class="num">Risk</th>
+                  <th class="num">P&amp;L</th>
+                  <th class="num">R</th>
+                  <th>Strategy</th>
+                  <th>Session</th>
+                  <th class="num">Duration</th>
+                  <th>Override</th>
+                  <th><span class="visually-hidden">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (trade of filtered(); track trade.id) {
+                  <tr>
+                    <td class="nowrap">{{ trade.tradeDate }}</td>
+                    <td class="strong">{{ trade.instrument }}</td>
+                    <td>{{ trade.direction }}</td>
+                    <td class="num">{{ trade.entryPrice | number:'1.2-5' }}</td>
+                    <td class="num">{{ trade.exitPrice | number:'1.2-5' }}</td>
+                    <td class="num">{{ trade.riskAmount | number:'1.2-2' }}</td>
+                    <td class="num" [class.text-positive]="trade.pnL > 0" [class.text-negative]="trade.pnL < 0">
+                      {{ trade.pnL > 0 ? '+' : '' }}{{ trade.pnL | number:'1.2-2' }}
+                    </td>
+                    <td class="num">{{ trade.rr | number:'1.2-2' }}R</td>
+                    <td>{{ trade.strategyName ?? '—' }}</td>
+                    <td class="nowrap">{{ trade.session }}</td>
+                    <td class="num">{{ trade.tradeDuration }} min</td>
+                    <td>
+                      @if (trade.isManualOverride) { <span class="tag tag-warning">Override</span> }
+                      @else { <span class="muted">—</span> }
+                    </td>
+                    <td class="actions">
+                      @if (confirmingDelete() === trade.id) {
+                        <button type="button" class="btn btn-sm btn-danger" [disabled]="deletingId() === trade.id" (click)="deleteTrade(trade.id)">Confirm delete</button>
+                        <button type="button" class="btn-link small" (click)="confirmingDelete.set(null)">Keep</button>
+                      } @else {
+                        <button type="button" class="icon-button" [attr.aria-label]="'Delete trade ' + trade.id" title="Delete trade"
+                          (click)="confirmingDelete.set(trade.id)"><app-icon name="trash" [size]="16" /></button>
+                      }
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="13" class="empty-row">
+                      {{ trades().length === 0 ? 'No trades recorded yet. Import your trade history from the Import page.' : 'No trades match these filters.' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
           </div>
         }
       }
     </div>
   `,
   styles: [`
-    .trades-page { max-width: 1400px; }
-
-    .page-header {
-      margin-bottom: 1.5rem;
-      h1 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 800; }
+    .grow { flex: 1; min-width: 220px; }
+    .data-table td { white-space: nowrap; }
+    .strong { font-weight: 500; }
+    .actions { display: flex; gap: var(--space-3); align-items: center; justify-content: flex-end; }
+    .icon-button {
+      display: flex; padding: 4px; border: none; border-radius: var(--radius-sm); background: none;
+      color: var(--text-muted); cursor: pointer;
+      &:hover { color: var(--negative); background: var(--negative-bg); }
     }
-
-    .filters-bar {
-      display: flex;
-      gap: 0.75rem;
-      align-items: center;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .filter-input {
-      flex: 1;
-      min-width: 200px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.5rem 0.75rem;
-      color: var(--text-primary);
-      font-family: var(--font-mono);
-      font-size: 13px;
-      outline: none;
-      transition: border-color 0.15s;
-      &:focus { border-color: var(--accent-amber); }
-      &::placeholder { color: var(--text-muted); }
-    }
-
-    .filter-select {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.5rem 0.75rem;
-      color: var(--text-primary);
-      font-family: var(--font-mono);
-      font-size: 13px;
-      outline: none;
-      cursor: pointer;
-      &:focus { border-color: var(--accent-amber); }
-    }
-
-    .btn-clear {
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.5rem 1rem;
-      color: var(--text-secondary);
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.15s;
-      &:hover { border-color: var(--accent-red); color: var(--accent-red); }
-    }
-
-    .action-error { color: var(--accent-red); font-size: 12px; margin-bottom: 0.75rem; }
-
-    .table-card { padding: 0; overflow: hidden; }
-    .table-wrap { overflow-x: auto; }
-
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-
-    thead tr { border-bottom: 1px solid var(--border); }
-
-    th {
-      padding: 0.75rem 1rem;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-secondary);
-      white-space: nowrap;
-    }
-
-    td {
-      padding: 0.7rem 1rem;
-      border-bottom: 1px solid var(--border-subtle);
-      color: var(--text-data);
-      white-space: nowrap;
-    }
-
-    tr:last-child td { border-bottom: none; }
-
-    tbody tr {
-      transition: background 0.1s;
-      &:hover { background: var(--bg-card-hover); }
-    }
-
-    .row-win td:first-child { border-left: 2px solid var(--accent-green); }
-    .row-loss td:first-child { border-left: 2px solid var(--accent-red); }
-    .bold { font-weight: 600; color: var(--text-primary); }
-
-    .btn-delete {
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      color: var(--text-muted);
-      cursor: pointer;
-      padding: 2px 6px;
-      font-size: 12px;
-      transition: all 0.15s;
-      &:hover { border-color: var(--accent-red); color: var(--accent-red); }
-      &:disabled { opacity: 0.4; cursor: wait; }
-    }
-
-    .empty-state {
-      text-align: center;
-      color: var(--text-muted);
-      padding: 3rem;
-      font-family: var(--font-mono);
-    }
-
+    .empty-row { text-align: center; color: var(--text-muted); padding: var(--space-10) var(--space-4); }
   `]
 })
 export class TradesComponent {
@@ -262,6 +143,8 @@ export class TradesComponent {
   readonly error = signal('');
   readonly actionError = signal('');
   readonly deletingId = signal<number | null>(null);
+  // Deleting is two clicks: the first asks, the second deletes
+  readonly confirmingDelete = signal<number | null>(null);
   readonly trades = signal<Trade[]>([]);
   readonly searchTerm = signal('');
   readonly directionFilter = signal('');
@@ -317,7 +200,7 @@ export class TradesComponent {
   }
 
   deleteTrade(id: number): void {
-    if (!confirm('Delete this trade?')) return;
+    if (this.deletingId() !== null) return;
 
     this.actionError.set('');
     this.deletingId.set(id);
@@ -327,6 +210,7 @@ export class TradesComponent {
         next: () => {
           this.trades.update(trades => trades.filter(t => t.id !== id));
           this.deletingId.set(null);
+          this.confirmingDelete.set(null);
         },
         error: err => {
           this.actionError.set(`Trade was not deleted: ${describeHttpError(err)}`);

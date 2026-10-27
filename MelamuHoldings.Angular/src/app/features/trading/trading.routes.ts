@@ -5,7 +5,7 @@ export const tradingRoutes: Routes = [
   { path: '', redirectTo: 'performance', pathMatch: 'full' },
   {
     path: 'performance',
-    title: 'Trading Performance',
+    title: 'Trading performance',
     loadComponent: () =>
       import('./performance/performance.component').then(m => m.PerformanceComponent)
   },
@@ -17,13 +17,13 @@ export const tradingRoutes: Routes = [
   },
   {
     path: 'import',
-    title: 'Import Journal',
+    title: 'Import trades',
     loadComponent: () =>
       import('./import/import.component').then(m => m.ImportComponent)
   },
   {
     path: 'behaviour',
-    title: 'Behaviour Analytics',
+    title: 'Trading behaviour',
     loadComponent: () =>
       import('./behaviour/behaviour.component').then(m => m.BehaviourComponent)
   }

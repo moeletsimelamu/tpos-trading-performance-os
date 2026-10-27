@@ -47,7 +47,7 @@ describe('ImportComponent', () => {
     await fixture.whenStable();
 
     const text = fixture.nativeElement.textContent;
-    expect(text).toContain('Upload Complete');
+    expect(text).toContain('Import complete');
     expect(text).toContain('Row 3: Direction must be');
   });
 
