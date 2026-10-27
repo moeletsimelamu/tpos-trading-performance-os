@@ -112,7 +112,7 @@ Ordered by impact on the transformation.
 | Command | Result |
 |---|---|
 | `git hash-object` of all 87 renamed `TPOS.*` files vs `HEAD:TraderDashboard.*` | **All 87 identical** after line-ending normalisation. The rename is a pure move. Only `TPOS.slnx` has new content (the project paths). |
-| `git diff --stat main develop` | 4 files, +8 / −11 lines, all in Angular feature components. **Neither branch has a README**, even though commit `be3dc6c` mentions one. |
+| `git diff --stat main develop` | 4 files, +8 / −11 lines, all in Angular feature components. *Corrected:* this compared a **stale local `main`**. The audit originally concluded "neither branch has a README", but `origin/main` had one: it was added on GitHub (`5caaf17`, `649f432`), and `develop` was later merged into it via PR #1 (`5b5b045`). Only `develop` lacked a README. |
 | `dotnet build TPOS.slnx` (working tree) | **FAILED: 102 errors, 7 warnings.** CS0246: Application types not found, because the `ProjectReference` paths point to deleted folders. |
 | `dotnet build TraderDashboard.slnx` (committed `develop`, extracted with `git archive` to a scratch folder) | **Succeeded: 0 errors, 8 warnings.** All 8 are NU1902/NU1903: transitive `System.Security.Cryptography.Pkcs` 9.0.4 has known **high** (GHSA-846f-f764-76mx) and moderate (GHSA-2fmv-rv2c-59x7) vulnerabilities, reported in API and Infrastructure. |
 | .NET tests | Nothing to run: no test projects. |
@@ -157,7 +157,7 @@ Logging in needs either the owner's real password, which I must not enter, or a 
 | W13 | **Partly fixed** | Expectancy counted breakevens as losses and has been corrected. Profit factor with zero losses still returns gross profit (a test pins it until the Phase 8 contract change). |
 | W14 | **Fixed**, except the `BehaviourAlerts` table | Dead files and SSR packages removed. The table stays until a Phase 3 migration drops it. |
 | W15 | **Fixed** | `JwtService` uses `IOptions<JwtOptions>`. |
-| W16 | Partly | CI added. README is a short setup guide; the full README is Phase 10. |
+| W16 | Partly | CI added and passing on GitHub (run 40508109510). The README merges the useful parts of the GitHub README (metric definitions, CSV format, endpoints) with the current setup; the full README is Phase 10. |
 
 **Defects found during Phase 2:**
 

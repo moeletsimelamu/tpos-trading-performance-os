@@ -48,7 +48,7 @@ Audit date: 2026-10-27. Branch inspected: `develop` (`d9f1aa5`), plus the uncomm
 | `NavigationService` | Re-runs a callback on navigation. | Imported by the behaviour page but never injected. Unused. | **Retire** (after verifying change detection; see the zoneless note in `ARCHITECTURE_REVIEW.md`). |
 | Automated tests | — | **Absent**. No .NET test project, no `*.spec.ts`, and `angular.json` has no `test` target, so `npm test` cannot run. | **Build** (Phase 2 onwards) |
 | CI | `.github/` directory exists but is empty. | **Absent** | **Build** (Phase 2) |
-| README | None on either branch, even though commit `be3dc6c` says "professional README". | Verified absent (`git diff main develop`) | **Build** (Phase 10, Melamu Holdings OS README) |
+| README | *Corrected:* `origin/main` has a README, added in the GitHub web editor on 2026-06-02 (`5caaf17`, `649f432`). The audit compared a stale local `main` that lacked it, so it wrongly reported none. That README described .NET 8 / Angular 17, a register endpoint and the old expectancy formula. `develop` had no README. | Present on `origin/main`; outdated | **Merged** into the current README (Phase 2); full rewrite in Phase 10 |
 
 ## Data the existing database holds
 
