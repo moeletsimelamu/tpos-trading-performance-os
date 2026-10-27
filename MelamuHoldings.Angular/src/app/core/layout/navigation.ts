@@ -29,9 +29,17 @@ export const NAVIGATION: NavSection[] = [
     ]
   },
   {
-    heading: 'Finance',
+    heading: 'Financial Management',
     items: [
-      { label: 'Financial Management', plannedPhase: 4 },
+      { label: 'Accounts', route: '/finance/accounts' },
+      { label: 'Funds', route: '/finance/funds' },
+      { label: 'Transactions', route: '/finance/transactions' },
+      { label: 'Audit Log', route: '/finance/audit' }
+    ]
+  },
+  {
+    heading: 'Capital & Wealth',
+    items: [
       { label: 'Capital Allocation', plannedPhase: 5 },
       { label: 'Wealth Management', plannedPhase: 7 },
       { label: 'Business Continuity', plannedPhase: 7 },
@@ -41,7 +49,7 @@ export const NAVIGATION: NavSection[] = [
   {
     heading: 'System',
     items: [
-      { label: 'Settings', plannedPhase: 4 }
+      { label: 'Settings', plannedPhase: 10 }
     ]
   }
 ];

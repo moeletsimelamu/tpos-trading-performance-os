@@ -48,6 +48,8 @@ html, body {
 
 h1 { font-weight: 700; letter-spacing: -0.01em; }
 
+a { color: var(--accent-blue); text-underline-offset: 2px; }
+
 :focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 // Scrollbar styling
@@ -123,3 +125,68 @@ h1 { font-weight: 700; letter-spacing: -0.01em; }
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
+
+// ---- Shared page building blocks (finance module onwards; see docs/DESIGN.md) ----
+
+.page {
+  max-width: 1200px;
+
+  > header {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+    h1 { font-size: 1.6rem; }
+    p { color: var(--text-secondary); font-size: 13px; }
+  }
+}
+
+.data-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  th {
+    text-align: left; padding: 0.6rem 0.9rem; font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--text-secondary); border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td { padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  .num { text-align: right; white-space: nowrap; }
+  td > a:first-child { color: var(--text-primary); font-weight: 500; text-decoration: none; &:hover { text-decoration: underline; } }
+}
+.table-card { padding: 0; overflow-x: auto; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  border-radius: var(--radius); padding: 0.45rem 0.9rem; font: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; text-decoration: none; border: 1px solid var(--border); background: transparent; color: var(--text-primary);
+  &:hover:not(:disabled) { border-color: var(--text-muted); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+.btn-primary { background: var(--accent-amber); border-color: var(--accent-amber); color: #14110a; &:hover:not(:disabled) { border-color: var(--accent-amber); filter: brightness(1.08); } }
+.btn-danger { color: var(--accent-red); &:hover:not(:disabled) { border-color: var(--accent-red); } }
+.btn-link {
+  border: none; padding: 0; background: transparent; color: var(--accent-blue); font: inherit; cursor: pointer;
+  &:hover:not(:disabled) { text-decoration: underline; }
+  &.small { font-size: 12px; }
+}
+
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.9rem 1rem; }
+.field {
+  display: flex; flex-direction: column; gap: 0.3rem;
+  label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  input, select, textarea {
+    background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 0.5rem 0.65rem; color: var(--text-primary); font: inherit; font-size: 13px;
+    &:focus { outline: none; border-color: var(--accent-amber); }
+    &.ng-invalid.ng-touched { border-color: var(--accent-red); }
+  }
+  .hint { font-size: 11.5px; color: var(--text-muted); }
+  .error { font-size: 11.5px; color: var(--accent-red); }
+}
+.form-actions { display: flex; gap: 0.6rem; align-items: center; margin-top: 1rem; }
+
+.notice { border-radius: var(--radius); padding: 0.6rem 0.85rem; font-size: 13px; margin-bottom: 1rem; border: 1px solid var(--border); }
+.notice-error { border-color: var(--accent-red); color: var(--accent-red); }
+.notice-success { border-color: var(--accent-green); color: var(--accent-green); }
+
+.amount-in { color: var(--accent-green); }
+.amount-out { color: var(--accent-red); }
+.muted { color: var(--text-muted); }
+.small { font-size: 12px; }

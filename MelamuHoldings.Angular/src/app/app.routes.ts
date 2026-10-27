@@ -22,6 +22,10 @@ export const routes: Routes = [
         path: 'trading',
         loadChildren: () => import('./features/trading/trading.routes').then(m => m.tradingRoutes)
       },
+      {
+        path: 'finance',
+        loadChildren: () => import('./features/finance/finance.routes').then(m => m.financeRoutes)
+      },
 
       // Paths used before the Melamu Holdings OS navigation; kept so bookmarks still work
       { path: 'dashboard', redirectTo: 'trading/performance', pathMatch: 'full' },
