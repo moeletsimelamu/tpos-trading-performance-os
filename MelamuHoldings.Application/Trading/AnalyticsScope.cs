@@ -17,6 +17,7 @@ public class AnalyticsFilter : IValidatableObject
     public DateOnly? From { get; set; }
     public DateOnly? To { get; set; }
     public int? StrategyId { get; set; }
+    [MaxLength(50)] public string? Instrument { get; set; }
     [MaxLength(50)] public string? Session { get; set; }
     [MaxLength(100)] public string? Account { get; set; }
     public AdherenceFilter? Adherence { get; set; }
@@ -25,7 +26,7 @@ public class AnalyticsFilter : IValidatableObject
     [MaxLength(40)] public string? AnswerField { get; set; }
     [MaxLength(200)] public string? AnswerValue { get; set; }
 
-    public bool IsEmpty => From is null && To is null && StrategyId is null && string.IsNullOrWhiteSpace(Session)
+    public bool IsEmpty => From is null && To is null && StrategyId is null && string.IsNullOrWhiteSpace(Instrument) && string.IsNullOrWhiteSpace(Session)
         && string.IsNullOrWhiteSpace(Account) && Adherence is null && string.IsNullOrWhiteSpace(AnswerField);
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -43,7 +44,7 @@ public record JournalFilterFieldDto(string Id, string Label, JournalFieldType Ty
 
 // What the filters can be set to, from the trader's own records
 public record AnalyticsFilterOptionsDto(
-    IReadOnlyList<FilterOptionDto> Strategies, IReadOnlyList<string> Sessions, IReadOnlyList<string> Accounts,
+    IReadOnlyList<FilterOptionDto> Strategies, IReadOnlyList<string> Instruments, IReadOnlyList<string> Sessions, IReadOnlyList<string> Accounts,
     IReadOnlyList<JournalFilterFieldDto> JournalFields);
 
 // The one place that decides which of a trader's trades analytics look at. Performance, behaviour and adherence
@@ -73,6 +74,7 @@ public class AnalyticsScope
             (filter.From is null || t.TradeDate >= filter.From) &&
             (filter.To is null || t.TradeDate <= filter.To) &&
             (filter.StrategyId is null || t.StrategyId == filter.StrategyId) &&
+            (string.IsNullOrWhiteSpace(filter.Instrument) || Same(t.Instrument, filter.Instrument)) &&
             (string.IsNullOrWhiteSpace(filter.Session) || Same(t.Session, filter.Session)) &&
             (string.IsNullOrWhiteSpace(filter.Account) || Same(t.TradingAccount, filter.Account))).ToList();
 
@@ -119,7 +121,7 @@ public class AnalyticsScope
             _ => f.Options.Select(o => new FilterOptionDto(o, o)).ToList()
         })).OrderBy(f => f.Label).ToList();
 
-        return new AnalyticsFilterOptionsDto(strategies, Distinct(trades.Select(t => t.Session)), Distinct(trades.Select(t => t.TradingAccount)), journalFields);
+        return new AnalyticsFilterOptionsDto(strategies, Distinct(trades.Select(t => t.Instrument)), Distinct(trades.Select(t => t.Session)), Distinct(trades.Select(t => t.TradingAccount)), journalFields);
     }
 
     // A text or choice answer equals the value; a multi-select contains it; a checklist has that item ticked;

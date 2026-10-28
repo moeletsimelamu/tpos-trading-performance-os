@@ -9,6 +9,7 @@ export interface AnalyticsFilter {
   from?: string;
   to?: string;
   strategyId?: number;
+  instrument?: string;
   session?: string;
   account?: string;
   adherence?: AdherenceFilter;
@@ -21,6 +22,7 @@ export interface JournalFilterField { id: string; label: string; type: JournalFi
 
 export interface AnalyticsFilterOptions {
   strategies: FilterOption[];
+  instruments: string[];
   sessions: string[];
   accounts: string[];
   journalFields: JournalFilterField[];
@@ -32,7 +34,7 @@ export const ADHERENCE_FILTERS: { value: AdherenceFilter; label: string }[] = [
   { value: 'NotScored', label: 'No complete checklist' }
 ];
 
-const KEYS: (keyof AnalyticsFilter)[] = ['from', 'to', 'strategyId', 'session', 'account', 'adherence', 'answerField', 'answerValue'];
+const KEYS: (keyof AnalyticsFilter)[] = ['from', 'to', 'strategyId', 'instrument', 'session', 'account', 'adherence', 'answerField', 'answerValue'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isFilterEmpty(filter: AnalyticsFilter): boolean {
@@ -62,6 +64,7 @@ export function filterFromQuery(query: ParamMap): AnalyticsFilter {
     from: DATE.test(query.get('from') ?? '') ? query.get('from')! : undefined,
     to: DATE.test(query.get('to') ?? '') ? query.get('to')! : undefined,
     strategyId: /^\d+$/.test(query.get('strategyId') ?? '') ? Number(query.get('strategyId')) : undefined,
+    instrument: text('instrument'),
     session: text('session'),
     account: text('account'),
     adherence: ADHERENCE_FILTERS.some(a => a.value === query.get('adherence')) ? query.get('adherence') as AdherenceFilter : undefined,
@@ -80,6 +83,7 @@ export function describeFilter(filter: AnalyticsFilter, options: AnalyticsFilter
   else if (filter.from) parts.push(`From ${day(filter.from)}`);
   else if (filter.to) parts.push(`Until ${day(filter.to)}`);
   if (filter.strategyId) parts.push(options?.strategies.find(s => s.value === String(filter.strategyId))?.label ?? `Strategy ${filter.strategyId}`);
+  if (filter.instrument) parts.push(filter.instrument);
   if (filter.session) parts.push(filter.session);
   if (filter.account) parts.push(filter.account);
   if (filter.adherence) parts.push(ADHERENCE_FILTERS.find(a => a.value === filter.adherence)!.label);

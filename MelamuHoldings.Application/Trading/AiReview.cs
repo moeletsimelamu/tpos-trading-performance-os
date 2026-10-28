@@ -49,7 +49,7 @@ public record AiMetricDto(string Label, string Value, string Basis);
 // A suggestion, never saved by the API: the trader edits it and saves through the normal review action
 public record AiReviewDraftDto(
     bool SufficientData, IReadOnlyList<string> Missing, IReadOnlyList<AiFactDto> Facts, IReadOnlyList<AiMetricDto> Metrics,
-    IReadOnlyList<string> Interpretations, string? SuggestedReview, IReadOnlyList<int> ComparableTradeIds,
+    IReadOnlyList<string> Interpretations, IReadOnlyList<string> ReflectionPrompts, string? SuggestedReview, IReadOnlyList<int> ComparableTradeIds,
     string? Model, DateTime GeneratedAt, IReadOnlyList<string> Warnings);
 
 // Drafts a post-trade review from a bounded context: the trade, its journal answers, its checklist and at most
@@ -60,6 +60,7 @@ public class AiReviewService
     public const int MinimumForPatterns = 5;
     private const int MaxFacts = 10;
     private const int MaxInterpretations = 6;
+    private const int MaxPrompts = 4;
     private const int MaxItemLength = 400;
 
     private static readonly JsonSerializerOptions DataJson = new()
@@ -84,14 +85,18 @@ public class AiReviewService
         - You have no tools and cannot change any record. Never claim to have saved, reviewed or changed anything.
         - Do not give trading signals, price predictions, or advice to buy, sell, hold or size a position.
         - Do not diagnose or name mental-health conditions. Describe behaviour only as the trader recorded it, with uncertainty.
+        - Do not assume a winning trade was disciplined or a losing trade was emotional; judge execution against the recorded rules.
+        - Never encourage revenge trading, trading more, raising risk to recover losses, or ignoring risk limits. If the record
+          suggests impulsive behaviour, suggest pausing to review the trader's own predefined rules.
         - Do not calculate numbers. The app's figures are in "metrics"; you may refer to them but never change them.
         - If "comparableTrades" has fewer than 5 entries, do not describe patterns across trades; say there is not enough data.
         - Every fact must cite the ids of the trades it comes from, using only ids present in the data.
 
         Reply with one JSON object and nothing else:
-        {"facts":[{"text":"...","tradeIds":[1]}],"interpretations":["..."],"suggestedReview":"...","notEnoughData":["..."]}
+        {"facts":[{"text":"...","tradeIds":[1]}],"interpretations":["..."],"reflectionPrompts":["..."],"suggestedReview":"...","notEnoughData":["..."]}
         - "facts": what the journal records, each with its trade ids.
         - "interpretations": cautious readings of those facts, each clearly an interpretation.
+        - "reflectionPrompts": two to four short questions the trader could consider, drawn from what was recorded.
         - "suggestedReview": a first-person draft post-trade review of at most 120 words, in the trader's voice, built only
           from the recorded facts. Leave it empty if the data is too thin.
         - "notEnoughData": what is missing for a fuller review, if anything.
@@ -138,7 +143,7 @@ public class AiReviewService
             || answered.Count > 0 || checklist?.Items.Any(i => i.Answer is not null) == true;
         if (!hasEvidence)
             return new AiReviewDraftDto(false, ["Your own notes, journal answers or checklist for this trade: the draft is built only from what you recorded."],
-                [], metrics, [], null, comparables.Select(c => c.Id).ToList(), _options.Model, now, []);
+                [], metrics, [], [], null, comparables.Select(c => c.Id).ToList(), _options.Model, now, []);
 
         var data = new
         {
@@ -247,6 +252,7 @@ public class AiReviewService
         if ((reply.Facts?.Count ?? 0) > MaxFacts) warnings.Add($"Only the first {MaxFacts} facts are shown.");
 
         var interpretations = (reply.Interpretations ?? []).Select(Clip).OfType<string>().Take(MaxInterpretations).ToList();
+        var prompts = (reply.ReflectionPrompts ?? []).Select(Clip).OfType<string>().Take(MaxPrompts).ToList();
         var review = string.IsNullOrWhiteSpace(reply.SuggestedReview) ? null : reply.SuggestedReview.Trim();
         if (review is { Length: > Trade.MaxReviewNotesLength }) review = review[..Trade.MaxReviewNotesLength];
         if (comparables.Count < MinimumForPatterns && interpretations.Count > 0)
@@ -256,7 +262,7 @@ public class AiReviewService
 
         var missing = (reply.NotEnoughData ?? []).Select(Clip).OfType<string>().Take(MaxInterpretations).ToList();
         return new AiReviewDraftDto(review is not null || facts.Count > 0, missing, facts.Take(MaxFacts).ToList(), metrics, interpretations,
-            review, comparables.Select(c => c.Id).ToList(), _options.Model, now, warnings.Distinct().ToList());
+            prompts, review, comparables.Select(c => c.Id).ToList(), _options.Model, now, warnings.Distinct().ToList());
     }
 
     private static string? Clip(string? text)
@@ -270,6 +276,7 @@ public class AiReviewService
     {
         public List<ModelFact>? Facts { get; set; }
         public List<string>? Interpretations { get; set; }
+        public List<string>? ReflectionPrompts { get; set; }
         public string? SuggestedReview { get; set; }
         public List<string>? NotEnoughData { get; set; }
     }

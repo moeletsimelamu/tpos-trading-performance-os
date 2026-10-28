@@ -212,7 +212,9 @@ export class TradeFormComponent {
       this.useVersion(j.templateId, j.templateVersionId, j.sections, j.answers);
       return;
     }
-    const t = this.templates().find(x => x.isDefault) ?? this.templates()[0];
+    // A new trade started from the templates page uses that template; otherwise the default
+    const chosen = Number(this.route.snapshot.queryParamMap?.get('template'));
+    const t = this.templates().find(x => x.id === chosen) ?? this.templates().find(x => x.isDefault) ?? this.templates()[0];
     if (t) this.useVersion(t.id, t.currentVersionId, t.sections, {});
   }
 

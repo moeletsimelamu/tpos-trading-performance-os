@@ -43,6 +43,9 @@ public class TradeResponseDto
     // The checklist for the trade's strategy, with every answer given; also only when one trade is read
     public TradeChecklistDto? Checklist { get; set; }
 
+    // Followed, Broke or Unfinished, from the checklist of the trade's strategy; null without one. Included in lists.
+    public string? RuleAdherence { get; set; }
+
     // Files kept with the trade; also only when one trade is read
     public IReadOnlyList<TradeAttachmentDto>? Attachments { get; set; }
 }

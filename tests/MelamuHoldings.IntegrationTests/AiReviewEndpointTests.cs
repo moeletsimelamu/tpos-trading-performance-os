@@ -132,6 +132,7 @@ public class AiReviewEndpointTests : IClassFixture<AiApiFactory>
                 new { text = "No citation at all." }
             },
             interpretations = new[] { "Patience may have helped here, though one trade shows little." },
+            reflectionPrompts = new[] { "What told you the retest was valid?", "Would you take the same entry again?", "a", "b", "c" },
             suggestedReview = "I waited for the retest and kept to my stop rule. Next time I will note my reason for the target.",
             notEnoughData = new[] { "No screenshot of the setup." }
         });
@@ -170,6 +171,8 @@ public class AiReviewEndpointTests : IClassFixture<AiApiFactory>
         Assert.Equal("0.40R", metrics["Comparable average R"]);         // (-0.6 + 1.4 + 0.4) ÷ 3
         Assert.Contains("too few to show a pattern", string.Join(" ", draft.GetProperty("warnings").EnumerateArray().Select(w => w.GetString())));
         Assert.True(draft.GetProperty("sufficientData").GetBoolean());
+        Assert.Equal(4, draft.GetProperty("reflectionPrompts").GetArrayLength());   // at most four
+        Assert.Contains("Never encourage revenge trading", system);
         Assert.Equal("test-model", draft.GetProperty("model").GetString());
 
         // Nothing was saved, whatever the notes asked for

@@ -23,6 +23,7 @@ const draft: AiReviewDraft = {
   facts: [{ text: 'You waited for the retest.', tradeIds: [5] }],
   metrics: [{ label: "This trade's P&L", value: '+120.00', basis: 'recorded' }, { label: 'Comparable net P&L', value: '+60.00', basis: '2 comparable trades' }],
   interpretations: ['Patience may have helped.'],
+  reflectionPrompts: ['What told you the retest was valid?'],
   suggestedReview: 'I waited for the retest and kept my stop.'
 };
 
@@ -73,6 +74,7 @@ describe('AI review draft on the trade page', () => {
     expect(text).toContain('+60.00');
     expect(text).toContain('AI interpretation may be wrong');
     expect(text).toContain('Only 2 comparable trades');
+    expect(text).toContain('Questions to considerWhat told you the retest was valid?');
     expect(fixture.componentInstance.reviewNotes).toBe('');   // nothing changes until the trader chooses
 
     const use = [...el.querySelectorAll('app-ai-review-draft button')].find(b => b.textContent!.includes('Use as my review')) as HTMLButtonElement;
@@ -94,7 +96,7 @@ describe('AI review draft on the trade page', () => {
     const { fixture, el } = await render(trade({ notes: null }), true);
     (el.querySelector('app-ai-review-draft button') as HTMLButtonElement).click();
     http.expectOne(`${api}/trades/5/ai-review`).flush({
-      ...draft, sufficientData: false, facts: [], interpretations: [], suggestedReview: null, warnings: [],
+      ...draft, sufficientData: false, facts: [], interpretations: [], reflectionPrompts: [], suggestedReview: null, warnings: [],
       missing: ['Your own notes, journal answers or checklist for this trade.']
     });
     await fixture.whenStable();

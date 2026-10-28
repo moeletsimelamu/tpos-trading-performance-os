@@ -1,29 +1,36 @@
 # Architecture
 
-How the code is organised today (after Phase 3). Plans for modules that aren't built yet are in [`../PLAN.md`](../PLAN.md); the original audit is in [`ARCHITECTURE_REVIEW.md`](ARCHITECTURE_REVIEW.md).
+How the code is organised today (after Phase 5 and trading journal J1–J8). Plans for modules that aren't built yet are in [`../PLAN.md`](../PLAN.md); the original audit is in [`ARCHITECTURE_REVIEW.md`](ARCHITECTURE_REVIEW.md).
 
 ## Backend (.NET 10)
 
 ```
 MelamuHoldings.Domain/          no dependencies
   Identity/     User
-  Trading/      Trade, Strategy, UploadLog, TradeDirection, UploadStatus
+  Trading/      Trade (Draft → Open → Closed → Reviewed), Strategy (+ StrategyRule), TradeChecklist (+ items,
+                append-only responses), TradeAttachment (+ AttachmentType), ImportMatch, UploadLog
+    Journal/    JournalTemplate (+ immutable versions), JournalSchema, TradeJournalEntry, DefaultJournalTemplate
   Common/       DomainException, Text (length rules)
   Finance/      Money, Currency, Fund, FinancialAccount, LedgerTransaction (+ LedgerEntry, fee role), AuditEvent,
                 Payout, AllocationPolicy (+ AllocationCalculator), Allocation (+ lines, settlements)
 MelamuHoldings.Application/     depends on Domain
   Common/       IRepository<T>, PagedResult<T>, NotFound/Conflict/UniqueConstraintViolation exceptions
   Identity/     AuthService, OwnerAccountService, JwtService, JwtOptions, Roles/Policies, auth DTOs, IUserRepository
-  Trading/      TradeService (journal entries: draft, open, closed, review), AnalyticsService,
-                BehaviourAnalyticsService, CompletedTrade (the one projection analytics read),
-                UploadService, CsvParserService, trade DTOs, repository interfaces
+  Trading/      TradeService (journal entries: draft, open, closed, review), AnalyticsScope (the one place
+                analytics read trades; filters only narrow), CompletedTrade (which of them count),
+                AnalyticsService, BehaviourAnalyticsService, AdherenceService, JournalOverviewService,
+                JournalTemplateService + TradeJournal, StrategyService + TradeChecklists,
+                AttachmentService (+ IAttachmentStore), UploadService + ImportReconciliationService,
+                AiReviewService (+ IAiReviewProvider, optional), CsvParserService, DTOs, repository interfaces
   Finance/      LedgerPosting (the one path every ledger transaction takes: idempotency, save, audit),
                 LedgerService (direct money movements), PayoutService, AllocationService (policies,
                 preview, confirm, settle), FinanceSetupService (funds, accounts),
                 FinanceReadModel (balances from entries), AuditLog, Idempotency, request/response contracts,
                 IFinanceRepository
 MelamuHoldings.Infrastructure/  depends on Application and Domain
-  Persistence/  AppDbContext, Configurations/<Module>/, Migrations/, Repositories/
+  Persistence/  AppDbContext (stored times are read back as UTC), Configurations/<Module>/, Migrations/, Repositories/
+  Attachments/  FileSystemAttachmentStore (files outside the web root, random names)
+  Ai/           OpenAiCompatibleProvider (used only when AiReview is configured)
 MelamuHoldings.API/             composition root
   Controllers/<Module>/, Cli/ (create-owner), Program.cs
 tests/
@@ -41,7 +48,10 @@ tests/
 - **Concurrency.** Unique indexes stop duplicates (idempotency keys, one live allocation per payout). `rowversion` on payouts and allocations stops two requests changing the same one at once; the loser gets 409.
 - **Finance data belongs to the business, not to a login.** Every user with the `Owner` role sees the same accounts and ledger. Trading data stays per user.
 - **One `AppDbContext`.** Trading tables are in `dbo` and finance tables in the `finance` schema.
-- **Errors are ProblemDetails.** `ProblemExceptionHandler` maps `DomainException` → 422, `NotFoundException` → 404 and `ConflictException` → 409.
+- **Errors are ProblemDetails.** `ProblemExceptionHandler` maps `DomainException` → 422, `NotFoundException` → 404, `ConflictException` → 409, `ServiceUnavailableException` → 503 (AI review off) and `UpstreamException` → 502 (AI provider failed).
+- **Analytics read trades in one place.** Performance, behaviour and adherence all take their trades from `AnalyticsScope`, which applies the shared filter. Then `CompletedTrade` decides which count. No second calculation path exists.
+- **The journal never depends on AI.** `IAiReviewProvider` is called only when `AiReview:BaseUrl` and `AiReview:Model` are set; nothing an AI reply contains is saved without the trader.
+- **Files stay out of the database and the web root.** Attachment records are in SQL Server and the bytes are in `Attachments:Path`, served only through the API to the owner.
 
 ## Frontend (Angular 21, standalone, zoneless, signals)
 
@@ -57,8 +67,9 @@ src/app/
     overview/   OverviewComponent (mounted at /overview, the landing page); reads the
                 finance and trading APIs, owns no endpoints
     trading/    trading.routes.ts (mounted at /trading), TradingApiService, models,
-                performance/, trades/, journal/ (new trade and edit form, journal entry page),
-                import/, behaviour/
+                journal/ (Journal page and calendar, trade form, trade page, templates, files, AI draft),
+                strategies/ (rules, adherence), analytics/ (shared filter bar), performance/, trades/,
+                import/ (with match decisions), behaviour/
     finance/    finance.routes.ts (mounted at /finance), FinanceApiService, models, amount.validator,
                 payouts/ (list, detail with approve/receive/allocate), allocations/ (list, detail with
                 settlement, policy versions), accounts/, funds/, transactions/ (ledger + record form), audit/

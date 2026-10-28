@@ -35,19 +35,26 @@ The landing page shows the business as recorded:
 - **Journal entry page:** execution, notes and a **post-trade review**; marking a closed trade reviewed keeps your own words. R-multiple, duration and day are calculated from what you recorded.
 - **Only closed and reviewed trades count** in performance and behaviour analytics; drafts and open positions never move the numbers.
 - A retried save cannot create the same trade twice (`Idempotency-Key`).
+
+![Rule adherence on the Strategies page](docs/images/strategy-adherence.jpg)
+
 - **Strategies and checklists:** each strategy has your own rules, mandatory or optional. A trade's checklist records whether each rule was met, keeps every change, and is never rewritten when a rule is reworded later. **Rule adherence** is shown with its denominator: of the closed trades with a complete checklist, how many followed every mandatory rule. Results of trades that did and did not follow the rules are compared side by side, labelled when the sample is small, and never presented as cause and effect.
-- **Journal templates:** the questions answered for each trade (context, a pre-trade checklist, psychology, post-trade review and lessons), from a standard template you can edit, duplicate, archive or replace as the default. The editor shows a live preview. Changing the questions creates a new version, and trades already journaled keep the version they were written with. Required questions must be answered before a trade can be marked reviewed.
+- **Journal templates:** the questions answered for each trade (context, a pre-trade checklist, psychology, post-trade review and lessons), from a standard template you can edit, duplicate, archive or replace as the default. The editor shows a live preview. Changing the questions creates a new version, and trades already journaled keep the version they were written with. Required questions must be answered before a trade can be marked reviewed. Any active template can start a new trade directly.
+
+![Journal page with the calendar](docs/images/journal-calendar.jpg)
+
 - **Journal page:** drafts, open trades and trades awaiting review at a glance, recent activity, and a **calendar** of each day's completed trades and net P&L. Days with only unfinished trades are marked apart, and each day opens the trade log for that date.
 - **Files:** attach chart screenshots or statements to a trade (PNG, JPEG, WebP or PDF, up to 5 MB, 10 per trade). Files are checked by their content, stored outside any public folder and shown only to you.
 - **Optional AI-drafted review:** off unless you configure a model.
   - **What it reads:** only that trade, its journal answers and checklist, and a few comparable trades (same strategy and session). Your notes are passed to the model as data, never as instructions.
-  - **What you get:** a closed trade's review can be drafted, with recorded facts, figures calculated by the app, and the AI's interpretation shown separately.
+  - **What you get:** a closed trade's review can be drafted, with recorded facts, figures calculated by the app, the AI's interpretation shown separately, and a few questions to reflect on.
   - **What it never does:** save anything. The draft goes into your review box only when you choose, and you edit and save it yourself. No trading signals and no diagnoses.
 - The design for checklists, strategy rules and AI-assisted review is in [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md).
 - Import trades from CSV, with row-level validation. Valid rows are kept and failed rows are reported with their row number. Importing the same row twice is skipped, and a row that matches a trade you journaled by hand waits for your decision: **link** it (filling only what your trade is missing, never your notes), import it as a separate trade, or leave it out.
 - Upload history per user.
 - Strategies are created automatically from the CSV `Strategy` column.
-- View, search and delete trades. Search covers instrument, strategy, session and day; filters cover status, direction, strategy, session, account, result and date. Sort by date, instrument, P&L or R; 25 trades per page.
+- View, search and delete trades. Search covers instrument, strategy, session and day; filters cover status, direction, strategy, session, account, result and date. Each row shows the trade's rule adherence. Sort by date, instrument, P&L or R; 25 trades per page.
+- **What the journal does not do yet** is listed in [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): most importantly, edits to a trade or its journal answers are not kept as a history (only the strategy checklist is), and the AI assistant drafts one trade's review but does not answer questions across entries.
 
 ### Performance analytics
 - **Win rate**: winning trades ÷ total trades.
@@ -57,8 +64,10 @@ The landing page shows the business as recorded:
 - **Equity curve**: cumulative P&L by day.
 - **Max drawdown**: the largest peak-to-trough fall in cumulative P&L.
 - **Breakdowns**: by strategy, day of week and trading session.
-- **Filters** (Performance and Behaviour): date range, strategy, session, account, rule adherence (followed every mandatory rule, broke one, or not scored), and any journal answer with fixed choices, such as your emotion before entry or a quality rating. Filters only narrow the trades; every figure is calculated exactly as without them. Fewer than 20 matching trades is labelled insufficient data, and the filtered view is kept in the address so it can be bookmarked.
+- **Filters** (Performance and Behaviour): date range, strategy, instrument, session, account, rule adherence (followed every mandatory rule, broke one, or not scored), and any journal answer with fixed choices, such as your emotion before entry or a quality rating. Filters only narrow the trades; every figure is calculated exactly as without them. Fewer than 20 matching trades is labelled insufficient data, and the filtered view is kept in the address so it can be bookmarked.
 - **Rule adherence** for the same filters: trades that followed the mandatory rules compared with those that did not, with sample sizes.
+
+![Performance filtered by strategy and session](docs/images/performance-filters.jpg)
 
 ### Behavioural analytics
 - **Revenge trading**: a trade entered within 20 minutes of a losing trade on the same day.
@@ -279,6 +288,7 @@ The integration tests need SQL Server. Details and the latest results are in [`d
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how the code is organised today
 - [`docs/FINANCIAL_DOMAIN.md`](docs/FINANCIAL_DOMAIN.md): money and currency rules
 - [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md): the journal's audit, design and phases
+- [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): the journal brief checked requirement by requirement, with gaps
 - [`docs/DATABASE_MIGRATION.md`](docs/DATABASE_MIGRATION.md): migration, backup and restore procedure, and the migration log
 - [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md): brand identity, tokens, components and UI conventions
 - [`docs/UI_AUDIT.md`](docs/UI_AUDIT.md): the frontend audit behind the redesign

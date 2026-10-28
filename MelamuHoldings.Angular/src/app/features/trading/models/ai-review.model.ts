@@ -13,6 +13,7 @@ export interface AiReviewDraft {
   facts: AiFact[];
   metrics: AiMetric[];
   interpretations: string[];
+  reflectionPrompts: string[];
   suggestedReview?: string | null;
   comparableTradeIds: number[];
   model?: string | null;

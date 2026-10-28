@@ -67,6 +67,13 @@ import { describeHttpError } from '../../../shared/http-error';
           </div>
         }
 
+        @if (d.reflectionPrompts.length > 0) {
+          <div class="part">
+            <h4>Questions to consider</h4>
+            <ul>@for (q of d.reflectionPrompts; track $index) { <li>{{ q }}</li> }</ul>
+          </div>
+        }
+
         @if (d.suggestedReview; as text) {
           <div class="part">
             <h4>Suggested review</h4>

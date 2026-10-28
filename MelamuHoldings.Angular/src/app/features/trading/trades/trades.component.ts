@@ -117,6 +117,7 @@ const STATUSES: TradeStatus[] = ['Draft', 'Open', 'Closed', 'Reviewed'];
                   <th>Session</th>
                   <th class="num">Duration</th>
                   <th>Override</th>
+                  <th>Rules</th>
                   <th>Status</th>
                   <th><span class="visually-hidden">Actions</span></th>
                 </tr>
@@ -141,6 +142,14 @@ const STATUSES: TradeStatus[] = ['Draft', 'Open', 'Closed', 'Reviewed'];
                       @if (trade.isManualOverride) { <span class="tag tag-warning">Override</span> }
                       @else { <span class="muted">—</span> }
                     </td>
+                    <td>
+                      @switch (trade.ruleAdherence) {
+                        @case ('Followed') { <span class="tag tag-positive">Followed</span> }
+                        @case ('Broke') { <span class="tag tag-negative">Broke a rule</span> }
+                        @case ('Unfinished') { <span class="tag">Unfinished</span> }
+                        @default { <span class="muted">—</span> }
+                      }
+                    </td>
                     <td><span [class]="tradeStatus[trade.status].tag">{{ tradeStatus[trade.status].label }}</span></td>
                     <td class="actions">
                       @if (confirmingDelete() === trade.id) {
@@ -154,7 +163,7 @@ const STATUSES: TradeStatus[] = ['Draft', 'Open', 'Closed', 'Reviewed'];
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="14" class="empty-row">
+                    <td colspan="15" class="empty-row">
                       {{ trades().length === 0 ? 'No trades recorded yet. Record one with New trade, or import your history.' : 'No trades match these filters.' }}
                     </td>
                   </tr>

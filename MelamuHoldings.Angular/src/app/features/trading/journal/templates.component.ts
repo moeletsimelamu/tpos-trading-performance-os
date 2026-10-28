@@ -47,6 +47,9 @@ import { IconComponent } from '../../../shared/ui/icon.component';
                       @else { <span class="tag tag-info">Active</span> }
                     </td>
                     <td class="actions">
+                      @if (t.status === 'Active') {
+                        <a class="small" routerLink="/trading/trades/new" [queryParams]="{ template: t.id }">New trade</a>
+                      }
                       <button type="button" class="btn-link small" [disabled]="busy()" (click)="act(t, 'duplicate')">Duplicate</button>
                       @if (t.status === 'Active' && !t.isDefault) {
                         <button type="button" class="btn-link small" [disabled]="busy()" (click)="act(t, 'make-default')">Make default</button>

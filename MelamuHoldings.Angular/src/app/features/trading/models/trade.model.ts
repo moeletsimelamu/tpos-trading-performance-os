@@ -42,6 +42,8 @@ export interface Trade {
   updatedAt?: string | null;
   journal?: TradeJournal | null;   // included when one trade is read
   checklist?: TradeChecklist | null;   // likewise: the checklist for the trade's strategy
+  // From the checklist of the trade's strategy; included in lists. Absent when there is no checklist.
+  ruleAdherence?: 'Followed' | 'Broke' | 'Unfinished' | null;
   attachments?: TradeAttachment[] | null;   // likewise: files kept with the trade
 }
 

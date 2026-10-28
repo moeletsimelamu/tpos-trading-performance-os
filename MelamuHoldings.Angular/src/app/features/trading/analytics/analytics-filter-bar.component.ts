@@ -27,6 +27,15 @@ import { ADHERENCE_FILTERS, AdherenceFilter, AnalyticsFilter, AnalyticsFilterOpt
             @for (s of options()?.strategies ?? []; track s.value) { <option [value]="s.value" [selected]="s.value === '' + filter().strategyId">{{ s.label }}</option> }
           </select>
         </div>
+        @if ((options()?.instruments ?? []).length > 1) {
+          <div class="field">
+            <label for="f-instrument">Instrument</label>
+            <select id="f-instrument" (change)="set('instrument', $any($event.target).value)">
+              <option value="" [selected]="!filter().instrument">All instruments</option>
+              @for (i of options()!.instruments; track i) { <option [value]="i" [selected]="i === filter().instrument">{{ i }}</option> }
+            </select>
+          </div>
+        }
         <div class="field">
           <label for="f-session">Session</label>
           <select id="f-session" (change)="set('session', $any($event.target).value)">
@@ -106,7 +115,7 @@ export class AnalyticsFilterBarComponent {
   readonly empty = computed(() => isFilterEmpty(this.filter()));
   readonly applied = computed(() => describeFilter(this.filter(), this.options()));
 
-  set(key: 'from' | 'to' | 'strategyId' | 'session' | 'account' | 'adherence', raw: string): void {
+  set(key: 'from' | 'to' | 'strategyId' | 'instrument' | 'session' | 'account' | 'adherence', raw: string): void {
     const next: AnalyticsFilter = { ...this.filter() };
     if (!raw) delete next[key];
     else if (key === 'strategyId') next.strategyId = Number(raw);

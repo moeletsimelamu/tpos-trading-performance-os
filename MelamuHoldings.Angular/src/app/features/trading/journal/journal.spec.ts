@@ -156,6 +156,21 @@ describe('TradeFormComponent', () => {
     req.flush(trade({ status: 'Draft' }));
   });
 
+  it('starts a new trade with the template chosen on the templates page', async () => {
+    TestBed.configureTestingModule({
+      imports: [TradeFormComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({}), queryParamMap: convertToParamMap({ template: '2' }) } } }]
+    });
+    http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(TradeFormComponent);
+    await fixture.whenStable();
+    http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/strategies`).flush([]);
+
+    expect(fixture.componentInstance.journalVersionId()).toBe(21);   // the Scalp template, not the default
+  });
+
   it('carries answers to another template only where the question matches, and names the rest', async () => {
     http = configure(TradeFormComponent);
     const fixture = TestBed.createComponent(TradeFormComponent);

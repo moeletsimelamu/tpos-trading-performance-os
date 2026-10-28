@@ -34,10 +34,17 @@ public class TradeService
 
     private DateTime Now => _clock.GetUtcNow().UtcDateTime;
 
-    public async Task<IEnumerable<TradeResponseDto>> GetTradesByUserAsync(int userId, TradeStatus? status = null)
+    public async Task<IReadOnlyList<TradeResponseDto>> GetTradesByUserAsync(int userId, TradeStatus? status = null)
     {
-        var trades = await _tradeRepository.GetByUserIdAsync(userId);
-        return trades.Where(t => status is null || t.Status == status).Select(MapToResponseDto);
+        var trades = (await _tradeRepository.GetByUserIdAsync(userId)).Where(t => status is null || t.Status == status).ToList();
+        // One query for every checklist, so the trade log can show rule adherence per row
+        var checklists = trades.Count == 0 ? [] : await _strategyRepository.GetChecklistsAsync(trades.Select(t => t.Id).ToList());
+        return trades.Select(t =>
+        {
+            var dto = MapToResponseDto(t);
+            dto.RuleAdherence = Adherence(checklists.FirstOrDefault(c => c.TradeId == t.Id && c.StrategyId == t.StrategyId));
+            return dto;
+        }).ToList();
     }
 
     public async Task<TradeResponseDto?> GetTradeByIdAsync(int tradeId, int userId)
@@ -138,9 +145,13 @@ public class TradeService
         var dto = MapToResponseDto(trade);
         dto.Journal = await _journal.GetAsync(trade.Id, userId);
         dto.Checklist = await _checklists.GetAsync(trade);
+        dto.RuleAdherence = dto.Checklist is null ? null : !dto.Checklist.IsComplete ? "Unfinished" : dto.Checklist.IsCompliant == true ? "Followed" : "Broke";
         dto.Attachments = await _attachments.ListAsync(trade.Id);
         return dto;
     }
+
+    private static string? Adherence(TradeChecklist? checklist) =>
+        checklist is null ? null : !checklist.IsComplete ? "Unfinished" : checklist.IsCompliant == true ? "Followed" : "Broke";
 
     // Copies what was entered. Calculated values (R, duration) are cleared first so they are recalculated
     // from the new figures rather than kept stale.

@@ -176,6 +176,7 @@ describe('TemplatesComponent', () => {
     const c = fixture.componentInstance;
 
     expect(text).toContain('Default');
+    expect((fixture.nativeElement.querySelector('a[href="/trading/trades/new?template=3"]') as HTMLElement).textContent).toBe('New trade');
     expect(c.used(c.templates()[1])).toBe(5);
 
     c.act(c.templates()[1], 'duplicate');

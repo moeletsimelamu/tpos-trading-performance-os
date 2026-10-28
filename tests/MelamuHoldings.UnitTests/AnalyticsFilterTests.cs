@@ -76,6 +76,8 @@ public class AnalyticsFilterTests
 
         Assert.Equal(new[] { 2, 3 }, await Ids(new AnalyticsFilter { Session = " New York " }));
         Assert.Equal(new[] { 1, 2 }, await Ids(new AnalyticsFilter { Account = "prop a" }));
+        Assert.Equal(new[] { 1, 2, 3, 4, 5 }, await Ids(new AnalyticsFilter { Instrument = "nq" }));   // every fixture trade is NQ
+        Assert.Empty(await Ids(new AnalyticsFilter { Instrument = "ES" }));
         Assert.Equal(new[] { 2, 3, 4 }, await Ids(new AnalyticsFilter { From = DateOnly.Parse("2026-10-06"), To = DateOnly.Parse("2026-10-12") }));
         Assert.Equal(new[] { 1, 2, 3, 4, 5 }, await Ids(new AnalyticsFilter()));
     }
@@ -154,6 +156,7 @@ public class AnalyticsFilterTests
         Assert.Equal(["1", "2", "3", "4", "5"], options.JournalFields.Single(f => f.Id == "confidence").Options.Select(o => o.Value));
         Assert.Equal([("true", "Yes"), ("false", "No")], options.JournalFields.Single(f => f.Id == "planned-risk").Options.Select(o => (o.Value, o.Label)));
         Assert.Equal(["London", "New York"], options.Sessions);
+        Assert.Equal(["NQ"], options.Instruments);
         Assert.Equal(["Prop A", "Prop B"], options.Accounts);
     }
 

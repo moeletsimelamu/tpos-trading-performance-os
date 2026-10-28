@@ -7,7 +7,7 @@ This document is phase J1 of [`../PLAN.md`](../PLAN.md) §7a. It records:
 - the decisions for every journal phase;
 - the exact scope of J2, which is built alongside it.
 
-J1 to J7 are built (2026-10-28). J8 (verification and documentation) remains.
+J1 to J8 are built (2026-10-29). What the brief asks for and what is built are compared in [`JOURNAL_REVIEW.md`](JOURNAL_REVIEW.md), with the remaining gaps.
 
 ## 1. Audit of the existing trading module (2026-10-28)
 
@@ -174,6 +174,7 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 - **Filters** (the same query parameters on every `/api/analytics/*` endpoint):
   - **Dates:** `from` and `to` (trade date).
   - **Strategy:** `strategyId`.
+  - **Instrument:** `instrument` (added in J8), compared case-insensitively.
   - **Session and account:** `session` and `account`, compared case-insensitively.
   - **Rule adherence:** `adherence`, taken from the checklist of the trade's current strategy. `Followed` means a complete checklist with every mandatory rule met; `Broke` means a complete checklist with one not met; `NotScored` means no checklist, or an unfinished one.
   - **Journal answers:** `answerField` + `answerValue`. "Emotion" and "rating" are questions in the trader's own templates, so they are not fixed fields. Any question with fixed answers can be filtered on, matched by its field id (stable across template versions):
@@ -255,4 +256,4 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 | **J5** ✅ | Journal page and calendar; trade log filters, sorting and paging; folded journal answers; attachments; import reconciliation | Unit: type detection, file names and size limits, match and duplicate rules, linking fills only empty fields, calendar totals. Integration: calendar and overview, attachment types, size, count limit and access, files removed with the trade, re-import skipped, link / import separately / dismiss, concurrent decisions create one trade. Angular: month grid, calendar cells and links, journal page, log filters, sorting and paging, attachments, import decisions, folded answers. |
 | **J6** ✅ | One filter for every analytics figure (dates, strategy, session, account, adherence, journal answers), filter options, sample-size flag, filter bar on Performance and Behaviour, adherence comparison on Performance | Unit: filtered summaries equal the same calculation over only the kept trades; each filter; adherence from the current strategy's checklist; answers by shape and field id; options across versions; validation; sample flag. Integration: dates, session and account narrow every endpoint alike; a strategy filter equals its breakdown row; adherence and answer filters (and adherence under a filter); invalid filters 400; options private. Angular: the address round trip, the filter bar (answer only applies with a question), filters sent with every figure, no-match state and clearing, Behaviour filtered. |
 | **J7** ✅ | Optional AI-drafted review: provider abstraction (OpenAI-compatible HTTP), bounded context, not-enough-data path, reply checks, rate limit, panel on the trade page | Integration: off by default (status off, 503); status never shows the key; not enough data without calling the model; only the caller's closed trades; context bounded to N same-strategy-and-session trades; injected text stays escaped data and nothing is saved; facts citing unknown trades dropped; app figures (invariant formatting); 502 on unusable replies; per-user rate limit. Provider: request shape (no tools, JSON mode, Content-Length), no key, failures without echoing bodies. Angular: hidden when off or after review, parts kept apart, box filled only on request and appended below the trader's words, not-enough-data and failure states. |
-| J8 | Verification and documentation | Full regression; browser walkthrough |
+| **J8** ✅ | Verification and documentation | Full regression, run three times; package audits; idempotent migration script; the brief traced in `JOURNAL_REVIEW.md`; an end-to-end browser flow across J2–J7; small gaps closed (instrument filter, rule-adherence column, reflection prompts, New trade from a template) |

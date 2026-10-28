@@ -139,6 +139,12 @@ describe('TradesComponent journal filters', () => {
     expect(c.filtered().map(t => t.id)).toEqual([3]);
   });
 
+  it('shows each trade\'s rule adherence', async () => {
+    const { fixture } = await render([trade(1, { ruleAdherence: 'Followed' }), trade(2, { ruleAdherence: 'Broke' }), trade(3, { ruleAdherence: null })]);
+    const cells = [...fixture.nativeElement.querySelectorAll('tbody tr')].map((r: Element) => r.querySelectorAll('td')[12].textContent!.trim());
+    expect(cells.sort()).toEqual(['Broke a rule', 'Followed', '—']);
+  });
+
   it('filters by strategy, session and account', async () => {
     const { c } = await render([trade(1), trade(2, { strategyName: 'Pullback', session: 'New York' }), trade(3, { tradingAccount: 'Prop 1' })]);
 

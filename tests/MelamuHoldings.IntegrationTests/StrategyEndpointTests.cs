@@ -138,6 +138,10 @@ public class StrategyEndpointTests : IClassFixture<ApiFactory>
             .Select(h => (h.GetProperty("sequence").GetInt32(), h.GetProperty("answer").GetString())).ToList();
         Assert.Equal([(1, "Met"), (2, "NotMet")], history);
 
+        // The trade log shows the same result per row
+        var listed = (await Ok(client.GetAsync("/api/trades"))).EnumerateArray().Single(t => t.GetProperty("id").GetInt32() == tradeId);
+        Assert.Equal("Broke", listed.GetProperty("ruleAdherence").GetString());
+
         // Saving the trade without checklist answers leaves the checklist as it is
         var untouched = await Ok(client.PutAsJsonAsync($"/api/trades/{tradeId}", Closed("CHK-1", "Checklist ORB")));
         Assert.Equal(4, untouched.GetProperty("checklist").GetProperty("history").GetArrayLength());

@@ -38,7 +38,7 @@ import { AdherenceGroup, AdherenceReport } from '../models/strategy.model';
                 <td class="num">{{ row.group.trades }}</td>
                 <td class="num">{{ row.group.winRate != null ? (row.group.winRate | number: '1.0-1') + '%' : '—' }}</td>
                 <td class="num" [class.text-positive]="row.group.netPnL > 0" [class.text-negative]="row.group.netPnL < 0">{{ signed(row.group.netPnL) }}</td>
-                <td class="num">{{ row.group.averageR != null ? (row.group.averageR | number: '1.2-2') + 'R' : '—' }}</td>
+                <td class="num">{{ row.group.averageR != null ? formatR(row.group.averageR) : '—' }}</td>
                 <td>@if (row.group.insufficientData) { <span class="tag tag-warning">Insufficient data</span> }</td>
               </tr>
             }
@@ -81,6 +81,12 @@ export class AdherencePanelComponent {
     { label: 'Followed every mandatory rule', group: this.report().compliantResults },
     { label: 'Broke a mandatory rule', group: this.report().nonCompliantResults }
   ]);
+
+  // R with a true minus sign, like the P&L beside it
+  formatR(value: number): string {
+    const formatted = Math.abs(value).toFixed(2) + 'R';
+    return value < 0 ? `−${formatted}` : formatted;
+  }
 
   signed(value: number): string {
     const formatted = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

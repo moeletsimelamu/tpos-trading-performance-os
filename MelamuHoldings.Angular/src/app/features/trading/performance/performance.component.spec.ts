@@ -15,7 +15,7 @@ const emptySummary = {
 };
 
 const options: AnalyticsFilterOptions = {
-  strategies: [{ value: '4', label: 'ORB' }], sessions: ['London', 'New York'], accounts: [],
+  strategies: [{ value: '4', label: 'ORB' }], instruments: ['NQ'], sessions: ['London', 'New York'], accounts: [],
   journalFields: [{ id: 'mood', label: 'Mood', type: 'SingleSelect', options: [{ value: 'Calm', label: 'Calm' }] }]
 };
 

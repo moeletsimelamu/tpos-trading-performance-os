@@ -49,6 +49,52 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-29 (branch `journal-j8-verification`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 165 passed, 0 failed, on three consecutive runs |
+| `dotnet test` (Release): integration | 91 passed, 0 failed, on three consecutive runs |
+| `ng test --watch=false` | 147 passed, 0 failed (19 files) |
+| `ng build` (production) | Succeeded; initial bundle 308.17 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | All 8 migrations present, each guarded |
+
+The requirement-by-requirement check of the journal brief is in [`JOURNAL_REVIEW.md`](JOURNAL_REVIEW.md).
+
+**What J8 added to the tests**
+- **Unit:** the instrument filter (all NQ fixtures kept, ES none) and the instrument options.
+- **Integration:**
+  - **Trade log:** the list shows `ruleAdherence` (Broke) for a trade whose mandatory rule was not met.
+  - **AI draft:** returns at most 4 reflection prompts, and the system prompt forbids encouraging revenge trading.
+- **Angular:**
+  - **Filters:** the instrument filter in the address and the bar.
+  - **Trade log:** the rule-adherence column.
+  - **AI draft:** a "Questions to consider" section.
+  - **Templates:** a new trade started from a chosen template, and the template list's "New trade" link.
+
+### End-to-end journal walkthrough (J8)
+One trade taken through every stage, on `MelamuHoldings_Scratch`, with the AI review pointed at the local stub server (not a real model):
+1. **Template:** Journal templates → "New trade" on Standard trade journal opened the form with that template and today's date.
+2. **Draft:** NQ Long, New York, strategy ORB, USD, entry 09:35 at 21,100, stop 21,070, risk 200. The ORB checklist appeared as soon as the strategy was named; both mandatory rules were answered Met, with "Calm" before entry. Saved as **Draft** trade 24, checklist "Followed every mandatory rule".
+3. **Journal page:** listed it under Drafts, and the calendar showed 29 October as "no completed trades; 1 draft".
+4. **Closing it:** reopened from edit; exit 10:20 at 21,130, P&L 600, plus the required "valid" and key-lesson answers. Saved as **Closed**, with R 3.00 (600 ÷ 200) and 45 minutes calculated.
+5. **Files:** a PNG chart with the caption "Retest of the opening range" was attached (14 KB, shown as a thumbnail).
+6. **AI draft:** "Draft a review with AI" returned recorded facts citing trade 24, the app's figures, an interpretation marked may be wrong, questions to consider and a suggested review. "Use as my review" put it in the box, I added my own sentence, and **Mark reviewed** saved the edited text. The trade is Reviewed, and the AI panel is gone.
+7. **Everywhere else:**
+   - **Journal page:** 29 October showed "1 completed, +600.00", the month 24 trades +3,310.00 (+2,710 before), and Recent activity led with this trade.
+   - **Trade log** for the day: NQ · +600.00 · 3.00R · ORB · Followed · Reviewed.
+   - **Performance** filtered by NQ · New York · Followed every mandatory rule · "Emotional state before entry: Calm": exactly this trade (+600.00, 1 trade), with adherence 100% (1 of 1).
+8. **Import:** a CSV row for the same trade matched it, and nothing was imported. "Link to my trade" reported "It already had every value, so nothing changed". The database still had one trade on 29 October, with my review intact.
+- **New screenshots for the README:** `journal-calendar.jpg`, `strategy-adherence.jpg` and `performance-filters.jpg`.
+- **Problems in the walkthrough itself, not the app:**
+  - **Single-threaded stub:** the first AI request timed out, because the stub was a single-threaded Python server held by an idle browser connection. The app reported "did not answer within 10 seconds. Nothing was saved." I made the stub multi-threaded.
+  - **My script's timing:** a key-lesson answer was lost because two journal inputs were fired in the same instant, before Angular passed the first back in. Real typing always has that refresh in between.
+- **Fixed during the walkthrough:** negative average R in the adherence comparison now uses a true minus sign ("−2.00R"), like the P&L beside it.
+
 ## Results — 2026-10-28 (branch `journal-j7-ai-review`)
 
 | Command | Result |

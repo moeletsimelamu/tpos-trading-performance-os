@@ -9,6 +9,7 @@ import { AnalyticsFilter, AnalyticsFilterOptions, describeFilter, filterFromQuer
 
 const options: AnalyticsFilterOptions = {
   strategies: [{ value: '4', label: 'ORB' }, { value: '5', label: 'Pullback' }],
+  instruments: ['ES', 'NQ'],
   sessions: ['London', 'New York'],
   accounts: ['Prop A'],
   journalFields: [
@@ -23,6 +24,7 @@ describe('analytics filter model', () => {
       from: '2026-10-01', to: 'yesterday', strategyId: '4x', session: ' London ', adherence: 'Sometimes', answerField: 'mood'
     }));
     expect(filter).toEqual({ from: '2026-10-01', session: 'London' });   // an answer without a question is dropped too
+    expect(filterFromQuery(convertToParamMap({ instrument: ' NQ ' }))).toEqual({ instrument: 'NQ' });
   });
 
   it('sends the API the same names, without empty or half-chosen values', () => {
@@ -73,6 +75,14 @@ describe('AnalyticsFilterBarComponent', () => {
 
     c.chooseAnswer('Tense');
     expect(emitted.at(-1)).toEqual({ answerField: 'mood', answerValue: 'Tense' });
+  });
+
+  it('offers instruments when there is more than one, and applies one', async () => {
+    const { fixture, c, emitted } = await render();
+    expect(fixture.nativeElement.querySelector('#f-instrument')).not.toBeNull();
+
+    c.set('instrument', 'ES');
+    expect(emitted.at(-1)).toEqual({ instrument: 'ES' });
   });
 
   it('shows what is applied and clears it', async () => {
