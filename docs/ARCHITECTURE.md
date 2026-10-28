@@ -14,8 +14,9 @@ MelamuHoldings.Domain/          no dependencies
 MelamuHoldings.Application/     depends on Domain
   Common/       IRepository<T>, PagedResult<T>, NotFound/Conflict/UniqueConstraintViolation exceptions
   Identity/     AuthService, OwnerAccountService, JwtService, JwtOptions, Roles/Policies, auth DTOs, IUserRepository
-  Trading/      TradeService, AnalyticsService, BehaviourAnalyticsService, UploadService,
-                CsvParserService, trade DTOs, repository interfaces
+  Trading/      TradeService (journal entries: draft, open, closed, review), AnalyticsService,
+                BehaviourAnalyticsService, CompletedTrade (the one projection analytics read),
+                UploadService, CsvParserService, trade DTOs, repository interfaces
   Finance/      LedgerPosting (the one path every ledger transaction takes: idempotency, save, audit),
                 LedgerService (direct money movements), PayoutService, AllocationService (policies,
                 preview, confirm, settle), FinanceSetupService (funds, accounts),
@@ -56,7 +57,8 @@ src/app/
     overview/   OverviewComponent (mounted at /overview, the landing page); reads the
                 finance and trading APIs, owns no endpoints
     trading/    trading.routes.ts (mounted at /trading), TradingApiService, models,
-                performance/, trades/, import/, behaviour/
+                performance/, trades/, journal/ (new trade and edit form, journal entry page),
+                import/, behaviour/
     finance/    finance.routes.ts (mounted at /finance), FinanceApiService, models, amount.validator,
                 payouts/ (list, detail with approve/receive/allocate), allocations/ (list, detail with
                 settlement, policy versions), accounts/, funds/, transactions/ (ledger + record form), audit/

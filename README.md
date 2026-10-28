@@ -28,6 +28,14 @@ The landing page shows the business as recorded:
 ![Trading performance](docs/images/trading-performance.jpg)
 
 ### Trading journal
+
+![Trade journal entry](docs/images/trade-journal-entry.jpg)
+
+- **New trade:** record a trade by hand, as a **draft** (just date and instrument), **open** (entry recorded) or **closed** (exit and P&L recorded). Nothing missing is filled in with zeros.
+- **Journal entry page:** execution, notes and a **post-trade review**; marking a closed trade reviewed keeps your own words. R-multiple, duration and day are calculated from what you recorded.
+- **Only closed and reviewed trades count** in performance and behaviour analytics; drafts and open positions never move the numbers.
+- A retried save cannot create the same trade twice (`Idempotency-Key`).
+- The design for templates, checklists and AI-assisted review is in [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md).
 - Import trades from CSV, with row-level validation. Valid rows are kept and failed rows are reported with their row number.
 - Upload history per user.
 - Strategies are created automatically from the CSV `Strategy` column.
@@ -168,10 +176,11 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/auth/login` | Sign in; returns a JWT |
-| GET | `/api/trades` | List your trades |
+| GET | `/api/trades?status=` | List your trades, optionally by status (`Draft`, `Open`, `Closed`, `Reviewed`) |
 | GET | `/api/trades/{id}` | Get one trade |
-| POST | `/api/trades` | Create a trade (validated) |
-| PUT | `/api/trades/{id}` | Update a trade |
+| POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted); accepts `Idempotency-Key` |
+| PUT | `/api/trades/{id}` | Update a journal entry (omit `status` to keep it) |
+| POST | `/api/trades/{id}/review` | Mark a closed trade reviewed, with the review notes |
 | DELETE | `/api/trades/{id}` | Delete a trade |
 | POST | `/api/upload` | Import a CSV journal (max 10 MB) |
 | GET | `/api/upload/logs` | Upload history |
@@ -226,6 +235,7 @@ The integration tests need SQL Server. Details and the latest results are in [`d
 - [`PLAN.md`](PLAN.md): target architecture, financial domain model, phases and decisions
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how the code is organised today
 - [`docs/FINANCIAL_DOMAIN.md`](docs/FINANCIAL_DOMAIN.md): money and currency rules
+- [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md): the journal's audit, design and phases
 - [`docs/DATABASE_MIGRATION.md`](docs/DATABASE_MIGRATION.md): migration, backup and restore procedure, and the migration log
 - [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md): brand identity, tokens, components and UI conventions
 - [`docs/UI_AUDIT.md`](docs/UI_AUDIT.md): the frontend audit behind the redesign

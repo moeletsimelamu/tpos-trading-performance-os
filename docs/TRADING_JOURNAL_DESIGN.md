@@ -7,7 +7,7 @@ This document is phase J1 of [`../PLAN.md`](../PLAN.md) §7a. It records:
 - the decisions for every journal phase;
 - the exact scope of J2, which is built alongside it.
 
-Later sections describe J3–J7 as designed, not built.
+J1 and J2 are built (2026-10-28). Later sections describe J3–J7 as designed, not built.
 
 ## 1. Audit of the existing trading module (2026-10-28)
 
@@ -139,7 +139,7 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 | Phase | Scope | Tests |
 |---|---|---|
 | **J1** ✅ | This document | — |
-| **J2** | Statuses, nullable execution fields, new columns, migration; status-aware create and update; review action; status filter; idempotent create; analytics count completed trades only; New trade, journal entry and edit pages; status filter on the trade log | Unit: per-status validation, R and duration calculation, completed-trade projection. Integration: a draft has missing fields and is excluded from analytics; closing it counts it; review needs a closed trade; the idempotent create; isolation still holds; existing tests unchanged. Angular: form per status, draft save, idempotency key, entry page. |
+| **J2** ✅ | Statuses, nullable execution fields, new columns, migration; status-aware create and update; review action; status filter; idempotent create; analytics count completed trades only; New trade, journal entry and edit pages; status filter on the trade log | Unit: per-status validation, R and duration calculation, completed-trade projection. Integration: a draft has missing fields and is excluded from analytics; closing it counts it; review needs a closed trade; the idempotent create; isolation still holds; existing tests unchanged. Angular: form per status, draft save, idempotency key, entry page. |
 | J3 | Templates and versions, default template, rendering answers | Schema validation; editing a template leaves old entries intact |
 | J4 | Strategy rules, checklists, adherence | Mandatory versus optional; change history; denominators |
 | J5 | Journal overview, calendar, attachments, import reconciliation | Attachment type, size and access; no duplicate on import |

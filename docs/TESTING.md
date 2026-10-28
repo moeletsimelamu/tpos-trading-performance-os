@@ -49,6 +49,33 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-28 (branch `journal-j1-j2`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 115 passed, 0 failed |
+| `dotnet test` (Release): integration, applying all five migrations | 55 passed, 0 failed. The concurrency tests passed 15 runs in a row. |
+| `ng test --watch=false` | 90 passed, 0 failed (14 files) |
+| `ng build` (production) | Succeeded; initial bundle 307.06 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+
+**What the new tests cover**
+- **Unit:** required fields per status, refusing a status until its fields exist, review only after close and with notes, R / duration / day calculated only from recorded values (no risk → no R, not 0R), the completed-trade projection, analytics ignoring a draft with a P&L in it, average R over trades that have one, status validation on save. The existing analytics and behaviour characterisation tests pass unchanged.
+- **Integration:** a draft saves with nulls and leaves the summary unchanged; closing it is refused without the exit, then counts with R 2.5 and a 45-minute duration; review needs a closed trade and `Reviewed` cannot be set as a plain status; 5 concurrent same-key saves create one trade; the original closed-trade contract still works; another user cannot read or review a draft.
+- **Angular:** a draft sends nulls with an idempotency key; a closed save names what is missing instead of sending; the key is kept on retry; editing a reviewed trade sends no status; the entry page shows dashes for unrecorded values and marks a trade reviewed; delete needs confirmation; status and result filters.
+
+**Race fixed on this branch:** a same-key retry of an allocation confirmation or a reversal breaks two unique indexes, and SQL Server may report either. Both paths now look for the key before reporting a conflict.
+
+### Manual browser verification (J2)
+Run against `MelamuHoldings_Scratch` after applying `AddTradeJournalFields`. The trade is labelled "SCRATCH":
+- New trade → saved a **draft** with only instrument, session and strategy. The entry page shows dashes and "Not counted in performance".
+- Edited it: "Save as closed" without an exit was refused with "Still needed for this status: exit price, realised P&L". Added exit and P&L → **Closed**, R 2.50 (375 ÷ 150), 45 minutes, USD.
+- Wrote the review → **Reviewed**, with the notes shown and dated.
+- Performance went from 20 to **21 closed trades** and from +1,585.00 to **+1,960.00**; expectancy +93.33 (1,960 ÷ 21).
+- The trade log shows status tabs (Closed 20, Reviewed 1) and the New trade button.
+- At phone width (375 px), the new trade form, the entry page and the trade log have no horizontal scroll.
+
 ## Results — 2026-10-28 (branch `phase-5-payouts`)
 
 | Command | Result |
