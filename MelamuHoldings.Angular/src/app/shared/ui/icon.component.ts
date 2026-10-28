@@ -7,6 +7,7 @@ const PATHS = {
   performance: 'M4 19h16M5 15l4-5 4 3 6-7',
   trades: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
   template: 'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5',
+  strategy: 'M5 21V4M5 4h11l-2 4 2 4H5',
   up: 'M12 19V5M6 11l6-6 6 6',
   down: 'M12 5v14M6 13l6 6 6-6',
   import: 'M12 15V4M8 8l4-4 4 4M4 15v5h16v-5',

@@ -7,6 +7,7 @@ import { TradingApiService } from '../trading-api.service';
 import { REQUIRED_FOR, SaveStatus, SaveTrade, Trade } from '../models/trade.model';
 import { JournalAnswers, JournalSection, JournalTemplate, carryAnswers } from '../models/journal.model';
 import { JournalFieldsComponent } from './journal-fields.component';
+import { RULE_ANSWERS, RuleAnswer, Strategy } from '../models/strategy.model';
 import { newIdempotencyKey, todayIso } from '../../finance/finance-api.service';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
@@ -50,6 +51,14 @@ function notNegative(control: AbstractControl): ValidationErrors | null {
     textarea { min-height: 96px; }
     .picker { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; margin-bottom: var(--space-5); }
     .picker .field { min-width: 240px; }
+    .rules { display: grid; gap: var(--space-2); }
+    .rule { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2) var(--space-4); align-items: center; padding: var(--space-2) 0; border-top: 1px solid var(--border-subtle); }
+    .rule-text { display: flex; gap: var(--space-2); align-items: baseline; flex: 1 1 240px; }
+    .answers { display: flex; gap: 2px; border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }
+    .answers label { position: relative; display: flex; align-items: center; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; color: var(--text-secondary); }
+    .answers input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+    .answers label:has(input:checked) { background: var(--primary); color: var(--text-inverse); }
+    .answers label:has(input:focus-visible) { box-shadow: var(--focus-ring); }
   `]
 })
 export class TradeFormComponent {
@@ -82,6 +91,35 @@ export class TradeFormComponent {
   readonly dropped = signal<string[]>([]);
   // Set when the answers or the version change, so an untouched edit leaves the trade's journal alone
   private journalChanged = false;
+
+  // The strategy checklist: the rules of the strategy named on the form, answered per rule
+  readonly ruleAnswers = RULE_ANSWERS;
+  readonly strategies = signal<Strategy[]>([]);
+  readonly strategiesError = signal('');
+  readonly checks = signal<Record<number, RuleAnswer>>({});
+  private checklistChanged = false;
+
+  // A checklist already started keeps its own copy of the rules; otherwise the strategy's active rules
+  readonly checklistRules = computed<{ ruleId: number; text: string; isMandatory: boolean }[]>(() => {
+    const name = (this.value().strategyName ?? '').trim().toLowerCase();
+    if (!name) return [];
+    const existing = this.original()?.checklist;
+    if (existing && existing.strategyName.toLowerCase() === name) return existing.items;
+    const strategy = this.strategies().find(s => s.name.toLowerCase() === name);
+    return strategy?.rules.map(r => ({ ruleId: r.id, text: r.text, isMandatory: r.isMandatory })) ?? [];
+  });
+
+  readonly strategyKnown = computed(() => {
+    const name = (this.value().strategyName ?? '').trim().toLowerCase();
+    return this.strategies().some(s => s.name.toLowerCase() === name) || this.original()?.checklist?.strategyName.toLowerCase() === name;
+  });
+
+  // The checklist kept from the strategy the trade had before the name was changed
+  readonly leftChecklist = computed(() => {
+    const existing = this.original()?.checklist;
+    const name = (this.value().strategyName ?? '').trim().toLowerCase();
+    return existing && existing.strategyName.toLowerCase() !== name ? existing.strategyName : null;
+  });
 
   // The template list for the picker; an entry's archived template stays listed so it can be kept
   readonly templateChoices = computed(() => {
@@ -141,6 +179,21 @@ export class TradeFormComponent {
     });
     if (this.editingId) this.load();
     this.loadTemplates();
+    this.loadStrategies();
+  }
+
+  loadStrategies(): void {
+    this.strategiesError.set('');
+    this.api.getStrategies().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: s => this.strategies.set(s),
+      error: err => this.strategiesError.set(describeHttpError(err))
+    });
+  }
+
+  answerRule(ruleId: number, answer: RuleAnswer): void {
+    this.checks.update(c => ({ ...c, [ruleId]: answer }));
+    this.checklistChanged = true;
+    if (!this.saving()) this.key = newIdempotencyKey();
   }
 
   loadTemplates(): void {
@@ -217,6 +270,7 @@ export class TradeFormComponent {
           pnL: t.pnL ?? null, fees: t.fees ?? null, rr: t.rr ?? null, notes: t.notes ?? '',
           isManualOverride: t.isManualOverride, deviationNotes: t.deviationNotes ?? ''
         });
+        this.checks.set(Object.fromEntries((t.checklist?.items ?? []).filter(i => i.answer).map(i => [i.ruleId, i.answer!])));
         this.loadState.set('ready');
         this.startJournal();
       },
@@ -252,6 +306,11 @@ export class TradeFormComponent {
     const v = this.form.getRawValue();
     const versionId = this.journalVersionId();
     const journal = versionId !== null && (!this.editingId || this.journalChanged) ? { templateVersionId: versionId, answers: this.answers() } : undefined;
+    // Only answers to the rules now shown; nothing is sent unless the checklist was touched
+    const checks = this.checks();
+    const checklist = this.checklistChanged
+      ? this.checklistRules().filter(r => checks[r.ruleId]).map(r => ({ ruleId: r.ruleId, answer: checks[r.ruleId] }))
+      : [];
     const num = (x: number | null | undefined) => (x === null || x === undefined || (x as unknown) === '' ? null : Number(x));
     const text = (x: string | null | undefined) => (x?.trim() ? x.trim() : null);
     return {
@@ -263,7 +322,8 @@ export class TradeFormComponent {
       exitDate: v.exitDate || null, exitTime: v.exitTime || null, exitPrice: num(v.exitPrice), pnL: num(v.pnL),
       fees: num(v.fees), rr: num(v.rr), notes: text(v.notes), isManualOverride: !!v.isManualOverride,
       deviationNotes: v.isManualOverride ? text(v.deviationNotes) : null,
-      journal
+      journal,
+      checklist: checklist.length > 0 ? checklist : undefined
     };
   }
 }

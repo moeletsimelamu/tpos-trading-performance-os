@@ -40,7 +40,8 @@
             </div>
             <div class="field">
               <label for="t-strategy">Strategy</label>
-              <input id="t-strategy" formControlName="strategyName" />
+              <input id="t-strategy" formControlName="strategyName" list="strategy-list" />
+              <datalist id="strategy-list">@for (s of strategies(); track s.id) { <option [value]="s.name"></option> }</datalist>
             </div>
             <div class="field">
               <label for="t-account">Trading account (optional)</label>
@@ -104,6 +105,39 @@
               <div class="field wide"><label for="t-deviation">What was different, and why</label><textarea id="t-deviation" formControlName="deviationNotes"></textarea></div>
             }
           </div>
+        </section>
+
+        <section class="section" aria-labelledby="sec-checklist">
+          <h2 id="sec-checklist">Strategy checklist</h2>
+          <p>Only a mandatory rule that was not met counts against adherence. N/A is for optional rules.</p>
+          @if (strategiesError()) {
+            <p class="notice notice-warning" role="alert">Strategies could not be loaded ({{ strategiesError() }}). <button type="button" class="btn-link" (click)="loadStrategies()">Try again</button></p>
+          }
+          @if (leftChecklist(); as previous) {
+            <p class="small secondary">The answers for '{{ previous }}' stay with the trade but no longer count once it is saved under another strategy.</p>
+          }
+          @if (checklistRules().length > 0) {
+            <div class="rules">
+              @for (rule of checklistRules(); track rule.ruleId) {
+                <div class="rule" role="radiogroup" [attr.aria-label]="rule.text">
+                  <span class="rule-text">{{ rule.text }} @if (rule.isMandatory) { <span class="tag">Mandatory</span> }</span>
+                  <div class="answers">
+                    @for (a of ruleAnswers; track a.value) {
+                      @if (a.value !== 'NotApplicable' || !rule.isMandatory) {
+                        <label><input type="radio" [name]="'rule-' + rule.ruleId" [value]="a.value" [checked]="checks()[rule.ruleId] === a.value" (change)="answerRule(rule.ruleId, a.value)" />{{ a.label }}</label>
+                      }
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          } @else if (!form.controls.strategyName.value?.trim()) {
+            <p class="muted small">Name the strategy above to answer its checklist.</p>
+          } @else if (strategyKnown()) {
+            <p class="muted small">This strategy has no rules yet. <a routerLink="/trading/strategies">Add rules on the Strategies page.</a></p>
+          } @else {
+            <p class="muted small">A new strategy: it is created with the trade. Add its rules on the Strategies page.</p>
+          }
         </section>
 
         <section class="section" aria-labelledby="sec-journal">

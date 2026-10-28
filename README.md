@@ -35,6 +35,7 @@ The landing page shows the business as recorded:
 - **Journal entry page:** execution, notes and a **post-trade review**; marking a closed trade reviewed keeps your own words. R-multiple, duration and day are calculated from what you recorded.
 - **Only closed and reviewed trades count** in performance and behaviour analytics; drafts and open positions never move the numbers.
 - A retried save cannot create the same trade twice (`Idempotency-Key`).
+- **Strategies and checklists:** each strategy has your own rules, mandatory or optional. A trade's checklist records whether each rule was met, keeps every change, and is never rewritten when a rule is reworded later. **Rule adherence** is shown with its denominator: of the closed trades with a complete checklist, how many followed every mandatory rule. Results of trades that did and did not follow the rules are compared side by side, labelled when the sample is small, and never presented as cause and effect.
 - **Journal templates:** the questions answered for each trade (context, a pre-trade checklist, psychology, post-trade review and lessons), from a standard template you can edit, duplicate, archive or replace as the default. The editor shows a live preview. Changing the questions creates a new version, and trades already journaled keep the version they were written with. Required questions must be answered before a trade can be marked reviewed.
 - The design for checklists, strategy rules and AI-assisted review is in [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md).
 - Import trades from CSV, with row-level validation. Valid rows are kept and failed rows are reported with their row number.
@@ -179,7 +180,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/auth/login` | Sign in; returns a JWT |
 | GET | `/api/trades?status=` | List your trades, optionally by status (`Draft`, `Open`, `Closed`, `Reviewed`) |
 | GET | `/api/trades/{id}` | Get one trade |
-| POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted; optional `journal` answers); accepts `Idempotency-Key` |
+| POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted; optional `journal` and `checklist` answers); accepts `Idempotency-Key` |
 | PUT | `/api/trades/{id}` | Update a journal entry (omit `status` to keep it) |
 | POST | `/api/trades/{id}/review` | Mark a closed trade reviewed, with the review notes (refused while required journal questions are unanswered) |
 | GET | `/api/journal-templates?includeArchived=` | List your journal templates (the standard one is created on first use) |
@@ -188,6 +189,11 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/journal-templates` | Create a template |
 | PUT | `/api/journal-templates/{id}` | Update a template; changed questions create a new version |
 | POST | `/api/journal-templates/{id}/duplicate` · `/archive` · `/restore` · `/make-default` | Template actions |
+| GET | `/api/strategies?includeArchived=` | List your strategies with their rules and trade counts |
+| GET | `/api/strategies/{id}` | Get a strategy with its active and retired rules |
+| POST | `/api/strategies` | Create a strategy with its rules |
+| PUT | `/api/strategies/{id}` | Update a strategy; rules left out are retired |
+| POST | `/api/strategies/{id}/archive` · `/restore` · `/rules/{ruleId}/restore` | Strategy actions |
 | DELETE | `/api/trades/{id}` | Delete a trade |
 | POST | `/api/upload` | Import a CSV journal (max 10 MB) |
 | GET | `/api/upload/logs` | Upload history |
@@ -197,6 +203,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/analytics/by-day` | Performance by day of week |
 | GET | `/api/analytics/by-session` | Performance by session |
 | GET | `/api/analytics/behaviour` | Behavioural alerts and metrics |
+| GET | `/api/analytics/adherence?strategyId=` | Rule adherence over closed trades, with results compared and sample sizes |
 
 **Finance endpoints** require the Owner role. Money-moving POSTs accept an `Idempotency-Key` header: a retry with the same key returns the original (`Idempotent-Replayed: true`) instead of posting twice.
 

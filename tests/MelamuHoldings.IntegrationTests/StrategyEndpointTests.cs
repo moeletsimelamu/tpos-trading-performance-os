@@ -118,6 +118,11 @@ public class StrategyEndpointTests : IClassFixture<ApiFactory>
         Assert.True(checklist.GetProperty("isCompliant").GetBoolean());
         var tradeId = trade.GetProperty("id").GetInt32();
 
+        // Times read back from the database are sent as UTC, so browsers can show them in local time
+        var reread = await Ok(client.GetAsync($"/api/trades/{tradeId}"));
+        Assert.EndsWith("Z", reread.GetProperty("checklist").GetProperty("history")[0].GetProperty("answeredAt").GetString());
+        Assert.EndsWith("Z", reread.GetProperty("createdAt").GetString());
+
         // Rewording a rule later does not change what this checklist asked
         await Ok(client.PutAsJsonAsync($"/api/strategies/{sid}", Strategy("Checklist ORB",
             Rule("Stop placed beyond the range", true, stop), Rule("Risk within 1%", true, risk), Rule("News checked", false, news))));

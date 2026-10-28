@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TradingApiService } from '../trading-api.service';
 import { TRADE_STATUS, Trade } from '../models/trade.model';
 import { isAnswered } from '../models/journal.model';
+import { answerLabel } from '../models/strategy.model';
 import { JournalAnswersComponent } from './journal-fields.component';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
@@ -63,6 +64,41 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
                 @if (t.notes) { <p class="pre">{{ t.notes }}</p> } @else { <p class="muted">No notes yet.</p> }
                 @if (t.isManualOverride) {
                   <p class="notice notice-warning"><strong>Rule override.</strong>&nbsp;{{ t.deviationNotes ?? 'No explanation recorded.' }}</p>
+                }
+              </div>
+            </section>
+
+            <section class="card flush" aria-labelledby="checklist-heading">
+              <div class="card-header">
+                <h2 id="checklist-heading">Strategy checklist</h2>
+                @if (t.checklist; as c) {
+                  @if (!c.isComplete) { <span class="tag tag-warning">Unfinished</span> }
+                  @else if (c.isCompliant) { <span class="tag tag-positive">Followed every mandatory rule</span> }
+                  @else { <span class="tag tag-negative">{{ c.violations.length }} mandatory {{ c.violations.length === 1 ? 'rule' : 'rules' }} not met</span> }
+                }
+              </div>
+              <div class="prose">
+                @if (t.checklist; as c) {
+                  <ul class="checks">
+                    @for (item of c.items; track item.ruleId) {
+                      <li>
+                        <span>{{ item.text }} @if (item.isMandatory) { <span class="tag">Mandatory</span> }</span>
+                        <span class="answer" [class.text-negative]="item.isMandatory && item.answer === 'NotMet'" [class.muted]="!item.answer">{{ label(item.answer) }}</span>
+                      </li>
+                    }
+                  </ul>
+                  @if (changes().length > 0) {
+                    <h3 class="changes-title">Changed after first answer</h3>
+                    <ul class="changes">
+                      @for (ch of changes(); track ch.key) {
+                        <li>{{ ch.text }}: {{ ch.from }} → {{ ch.to }} <span class="muted">· {{ ch.at | date: 'd MMM yyyy, HH:mm' }}</span></li>
+                      }
+                    </ul>
+                  }
+                } @else if (t.strategyName) {
+                  <p class="muted">No checklist answered for {{ t.strategyName }}. <a [routerLink]="['/trading/trades', t.id, 'edit']">Answer the checklist</a></p>
+                } @else {
+                  <p class="muted">No strategy named on this trade, so there is no checklist.</p>
                 }
               </div>
             </section>
@@ -138,6 +174,11 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
     .pre { white-space: pre-wrap; }
     .prose .notice { margin: var(--space-3) 0 0; }
     textarea { min-height: 120px; }
+    .checks, .changes { list-style: none; display: grid; gap: var(--space-2); }
+    .checks li { display: flex; justify-content: space-between; gap: var(--space-4); align-items: baseline; }
+    .answer { font-weight: 500; white-space: nowrap; }
+    .changes-title { font-size: var(--text-sm); color: var(--text-secondary); margin: var(--space-4) 0 var(--space-2); }
+    .changes { font-size: var(--text-sm); }
     .danger-zone { display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; }
   `]
 })
@@ -182,6 +223,20 @@ export class TradeEntryComponent {
       default: return source + 'Counted in performance, and reviewed.';
     }
   });
+
+  // Answers changed after they were first given, each with the answer it replaced
+  readonly changes = computed(() => {
+    const history = this.trade()?.checklist?.history ?? [];
+    return history.filter(h => h.sequence > 1).map(h => ({
+      key: `${h.ruleId}-${h.sequence}`,
+      text: h.text,
+      from: answerLabel(history.find(p => p.ruleId === h.ruleId && p.sequence === h.sequence - 1)?.answer),
+      to: answerLabel(h.answer),
+      at: h.answeredAt
+    }));
+  });
+
+  readonly label = answerLabel;
 
   // Required journal questions still empty: the server refuses the review until they are answered
   readonly unanswered = computed(() => {

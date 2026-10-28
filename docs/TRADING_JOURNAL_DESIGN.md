@@ -7,7 +7,7 @@ This document is phase J1 of [`../PLAN.md`](../PLAN.md) §7a. It records:
 - the decisions for every journal phase;
 - the exact scope of J2, which is built alongside it.
 
-J1, J2 and J3 are built (2026-10-28). Later sections describe J4–J7 as designed, not built.
+J1 to J4 are built (2026-10-28). Later sections describe J5–J7 as designed, not built.
 
 ## 1. Audit of the existing trading module (2026-10-28)
 
@@ -89,10 +89,16 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 - **`JournalTemplateVersion`:** id, template id, version number, created at, and a `Schema` JSON document (sections and fields). Versions are immutable; (template, version) is unique.
 - **`TradeJournalEntry`:** one per trade (unique), template version id, `Answers` JSON keyed by field id, created and updated times. Deleted with its trade; a version in use cannot be deleted.
 
-**J4 (designed):**
-- **`TradeJournalEntry`** gains change history.
-- **Strategy (J4):** gains `UserId` (backfilled), rules (text, mandatory or optional, order), status, and a default template.
-- **`ChecklistResponse` (J4):** trade id, rule id, answer (met / not met / not applicable), answered at. A completed checklist keeps every later change as a new row, never an overwrite.
+**J4 (built):**
+- **`Strategy`:** gains `UserId` (required; unique name per trader, case-insensitive), `Status` (Active/Archived) and `UpdatedAt`. Name is limited to 100 characters and description to 500. The migration backfill:
+  - gives each strategy to the lowest-numbered trader whose trades use it;
+  - gives every other trader using it their own copy, with their trades moved to it;
+  - removes strategies that no trade uses (they held only a name);
+  - trims names and merges any that then repeat for one trader.
+- **`StrategyRule`:** text (200), mandatory flag, order, created and retired times. A rule left out when the strategy is saved is retired, never deleted, and can be restored.
+- **`TradeChecklist`:** one per trade and strategy. It is created on the first answer and copies the strategy's active rules as **`ChecklistItem`** rows (rule id, text and mandatory flag as they were). Later rule edits never change it.
+- **`ChecklistResponse`:** item, sequence, answer (Met / NotMet / NotApplicable), answered at. Answers are appended, never overwritten: the latest per item counts, and every earlier one is history. A unique (item, sequence) index stops two requests writing the same change.
+- **Not built:** a strategy's default journal template, and change history for template answers (`TradeJournalEntry`). Both are deferred; neither affects adherence.
 
 ## 5. Template architecture (J3, built)
 
@@ -111,11 +117,17 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 - **Archived templates** are hidden from new trades; entries written with them keep rendering. The default template cannot be archived, and an archived template cannot be made default.
 - **Default template:** "Standard trade journal", seeded per user the first time templates are listed if the user has no default. Identification and execution (the brief's A and D) are the trade form's own sections, so the template holds the rest: market context and setup, a seven-item pre-trade checklist, psychology and behaviour, post-trade review ("Was the trade valid according to the strategy?" required) and review and learning ("Key lesson" required). Every part is editable, and an edit creates version 2.
 
-## 6. Strategy and checklist (J4)
+## 6. Strategy and checklist (J4, built)
 
 - **Mandatory rules versus observations.** Only an unmet **mandatory** rule is a violation. Optional items are informational, and an unchecked box is never treated as a breach.
 - **Adherence rate** = trades with every mandatory rule met ÷ trades with a completed checklist. The denominator is always shown, and trades without a checklist are excluded and counted separately.
 - **Reporting** compares compliant and non-compliant results with their sample sizes. Under 20 trades in a group, the comparison carries an "insufficient data" label. Correlation is never presented as cause.
+- **As built:**
+  - **Not applicable** is allowed only on optional rules; a mandatory rule was either met or not.
+  - **Which trades count:** adherence counts closed and reviewed trades only, the same set as every other figure. A trade is scored on the checklist of its current strategy. Trades with no checklist and trades with an unfinished one are counted separately, and never in the rate.
+  - **Changing a trade's strategy:** the trade gets a new checklist; the earlier one is kept but no longer counts.
+  - **The report (`GET /api/analytics/adherence?strategyId=`)** gives the rate with its denominator, and for each group its count, win rate, net P&L and average R. It also lists the five mandatory rules most often not met, with how many times each was answered, and a per-strategy breakdown.
+  - **Where to find it:** the Strategies page shows the overall report; each strategy's page shows its own.
 
 ## 7. Journal interface (J5)
 
@@ -149,7 +161,7 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 | **J1** ✅ | This document | — |
 | **J2** ✅ | Statuses, nullable execution fields, new columns, migration; status-aware create and update; review action; status filter; idempotent create; analytics count completed trades only; New trade, journal entry and edit pages; status filter on the trade log | Unit: per-status validation, R and duration calculation, completed-trade projection. Integration: a draft has missing fields and is excluded from analytics; closing it counts it; review needs a closed trade; the idempotent create; isolation still holds; existing tests unchanged. Angular: form per status, draft save, idempotency key, entry page. |
 | **J3** ✅ | Templates and immutable versions; default template; create, edit, duplicate, archive, restore, make default; editor with live preview; answers on the trade form and entry page; moving an entry to the latest version; required answers before review | Unit: default template valid, schema rules, answer types, empty answers dropped, versioning, entries keep their version, default and archive rules. Integration: one default per trader, editing leaves old entries on their version, review refused with required questions unanswered, duplicate/archive/restore/default, invalid templates refused (400), owner isolation. Angular: answer carrying, renderer, editor body and ids, version message, form journal body, entry answers and blocked review. |
-| J4 | Strategy rules, checklists, adherence | Mandatory versus optional; change history; denominators |
+| **J4** ✅ | Owned strategies with the backfill; rules (edit in place, retire, restore); checklists that copy the rules and keep every answer; checklist on the trade form and entry page; adherence report on the Strategies pages | Unit: rule editing, retiring and restoring; rule validation; the checklist copy; violations and compliance; appended history; N/A rules; adherence counts, rate and sample flags. Integration: per-trader ownership and names, concurrent first use of a new name, retire and restore, checklist history, rejected answers saving nothing, the adherence report, owner isolation, UTC times. Angular: list and report, editor bodies and messages, form checklist, entry history. The backfill was tested by hand on a throwaway database with shared, unused, duplicate and over-long strategies. |
 | J5 | Journal overview, calendar, attachments, import reconciliation | Attachment type, size and access; no duplicate on import |
 | J6 | Analytics filters (adherence, emotion, rating), sample sizes | One calculation path; filters only narrow it |
 | J7 | AI assistant | Disabled mode; enough versus insufficient context; draft never auto-saved; prompt-injection text treated as data |

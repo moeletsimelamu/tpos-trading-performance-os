@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MelamuHoldings.Domain.Finance;
 using MelamuHoldings.Domain.Identity;
 using MelamuHoldings.Domain.Trading;
@@ -29,6 +30,20 @@ public class AppDbContext : DbContext
     public DbSet<Payout> Payouts => Set<Payout>();
     public DbSet<AllocationPolicy> AllocationPolicies => Set<AllocationPolicy>();
     public DbSet<Allocation> Allocations => Set<Allocation>();
+
+    // Every time is written in UTC. SQL Server's datetime2 does not keep that, so values read back are marked
+    // UTC again; the API then sends them with a 'Z' and browsers show them in local time.
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        configurationBuilder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeConverter>();
+    }
+
+    private sealed class UtcDateTimeConverter() : ValueConverter<DateTime, DateTime>(
+        v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+    private sealed class NullableUtcDateTimeConverter() : ValueConverter<DateTime?, DateTime?>(
+        v => v, v => v == null ? null : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

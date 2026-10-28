@@ -1,4 +1,5 @@
 import { JournalAnswers, TradeJournal } from './journal.model';
+import { RuleAnswer, TradeChecklist } from './strategy.model';
 
 // Property names follow the API's System.Text.Json camelCase output: C# `RR` arrives as `rr`, `PnL` as `pnL`.
 
@@ -39,6 +40,7 @@ export interface Trade {
   createdAt?: string;
   updatedAt?: string | null;
   journal?: TradeJournal | null;   // included when one trade is read
+  checklist?: TradeChecklist | null;   // likewise: the checklist for the trade's strategy
 }
 
 export type SaveStatus = 'Draft' | 'Open' | 'Closed';
@@ -71,6 +73,8 @@ export interface SaveTrade {
   notes?: string | null;
   // Answers to a template version's questions; omitted, the trade's answers are left as they are
   journal?: { templateVersionId: number; answers: JournalAnswers };
+  // Answers to the strategy's rules; omitted, the checklist is left as it is
+  checklist?: { ruleId: number; answer: RuleAnswer }[];
 }
 
 // The fields each status needs; mirrors Trade.MissingFor on the server, which has the final say

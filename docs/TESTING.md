@@ -49,6 +49,62 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-28 (branch `journal-j4-strategies`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 130 passed, 0 failed |
+| `dotnet test` (Release): integration, applying all seven migrations | 67 passed, 0 failed. The strategy tests (including the concurrent-create race) passed 5 runs in a row. |
+| `ng test --watch=false` | 115 passed, 0 failed (16 files) |
+| `ng build` (production) | Succeeded; initial bundle 307.82 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+
+**What the new tests cover**
+- **Unit:**
+  - Rules are edited in place, retired when left out, and restored at the end.
+  - Repeated, empty, foreign or too many rules are refused.
+  - A checklist copies the active rules, so rewording a rule later does not change it.
+  - Only a mandatory rule not met is a violation, and compliance is unknown until every rule is answered.
+  - Answers are appended, never overwritten, and an unchanged answer adds nothing.
+  - N/A is refused on mandatory rules, and rules not on the checklist are refused.
+  - The adherence report counts closed trades only, with a complete checklist as the denominator, and flags groups under 20 trades. It has no rate, rather than 0%, when nothing is scored.
+- **Integration:**
+  - Strategies are private to each trader, names are unique per trader (409), and a strategy named on a trade is created for that trader only.
+  - Five concurrent trades naming a new strategy create it once.
+  - Removed rules are retired and can be restored; invalid strategies are refused (400/422).
+  - A trade's checklist keeps its original wording after the rule is edited, records a change as sequence 2, and is left alone when a save sends no answers.
+  - Answers that do not fit the strategy (N/A on a mandatory rule, another strategy's rule, no strategy, an unknown answer) are refused, and no trade is saved.
+  - The adherence report: 5 closed trades, 3 complete checklists, 1 unfinished, 1 without, 66.67 %, insufficient data, the rule most often not met; another trader sees none of it.
+  - Times come back marked UTC.
+- **Angular:**
+  - The strategies list shows the rate with its denominator, the result comparison and the per-strategy rate, and "—" (not 0 %) with nothing scored.
+  - The editor sends rules in order, refuses empty or repeated rules, keeps rule ids, reports retired rules, and restores one.
+  - The trade form shows the named strategy's rules, offers N/A only on optional ones, sends only answers that were touched, and keeps an existing checklist's wording.
+  - The entry page shows violations and changes.
+
+**Migration backfill, tested by hand** on a throwaway database (`MelamuHoldings_J4Backfill`, dropped afterwards). It was migrated to J3, seeded with two traders and five old global strategies, then migrated to J4:
+- one strategy used by both traders was split, and trader 2's trades moved to their copy;
+- an unused strategy was removed;
+- `ICT` and `ict ` were merged, with their trade moved;
+- a 120-character name was cut to 100;
+- blank descriptions became NULL.
+
+The first attempt failed on NULL descriptions before the column allowed them. The migration rolled back, and the order was fixed. `Down` and `Up` were then run again successfully.
+
+### Manual browser verification (J4)
+Run against `MelamuHoldings_Scratch` after applying `AddStrategyRulesAndChecklists` (its 3 strategies went to its one trader):
+- **Strategies page:** listed ORB, Pullback and London Breakout with "No rules yet". Adherence showed "—" and "22 without a checklist · 0 unfinished, of 22 closed trades".
+- **ORB rules:** gave ORB two mandatory rules and one optional rule, saved, and reloaded; they persisted.
+- **Trade 1:** the edit form showed the three rules, with N/A offered only on the optional one. It was answered Met / Not met / N/A, and the entry page showed "1 mandatory rule not met". Changing the risk answer to Met showed "Followed every mandatory rule" and "Changed after first answer: Risk within 1% of the account: Not met → Met".
+- **Rule edits:** reworded the stop rule and removed the news rule (it was retired, with Restore offered). Trade 1 still showed its original wording and the N/A news answer. Trade 3's form showed only the two current rules.
+- **Trade 3:** answered with the stop rule not met. The Strategies page then showed **50 % (1 of 2)**, Followed +400.00 at 2.00R and Broke −400.00 at −2.00R, both labelled insufficient data. The stop rule was listed as not met 1 of 2.
+- **Phone width (375 px):** the strategies list, strategy page, trade form and trade page have no page-level horizontal scroll.
+- **Fixed during the walkthrough:**
+  - **Hidden answer radios:** they sat outside their labels, so focusing one scrolled the page away. They now cover their label.
+  - **"Keep it":** "1 rule was retired" now reads "keep it".
+  - **Local times:** times read from the database lost their UTC marker, so the browser showed them two hours early. The audit log and the transaction "Recorded" times had the same fault, which predates J4. An EF convention now marks every stored time UTC on read; no migration is needed.
+
 ## Results — 2026-10-28 (branch `journal-j3-templates`)
 
 | Command | Result |

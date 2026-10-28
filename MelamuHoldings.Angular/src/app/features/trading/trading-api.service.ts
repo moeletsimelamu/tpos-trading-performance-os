@@ -8,6 +8,7 @@ import {
 } from './models/analytics.model';
 import { SaveTrade, Trade, TradeStatus } from './models/trade.model';
 import { JournalSection, JournalTemplate } from './models/journal.model';
+import { AdherenceReport, SaveStrategy, Strategy } from './models/strategy.model';
 
 @Injectable({ providedIn: 'root' })
 export class TradingApiService {
@@ -53,6 +54,36 @@ export class TradingApiService {
     return id === null
       ? this.http.post<JournalTemplate>(`${this.base}/journal-templates`, body)
       : this.http.put<JournalTemplate>(`${this.base}/journal-templates/${id}`, body);
+  }
+
+  // ---- Strategies and adherence ----
+
+  getStrategies(includeArchived = false): Observable<Strategy[]> {
+    const params = includeArchived ? new HttpParams().set('includeArchived', true) : undefined;
+    return this.http.get<Strategy[]>(`${this.base}/strategies`, { params });
+  }
+
+  getStrategy(id: number): Observable<Strategy> {
+    return this.http.get<Strategy>(`${this.base}/strategies/${id}`);
+  }
+
+  saveStrategy(id: number | null, body: SaveStrategy): Observable<Strategy> {
+    return id === null
+      ? this.http.post<Strategy>(`${this.base}/strategies`, body)
+      : this.http.put<Strategy>(`${this.base}/strategies/${id}`, body);
+  }
+
+  strategyAction(id: number, action: 'archive' | 'restore'): Observable<Strategy> {
+    return this.http.post<Strategy>(`${this.base}/strategies/${id}/${action}`, {});
+  }
+
+  restoreRule(id: number, ruleId: number): Observable<Strategy> {
+    return this.http.post<Strategy>(`${this.base}/strategies/${id}/rules/${ruleId}/restore`, {});
+  }
+
+  getAdherence(strategyId?: number): Observable<AdherenceReport> {
+    const params = strategyId ? new HttpParams().set('strategyId', strategyId) : undefined;
+    return this.http.get<AdherenceReport>(`${this.base}/analytics/adherence`, { params });
   }
 
   templateAction(id: number, action: 'duplicate' | 'archive' | 'restore' | 'make-default', body: object = {}): Observable<JournalTemplate> {

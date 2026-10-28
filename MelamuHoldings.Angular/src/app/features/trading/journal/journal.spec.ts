@@ -64,6 +64,7 @@ describe('TradeFormComponent', () => {
     const fixture = TestBed.createComponent(TradeFormComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/strategies`).flush([]);
     const c = fixture.componentInstance;
     c.form.patchValue({ tradeDate: '2026-10-26', instrument: ' EURUSD ', session: 'London' });
 
@@ -80,6 +81,7 @@ describe('TradeFormComponent', () => {
     const fixture = TestBed.createComponent(TradeFormComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/strategies`).flush([]);
     const c = fixture.componentInstance;
     c.form.patchValue({ instrument: 'EURUSD', direction: 'Short', entryTime: '09:31', entryPrice: 1.0825 });
 
@@ -96,6 +98,7 @@ describe('TradeFormComponent', () => {
     const fixture = TestBed.createComponent(TradeFormComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/strategies`).flush([]);
     const c = fixture.componentInstance;
     c.form.patchValue({ instrument: 'EURUSD', direction: 'Short', entryTime: '09:31', entryPrice: 1.0825, exitPrice: 1.08, pnL: 375, riskAmount: 150 });
     expect(c.calculatedR()).toBe('2.50');
@@ -117,6 +120,7 @@ describe('TradeFormComponent', () => {
     await fixture.whenStable();
     http.expectOne(`${api}/trades/5`).flush(trade({ status: 'Reviewed', reviewNotes: 'Good trade', journal: journal({ answers: { valid: 'Yes' } }) }));
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/strategies`).flush([]);
     await fixture.whenStable();
     const c = fixture.componentInstance;
 
@@ -137,6 +141,7 @@ describe('TradeFormComponent', () => {
     const fixture = TestBed.createComponent(TradeFormComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/strategies`).flush([]);
     await fixture.whenStable();
     const c = fixture.componentInstance;
 
@@ -156,6 +161,7 @@ describe('TradeFormComponent', () => {
     const fixture = TestBed.createComponent(TradeFormComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/strategies`).flush([]);
     const c = fixture.componentInstance;
     c.onAnswers({ valid: 'Yes', mood: 'Calm' });
 
@@ -174,6 +180,7 @@ describe('TradeFormComponent', () => {
     await fixture.whenStable();
     http.expectOne(`${api}/trades/5`).flush(trade({ journal: journal({ templateVersionId: 10, version: 1, latestVersion: 2, answers: { valid: 'No' } }) }));
     http.expectOne(`${api}/journal-templates`).flush([template(1, 11, STANDARD, { currentVersion: 2 })]);
+    http.expectOne(`${api}/strategies`).flush([]);
     await fixture.whenStable();
     const c = fixture.componentInstance;
 
@@ -196,6 +203,7 @@ describe('TradeFormComponent', () => {
     const fixture = TestBed.createComponent(TradeFormComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(null, { status: 500, statusText: 'Server Error' });
+    http.expectOne(`${api}/strategies`).flush([]);
     await fixture.whenStable();
     const c = fixture.componentInstance;
 
