@@ -719,6 +719,110 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_JournalTemplates_OneDefault")
+                        .HasFilter("[IsDefault] = 1");
+
+                    b.ToTable("JournalTemplates");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.JournalTemplateVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("JournalTemplateId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Schema")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JournalTemplateId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("JournalTemplateVersions");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.TradeJournalEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Answers")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("JournalTemplateVersionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TradeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JournalTemplateVersionId");
+
+                    b.HasIndex("TradeId")
+                        .IsUnique();
+
+                    b.ToTable("TradeJournalEntries");
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Strategy", b =>
                 {
                     b.Property<int>("Id")
@@ -1054,6 +1158,39 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.JournalTemplateVersion", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", null)
+                        .WithMany("Versions")
+                        .HasForeignKey("JournalTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.TradeJournalEntry", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.Journal.JournalTemplateVersion", null)
+                        .WithMany()
+                        .HasForeignKey("JournalTemplateVersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MelamuHoldings.Domain.Trading.Trade", null)
+                        .WithMany()
+                        .HasForeignKey("TradeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Trade", b =>
                 {
                     b.HasOne("MelamuHoldings.Domain.Trading.Strategy", "Strategy")
@@ -1107,6 +1244,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.LedgerTransaction", b =>
                 {
                     b.Navigation("Entries");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", b =>
+                {
+                    b.Navigation("Versions");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Strategy", b =>

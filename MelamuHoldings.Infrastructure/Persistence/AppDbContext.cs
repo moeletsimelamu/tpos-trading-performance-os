@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using MelamuHoldings.Domain.Finance;
 using MelamuHoldings.Domain.Identity;
 using MelamuHoldings.Domain.Trading;
+using MelamuHoldings.Domain.Trading.Journal;
 using MelamuHoldings.Infrastructure.Persistence.Configurations;
 
 namespace MelamuHoldings.Infrastructure.Persistence;
@@ -14,6 +15,9 @@ public class AppDbContext : DbContext
     public DbSet<Trade> Trades => Set<Trade>();
     public DbSet<Strategy> Strategies => Set<Strategy>();
     public DbSet<UploadLog> UploadLogs => Set<UploadLog>();
+    public DbSet<JournalTemplate> JournalTemplates => Set<JournalTemplate>();
+    public DbSet<JournalTemplateVersion> JournalTemplateVersions => Set<JournalTemplateVersion>();
+    public DbSet<TradeJournalEntry> TradeJournalEntries => Set<TradeJournalEntry>();
 
     public DbSet<Fund> Funds => Set<Fund>();
     public DbSet<FinancialAccount> FinancialAccounts => Set<FinancialAccount>();
@@ -28,6 +32,9 @@ public class AppDbContext : DbContext
     {
         modelBuilder.ApplyConfiguration(new UserConfiguration());
         modelBuilder.ApplyConfiguration(new TradeConfiguration());
+        modelBuilder.ApplyConfiguration(new JournalTemplateConfiguration());
+        modelBuilder.ApplyConfiguration(new JournalTemplateVersionConfiguration());
+        modelBuilder.ApplyConfiguration(new TradeJournalEntryConfiguration());
 
         modelBuilder.ApplyConfiguration(new FundConfiguration());
         modelBuilder.ApplyConfiguration(new FinancialAccountConfiguration());

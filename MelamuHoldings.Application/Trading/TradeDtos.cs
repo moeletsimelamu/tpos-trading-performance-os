@@ -36,6 +36,9 @@ public class TradeResponseDto
     public DateTime? ReviewedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+
+    // The template answers and their questions; included when one trade is read, not in lists
+    public TradeJournalDto? Journal { get; set; }
 }
 
 public record TradeResult(TradeResponseDto Trade, bool Replayed);
@@ -93,6 +96,9 @@ public class CreateTradeDto : IValidatableObject
 
     [MaxLength(2000)]
     public string? Notes { get; set; }
+
+    // Answers to the journal template's questions; omitted, the trade's answers are left as they are
+    public JournalAnswersRequest? Journal { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

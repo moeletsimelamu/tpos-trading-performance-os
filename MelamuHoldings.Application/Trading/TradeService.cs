@@ -1,5 +1,6 @@
 using MelamuHoldings.Application.Common;
 using MelamuHoldings.Application.Finance;
+using MelamuHoldings.Domain.Common;
 using MelamuHoldings.Domain.Finance;
 using MelamuHoldings.Domain.Trading;
 
@@ -13,12 +14,14 @@ public class TradeService
 
     private readonly ITradeRepository _tradeRepository;
     private readonly IStrategyRepository _strategyRepository;
+    private readonly TradeJournal _journal;
     private readonly TimeProvider _clock;
 
-    public TradeService(ITradeRepository tradeRepository, IStrategyRepository strategyRepository, TimeProvider clock)
+    public TradeService(ITradeRepository tradeRepository, IStrategyRepository strategyRepository, TradeJournal journal, TimeProvider clock)
     {
         _tradeRepository = tradeRepository;
         _strategyRepository = strategyRepository;
+        _journal = journal;
         _clock = clock;
     }
 
@@ -33,7 +36,10 @@ public class TradeService
     public async Task<TradeResponseDto?> GetTradeByIdAsync(int tradeId, int userId)
     {
         var trade = await _tradeRepository.GetForUserAsync(tradeId, userId);
-        return trade is null ? null : MapToResponseDto(trade);
+        if (trade is null) return null;
+        var dto = MapToResponseDto(trade);
+        dto.Journal = await _journal.GetAsync(trade.Id, userId);
+        return dto;
     }
 
     // A retry with the same Idempotency-Key returns the trade it already created instead of saving a copy
@@ -43,6 +49,7 @@ public class TradeService
         if (key is not null && await _tradeRepository.GetByIdempotencyKeyAsync(userId, key) is { } previous)
             return new TradeResult(MapToResponseDto(previous), Replayed: true);
 
+        if (dto.Journal is not null) await _journal.ValidateAsync(userId, dto.Journal);
         var trade = new Trade { UserId = userId, CreatedAt = Now, IdempotencyKey = key };
         await ApplyAsync(trade, dto);
         trade.SetStatus(ParseStatus(dto.Status) ?? TradeStatus.Closed);
@@ -58,7 +65,15 @@ public class TradeService
                 ?? throw new ConflictException("The trade could not be saved. Please retry.");
             return new TradeResult(MapToResponseDto(winner), Replayed: true);
         }
-        return new TradeResult(MapToResponseDto(trade), Replayed: false);
+
+        if (dto.Journal is not null)
+        {
+            await _journal.RecordAsync(trade.Id, userId, dto.Journal, Now);
+            await _tradeRepository.SaveChangesAsync();
+        }
+        var created = MapToResponseDto(trade);
+        created.Journal = await _journal.GetAsync(trade.Id, userId);
+        return new TradeResult(created, Replayed: false);
     }
 
     public async Task<TradeResponseDto?> UpdateTradeAsync(int tradeId, int userId, UpdateTradeDto dto)
@@ -69,10 +84,13 @@ public class TradeService
         await ApplyAsync(trade, dto);
         trade.SetStatus(ParseStatus(dto.Status) ?? trade.Status);
         trade.UpdatedAt = Now;
+        if (dto.Journal is not null) await _journal.RecordAsync(trade.Id, userId, dto.Journal, Now);
 
         await _tradeRepository.UpdateAsync(trade);
         await _tradeRepository.SaveChangesAsync();
-        return MapToResponseDto(trade);
+        var updated = MapToResponseDto(trade);
+        updated.Journal = await _journal.GetAsync(trade.Id, userId);
+        return updated;
     }
 
     public async Task<TradeResponseDto?> ReviewTradeAsync(int tradeId, int userId, ReviewTradeDto dto)
@@ -80,10 +98,17 @@ public class TradeService
         var trade = await _tradeRepository.GetForUserAsync(tradeId, userId);
         if (trade is null) return null;
 
+        // A template's required questions must be answered before the entry counts as reviewed
+        var missing = await _journal.MissingRequiredAsync(trade.Id, userId);
+        if (missing.Count > 0)
+            throw new DomainException($"Answer the required journal questions first: {string.Join("; ", missing)}.");
+
         trade.MarkReviewed(dto.ReviewNotes, Now);
         await _tradeRepository.UpdateAsync(trade);
         await _tradeRepository.SaveChangesAsync();
-        return MapToResponseDto(trade);
+        var reviewed = MapToResponseDto(trade);
+        reviewed.Journal = await _journal.GetAsync(trade.Id, userId);
+        return reviewed;
     }
 
     public async Task<bool> DeleteTradeAsync(int tradeId, int userId)
