@@ -49,6 +49,33 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-28 (branch `journal-j3-templates`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 122 passed, 0 failed |
+| `dotnet test` (Release): integration, applying all six migrations | 61 passed, 0 failed |
+| `ng test --watch=false` | 105 passed, 0 failed (15 files) |
+| `ng build` (production) | Succeeded; initial bundle 307.44 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+
+**What the new tests cover**
+- **Unit:** the standard template is valid and has the brief's sections; duplicate or malformed ids and choice fields without options are refused; answers are checked against field types and options; empty answers are dropped, not stored; changing questions adds a version and renaming does not; an entry keeps its version's questions and answers; the default cannot be archived and an archived template cannot become default.
+- **Integration:** every trader gets the standard template once, as default; editing a template adds a version while existing entries stay on theirs; review is refused until required questions are answered; duplicate, archive, restore and make-default follow the rules; invalid templates return 400; another user cannot see or use a template or version.
+- **Angular:** answers carry to another version only where the id and type match, and the rest are named; checklist and multi-select answers; the editor's request body (ids from labels, options one per line, existing ids kept), its missing-field messages and version message; the template list, duplicate and archived toggle; the trade form sends the default template's answers, carries answers between templates, keeps an older version until moved, and still saves when templates fail to load; the entry page shows the version and holds back the review while required questions are unanswered. The trade form specs now stub navigation, which removed 6 unhandled router rejections from the test output.
+
+### Manual browser verification (J3)
+Run against `MelamuHoldings_Scratch` after applying `AddJournalTemplates`:
+- Opening Journal templates created **Standard trade journal v1** as default.
+- **Duplicate** opened the copy in the editor. Renaming it saved without a new version ("The questions did not change"); changing a question's label saved **version 2**.
+- New trade: the default template was preselected. Saved as closed with the key lesson, two checklist ticks and a confidence rating, but without "Was the trade valid?". The entry page showed "Standard trade journal · version 1", every answer (dashes for the rest), and held back the review: "Answer the required journal questions first".
+- Edited the standard template (changed one label, removed "Setup identified") → version 2. The trade still showed **version 1 (latest is 2)**, including the removed question.
+- On the trade's edit form, **Use version 2** moved the entry with its answers; after answering "valid", the review was allowed and the trade marked **Reviewed**.
+- Archived the copy: it left the list, and returned with Restore under "Show archived". The default row offers no Archive.
+- At phone width (375 px), the template list and editor have no page-level horizontal scroll; the list's table scrolls inside its card.
+- Fixed during the walkthrough: "1 trade … keep" now reads "keeps", and labels ending in "?" no longer gain a full stop in notices; the template name column has a minimum width.
+
 ## Results — 2026-10-28 (branch `journal-j1-j2`)
 
 | Command | Result |

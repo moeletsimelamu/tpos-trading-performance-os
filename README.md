@@ -35,7 +35,8 @@ The landing page shows the business as recorded:
 - **Journal entry page:** execution, notes and a **post-trade review**; marking a closed trade reviewed keeps your own words. R-multiple, duration and day are calculated from what you recorded.
 - **Only closed and reviewed trades count** in performance and behaviour analytics; drafts and open positions never move the numbers.
 - A retried save cannot create the same trade twice (`Idempotency-Key`).
-- The design for templates, checklists and AI-assisted review is in [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md).
+- **Journal templates:** the questions answered for each trade (context, a pre-trade checklist, psychology, post-trade review and lessons), from a standard template you can edit, duplicate, archive or replace as the default. The editor shows a live preview. Changing the questions creates a new version, and trades already journaled keep the version they were written with. Required questions must be answered before a trade can be marked reviewed.
+- The design for checklists, strategy rules and AI-assisted review is in [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md).
 - Import trades from CSV, with row-level validation. Valid rows are kept and failed rows are reported with their row number.
 - Upload history per user.
 - Strategies are created automatically from the CSV `Strategy` column.
@@ -178,9 +179,15 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/auth/login` | Sign in; returns a JWT |
 | GET | `/api/trades?status=` | List your trades, optionally by status (`Draft`, `Open`, `Closed`, `Reviewed`) |
 | GET | `/api/trades/{id}` | Get one trade |
-| POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted); accepts `Idempotency-Key` |
+| POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted; optional `journal` answers); accepts `Idempotency-Key` |
 | PUT | `/api/trades/{id}` | Update a journal entry (omit `status` to keep it) |
-| POST | `/api/trades/{id}/review` | Mark a closed trade reviewed, with the review notes |
+| POST | `/api/trades/{id}/review` | Mark a closed trade reviewed, with the review notes (refused while required journal questions are unanswered) |
+| GET | `/api/journal-templates?includeArchived=` | List your journal templates (the standard one is created on first use) |
+| GET | `/api/journal-templates/{id}` | Get a template with its current questions and versions |
+| GET | `/api/journal-templates/{id}/versions/{version}` | Get the questions of one version |
+| POST | `/api/journal-templates` | Create a template |
+| PUT | `/api/journal-templates/{id}` | Update a template; changed questions create a new version |
+| POST | `/api/journal-templates/{id}/duplicate` · `/archive` · `/restore` · `/make-default` | Template actions |
 | DELETE | `/api/trades/{id}` | Delete a trade |
 | POST | `/api/upload` | Import a CSV journal (max 10 MB) |
 | GET | `/api/upload/logs` | Upload history |

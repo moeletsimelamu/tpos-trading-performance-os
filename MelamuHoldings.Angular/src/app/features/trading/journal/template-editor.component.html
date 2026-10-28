@@ -1,0 +1,76 @@
+<div class="page">
+  <app-page-header section="Trading operations · Journal templates" [title]="templateId ? 'Edit template' : 'New template'"
+    description="Sections and questions that appear on each trade's journal entry, below the trade and execution details.">
+    <a class="btn" routerLink="/trading/journal-templates">All templates</a>
+    <button type="button" class="btn btn-primary" [disabled]="saving() || state() !== 'ready'" (click)="save()">{{ saving() ? 'Saving…' : 'Save template' }}</button>
+  </app-page-header>
+
+  @switch (state()) {
+    @case ('loading') { <div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading template...</span></div> }
+    @case ('error') { <app-load-error title="Could not load the template" [message]="error()" (retry)="load()" /> }
+    @case ('ready') {
+      @if (saveError()) { <p class="notice notice-error" role="alert">{{ saveError() }}</p> }
+      @if (saved()) { <p class="notice notice-success" role="status">{{ saved() }}</p> }
+      <p class="small secondary">{{ versionNote() }}</p>
+
+      <div class="layout">
+        <div>
+          <div class="card">
+            <div class="form-grid">
+              <div class="field"><label for="tpl-name">Name</label><input id="tpl-name" [(ngModel)]="name" (ngModelChange)="touch()" maxlength="100" /></div>
+              <div class="field"><label for="tpl-desc">Description (optional)</label><input id="tpl-desc" [(ngModel)]="description" (ngModelChange)="touch()" maxlength="300" /></div>
+            </div>
+          </div>
+
+          @for (section of sections; track $index; let si = $index) {
+            <div class="card" [attr.aria-label]="'Section ' + (si + 1)">
+              <div class="sec-head">
+                <div class="field"><label [for]="'sec-title-' + si">Section title</label><input [id]="'sec-title-' + si" [(ngModel)]="section.title" (ngModelChange)="touch()" maxlength="100" /></div>
+                <div class="field"><label [for]="'sec-desc-' + si">Guidance (optional)</label><input [id]="'sec-desc-' + si" [(ngModel)]="section.description" (ngModelChange)="touch()" maxlength="300" /></div>
+                <div class="tools">
+                  <button type="button" class="icon-btn" title="Move section up" [disabled]="si === 0" (click)="move(sections, si, -1)"><app-icon name="up" [size]="16" /><span class="visually-hidden">Move section up</span></button>
+                  <button type="button" class="icon-btn" title="Move section down" [disabled]="si === sections.length - 1" (click)="move(sections, si, 1)"><app-icon name="down" [size]="16" /><span class="visually-hidden">Move section down</span></button>
+                  <button type="button" class="icon-btn" title="Remove section" (click)="remove(sections, si)"><app-icon name="trash" [size]="16" /><span class="visually-hidden">Remove section</span></button>
+                </div>
+              </div>
+
+              @for (field of section.fields; track $index; let fi = $index) {
+                <div class="fld">
+                  <div class="field"><label [for]="'f-label-' + si + '-' + fi">Question</label><input [id]="'f-label-' + si + '-' + fi" [(ngModel)]="field.label" (ngModelChange)="touch()" maxlength="200" /></div>
+                  <div class="field">
+                    <label [for]="'f-type-' + si + '-' + fi">Answer type</label>
+                    <select [id]="'f-type-' + si + '-' + fi" [(ngModel)]="field.type" (ngModelChange)="touch()">
+                      @for (t of fieldTypes; track t.type) { <option [value]="t.type">{{ t.label }}</option> }
+                    </select>
+                  </div>
+                  <div class="tools">
+                    <label class="req"><input type="checkbox" [(ngModel)]="field.required" (ngModelChange)="touch()" />Required</label>
+                    <button type="button" class="icon-btn" title="Move question up" [disabled]="fi === 0" (click)="move(section.fields, fi, -1)"><app-icon name="up" [size]="16" /><span class="visually-hidden">Move question up</span></button>
+                    <button type="button" class="icon-btn" title="Move question down" [disabled]="fi === section.fields.length - 1" (click)="move(section.fields, fi, 1)"><app-icon name="down" [size]="16" /><span class="visually-hidden">Move question down</span></button>
+                    <button type="button" class="icon-btn" title="Remove question" (click)="remove(section.fields, fi)"><app-icon name="trash" [size]="16" /><span class="visually-hidden">Remove question</span></button>
+                  </div>
+                  <div class="fld-extra">
+                    <div class="field"><label [for]="'f-help-' + si + '-' + fi">Help text (optional)</label><input [id]="'f-help-' + si + '-' + fi" [(ngModel)]="field.help" (ngModelChange)="touch()" maxlength="300" /></div>
+                    @if (hasOptions(field.type)) {
+                      <div class="field">
+                        <label [for]="'f-opts-' + si + '-' + fi">{{ field.type === 'Checklist' ? 'Checklist items' : 'Options' }}, one per line</label>
+                        <textarea [id]="'f-opts-' + si + '-' + fi" [(ngModel)]="field.optionsText" (ngModelChange)="touch()"></textarea>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+              <button type="button" class="btn btn-sm" (click)="addField(section)"><app-icon name="plus" [size]="14" />Add question</button>
+            </div>
+          }
+          <button type="button" class="btn add-section" (click)="addSection()"><app-icon name="plus" [size]="16" />Add section</button>
+        </div>
+
+        <aside class="card preview" aria-label="Preview">
+          <h2 class="small secondary">Preview: how the questions appear on a trade</h2>
+          <app-journal-fields [sections]="preview()" [answers]="previewAnswers()" (answersChange)="previewAnswers.set($event)" idPrefix="pv-" />
+        </aside>
+      </div>
+    }
+  }
+</div>

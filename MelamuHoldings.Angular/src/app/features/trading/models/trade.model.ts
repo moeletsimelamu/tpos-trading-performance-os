@@ -1,3 +1,5 @@
+import { JournalAnswers, TradeJournal } from './journal.model';
+
 // Property names follow the API's System.Text.Json camelCase output: C# `RR` arrives as `rr`, `PnL` as `pnL`.
 
 // Draft → Open → Closed → Reviewed. Only Closed and Reviewed trades count in analytics.
@@ -36,6 +38,7 @@ export interface Trade {
   reviewedAt?: string | null;
   createdAt?: string;
   updatedAt?: string | null;
+  journal?: TradeJournal | null;   // included when one trade is read
 }
 
 export type SaveStatus = 'Draft' | 'Open' | 'Closed';
@@ -66,6 +69,8 @@ export interface SaveTrade {
   isManualOverride: boolean;
   deviationNotes?: string | null;
   notes?: string | null;
+  // Answers to a template version's questions; omitted, the trade's answers are left as they are
+  journal?: { templateVersionId: number; answers: JournalAnswers };
 }
 
 // The fields each status needs; mirrors Trade.MissingFor on the server, which has the final say

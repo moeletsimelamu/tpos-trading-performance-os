@@ -7,6 +7,7 @@ import {
   TimePerformance, BehaviourSummary, UploadResult
 } from './models/analytics.model';
 import { SaveTrade, Trade, TradeStatus } from './models/trade.model';
+import { JournalSection, JournalTemplate } from './models/journal.model';
 
 @Injectable({ providedIn: 'root' })
 export class TradingApiService {
@@ -31,6 +32,31 @@ export class TradingApiService {
 
   updateTrade(id: number, trade: SaveTrade): Observable<Trade> {
     return this.http.put<Trade>(`${this.base}/trades/${id}`, trade);
+  }
+
+  // ---- Journal templates ----
+
+  getTemplates(includeArchived = false): Observable<JournalTemplate[]> {
+    const params = includeArchived ? new HttpParams().set('includeArchived', true) : undefined;
+    return this.http.get<JournalTemplate[]>(`${this.base}/journal-templates`, { params });
+  }
+
+  getTemplate(id: number): Observable<JournalTemplate> {
+    return this.http.get<JournalTemplate>(`${this.base}/journal-templates/${id}`);
+  }
+
+  getTemplateVersion(id: number, version: number): Observable<JournalSection[]> {
+    return this.http.get<JournalSection[]>(`${this.base}/journal-templates/${id}/versions/${version}`);
+  }
+
+  saveTemplate(id: number | null, body: { name: string; description?: string | null; sections: JournalSection[] }): Observable<JournalTemplate> {
+    return id === null
+      ? this.http.post<JournalTemplate>(`${this.base}/journal-templates`, body)
+      : this.http.put<JournalTemplate>(`${this.base}/journal-templates/${id}`, body);
+  }
+
+  templateAction(id: number, action: 'duplicate' | 'archive' | 'restore' | 'make-default', body: object = {}): Observable<JournalTemplate> {
+    return this.http.post<JournalTemplate>(`${this.base}/journal-templates/${id}/${action}`, body);
   }
 
   reviewTrade(id: number, reviewNotes: string): Observable<Trade> {

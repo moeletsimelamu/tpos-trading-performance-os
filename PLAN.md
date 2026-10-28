@@ -12,7 +12,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - The brand and UI redesign (§6a) is complete on branch `ui-brand-redesign`, cut from `phase-4-ledger`. Findings are in `docs/UI_AUDIT.md` and the result is in `docs/DESIGN_SYSTEM.md`.
 - Phase 5 (payouts and allocation, the first milestone) is complete on branch `phase-5-payouts`, cut from `ui-brand-redesign`. The §8 scenario passes as an API integration test and was walked through in the browser. The rules as built are in `docs/FINANCIAL_DOMAIN.md`.
 - Trading journal J1 (design, `docs/TRADING_JOURNAL_DESIGN.md`) and J2 (manual journaling with drafts) are complete on branch `journal-j1-j2`, cut from `develop`.
-- Next: J3 (templates), or Phase 6, at the owner's choice.
+- J3 (versioned journal templates) is complete on branch `journal-j3-templates`, cut from `journal-j1-j2`.
+- Next: J4 (strategy rules and checklists), or Phase 6, at the owner's choice.
 
 ---
 
@@ -383,7 +384,7 @@ CSV import stays, but only as a bulk and migration path.
 |---|---|
 | J1 ✅ | Audit and `docs/TRADING_JOURNAL_DESIGN.md`: workflows, domain changes, template schema, lifecycle, testing |
 | J2 ✅ | Manual journaling: New trade, drafts, edit, detail page, the extended `Trade` fields, migration |
-| J3 | Templates: create, duplicate, archive, default, preview, versioned snapshots, field-type validation |
+| J3 ✅ | Templates: create, duplicate, archive, default, preview, versioned snapshots, field-type validation |
 | J4 | Strategies and checklists: per-user strategies with rules (mandatory or optional), recorded responses, adherence |
 | J5 | Journal interface: overview (drafts, awaiting review), trade log with filters and sorting, calendar, journal document page, attachments |
 | J6 | Analytics integration: filters by account, session, strategy, adherence, emotion and rating; compliant versus non-compliant results, with sample sizes shown |

@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TradingApiService } from '../trading-api.service';
 import { TRADE_STATUS, Trade } from '../models/trade.model';
+import { isAnswered } from '../models/journal.model';
+import { JournalAnswersComponent } from './journal-fields.component';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
@@ -13,7 +15,7 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 @Component({
   selector: 'app-trade-entry',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent, JournalAnswersComponent],
   template: `
     <div class="page narrow">
       @switch (state()) {
@@ -65,6 +67,22 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
               </div>
             </section>
 
+            <section class="card flush" aria-labelledby="journal-heading">
+              <div class="card-header">
+                <h2 id="journal-heading">Journal</h2>
+                @if (t.journal; as j) {
+                  <span class="card-note">{{ j.templateName }} · version {{ j.version }}{{ j.version < j.latestVersion ? ' (latest is ' + j.latestVersion + ')' : '' }}</span>
+                }
+              </div>
+              <div class="prose">
+                @if (t.journal; as j) {
+                  <app-journal-answers [sections]="j.sections" [answers]="j.answers" />
+                } @else {
+                  <p class="muted">No journal answers yet. <a [routerLink]="['/trading/trades', t.id, 'edit']">Answer the journal questions</a></p>
+                }
+              </div>
+            </section>
+
             <section class="card flush" aria-labelledby="review-heading">
               <div class="card-header">
                 <h2 id="review-heading">Post-trade review</h2>
@@ -79,9 +97,12 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
                         <label for="review-notes">Was the trade valid, was it executed as planned, and what would you do differently?</label>
                         <textarea id="review-notes" name="reviewNotes" [(ngModel)]="reviewNotes" maxlength="4000"></textarea>
                       </div>
+                      @if (unanswered().length > 0) {
+                        <p class="notice notice-warning" role="status">Answer the required journal questions first: {{ unanswered().join('; ') }} <a [routerLink]="['/trading/trades', t.id, 'edit']">Edit the journal</a></p>
+                      }
                       @if (reviewError()) { <p class="notice notice-error" role="alert">{{ reviewError() }}</p> }
                       <div class="form-actions">
-                        <button type="submit" class="btn btn-primary" [disabled]="busy() || !reviewNotes.trim()">{{ busy() ? 'Saving…' : 'Mark reviewed' }}</button>
+                        <button type="submit" class="btn btn-primary" [disabled]="busy() || !reviewNotes.trim() || unanswered().length > 0">{{ busy() ? 'Saving…' : 'Mark reviewed' }}</button>
                       </div>
                     </form>
                   }
@@ -160,6 +181,13 @@ export class TradeEntryComponent {
       case 'Closed': return source + 'Counted in performance. Write the review to complete the entry.';
       default: return source + 'Counted in performance, and reviewed.';
     }
+  });
+
+  // Required journal questions still empty: the server refuses the review until they are answered
+  readonly unanswered = computed(() => {
+    const j = this.trade()?.journal;
+    if (!j) return [];
+    return j.sections.flatMap(s => s.fields).filter(f => f.required && !isAnswered(j.answers[f.id])).map(f => f.label);
   });
 
   readonly exitWhen = computed(() => {

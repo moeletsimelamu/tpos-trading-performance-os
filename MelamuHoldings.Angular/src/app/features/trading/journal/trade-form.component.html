@@ -106,6 +106,30 @@
           </div>
         </section>
 
+        <section class="section" aria-labelledby="sec-journal">
+          <h2 id="sec-journal">Journal</h2>
+          <p>Answer what you can now and finish later. Required questions (*) must be answered before the trade can be reviewed.</p>
+          @if (templatesError()) {
+            <p class="notice notice-warning" role="alert">Journal templates could not be loaded ({{ templatesError() }}). The trade can still be saved; its journal is left as it is. <button type="button" class="btn-link" (click)="loadTemplates()">Try again</button></p>
+          } @else {
+            <div class="picker">
+              <div class="field">
+                <label for="t-template">Journal template</label>
+                <select id="t-template" (change)="chooseTemplate(+$any($event.target).value)">
+                  @for (t of templateChoices(); track t.id) { <option [value]="t.id" [selected]="t.id === journalTemplateId()">{{ t.name }}</option> }
+                </select>
+              </div>
+              @if (olderVersion(); as j) {
+                <p class="small secondary">Written with version {{ j.version }}; version {{ j.latestVersion }} is the latest. <button type="button" class="btn-link" (click)="useLatest()">Use version {{ j.latestVersion }}</button></p>
+              }
+            </div>
+            @if (dropped().length > 0) {
+              <p class="notice notice-warning" role="status">These answers have no matching question in the new version and will not be saved: {{ dropped().join('; ') }}</p>
+            }
+            <app-journal-fields [sections]="journalSections()" [answers]="answers()" (answersChange)="onAnswers($event)" idPrefix="tj-" />
+          }
+        </section>
+
         @if (missing().length > 0) {
           <div class="section"><p class="notice notice-warning" role="alert">Still needed for this status: {{ missing().join(', ') }}.</p></div>
         }

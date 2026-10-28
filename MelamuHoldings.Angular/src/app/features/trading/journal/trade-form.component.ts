@@ -5,6 +5,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { startWith } from 'rxjs';
 import { TradingApiService } from '../trading-api.service';
 import { REQUIRED_FOR, SaveStatus, SaveTrade, Trade } from '../models/trade.model';
+import { JournalAnswers, JournalSection, JournalTemplate, carryAnswers } from '../models/journal.model';
+import { JournalFieldsComponent } from './journal-fields.component';
 import { newIdempotencyKey, todayIso } from '../../finance/finance-api.service';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
@@ -33,7 +35,7 @@ function notNegative(control: AbstractControl): ValidationErrors | null {
 @Component({
   selector: 'app-trade-form',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent],
+  imports: [ReactiveFormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent, JournalFieldsComponent],
   templateUrl: './trade-form.component.html',
   styles: [`
     .section { padding: var(--space-5); }
@@ -46,6 +48,8 @@ function notNegative(control: AbstractControl): ValidationErrors | null {
     .save-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; padding: var(--space-4) var(--space-5); border-top: 1px solid var(--border-subtle); background: var(--surface-sunken); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
     .save-help { flex-basis: 100%; color: var(--text-muted); font-size: var(--text-xs); }
     textarea { min-height: 96px; }
+    .picker { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; margin-bottom: var(--space-5); }
+    .picker .field { min-width: 240px; }
   `]
 })
 export class TradeFormComponent {
@@ -67,6 +71,29 @@ export class TradeFormComponent {
   readonly savingAs = signal<SaveStatus | 'changes' | null>(null);
   readonly saveError = signal('');
   readonly missing = signal<string[]>([]);
+
+  // The journal: which template version the answers belong to, and the answers themselves
+  readonly templates = signal<JournalTemplate[]>([]);
+  readonly templatesError = signal('');
+  readonly journalTemplateId = signal<number | null>(null);
+  readonly journalVersionId = signal<number | null>(null);
+  readonly journalSections = signal<JournalSection[]>([]);
+  readonly answers = signal<JournalAnswers>({});
+  readonly dropped = signal<string[]>([]);
+  // Set when the answers or the version change, so an untouched edit leaves the trade's journal alone
+  private journalChanged = false;
+
+  // The template list for the picker; an entry's archived template stays listed so it can be kept
+  readonly templateChoices = computed(() => {
+    const list: { id: number; name: string }[] = this.templates();
+    const j = this.original()?.journal;
+    return j && !list.some(t => t.id === j.templateId) ? [...list, { id: j.templateId, name: `${j.templateName} (archived)` }] : list;
+  });
+
+  readonly olderVersion = computed(() => {
+    const j = this.original()?.journal;
+    return j && this.journalVersionId() === j.templateVersionId && j.version < j.latestVersion ? j : null;
+  });
 
   // One key per intended new trade: kept across retries of the same values, renewed when they change
   private key = newIdempotencyKey();
@@ -113,6 +140,67 @@ export class TradeFormComponent {
       this.missing.set([]);
     });
     if (this.editingId) this.load();
+    this.loadTemplates();
+  }
+
+  loadTemplates(): void {
+    this.templatesError.set('');
+    this.api.getTemplates().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: t => { this.templates.set(t); this.startJournal(); },
+      error: err => this.templatesError.set(describeHttpError(err))
+    });
+  }
+
+  // An existing entry keeps the version it was written with; otherwise the default template's latest version
+  private startJournal(): void {
+    if (this.journalVersionId() !== null || (this.editingId && this.loadState() !== 'ready')) return;
+    const j = this.original()?.journal;
+    if (j) {
+      this.useVersion(j.templateId, j.templateVersionId, j.sections, j.answers);
+      return;
+    }
+    const t = this.templates().find(x => x.isDefault) ?? this.templates()[0];
+    if (t) this.useVersion(t.id, t.currentVersionId, t.sections, {});
+  }
+
+  chooseTemplate(id: number): void {
+    const j = this.original()?.journal;
+    const t = this.templates().find(x => x.id === id);
+    if (j && j.templateId === id) this.switchTo(j.templateId, j.templateVersionId, j.sections);
+    else if (t) this.switchTo(t.id, t.currentVersionId, t.sections);
+  }
+
+  useLatest(): void {
+    const j = this.original()?.journal;
+    if (!j) return;
+    this.api.getTemplate(j.templateId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: t => this.switchTo(t.id, t.currentVersionId, t.sections),
+      error: err => this.saveError.set(`Could not load the latest version: ${describeHttpError(err)}`)
+    });
+  }
+
+  onAnswers(answers: JournalAnswers): void {
+    this.answers.set(answers);
+    this.journalChanged = true;
+    if (!this.saving()) this.key = newIdempotencyKey();
+  }
+
+  // Answers move with their question where it still exists with the same type; the rest are listed as dropped
+  private switchTo(templateId: number, versionId: number, sections: JournalSection[]): void {
+    if (versionId === this.journalVersionId()) return;
+    const { kept, dropped } = carryAnswers(this.answers(), this.journalSections(), sections);
+    this.useVersion(templateId, versionId, sections, kept);
+    this.dropped.set(dropped);
+    this.journalChanged = true;
+    if (!this.saving()) this.key = newIdempotencyKey();
+  }
+
+  private useVersion(templateId: number, versionId: number, sections: JournalSection[], answers: JournalAnswers): void {
+    this.journalTemplateId.set(templateId);
+    this.journalVersionId.set(versionId);
+    this.journalSections.set(sections);
+    this.answers.set(answers);
+    this.dropped.set([]);
   }
 
   load(): void {
@@ -130,6 +218,7 @@ export class TradeFormComponent {
           isManualOverride: t.isManualOverride, deviationNotes: t.deviationNotes ?? ''
         });
         this.loadState.set('ready');
+        this.startJournal();
       },
       error: err => { this.loadError.set(describeHttpError(err)); this.loadState.set('error'); }
     });
@@ -161,6 +250,8 @@ export class TradeFormComponent {
 
   private body(status: SaveStatus | null): SaveTrade {
     const v = this.form.getRawValue();
+    const versionId = this.journalVersionId();
+    const journal = versionId !== null && (!this.editingId || this.journalChanged) ? { templateVersionId: versionId, answers: this.answers() } : undefined;
     const num = (x: number | null | undefined) => (x === null || x === undefined || (x as unknown) === '' ? null : Number(x));
     const text = (x: string | null | undefined) => (x?.trim() ? x.trim() : null);
     return {
@@ -171,7 +262,8 @@ export class TradeFormComponent {
       takeProfit: num(v.takeProfit), positionSize: num(v.positionSize), riskAmount: num(v.riskAmount),
       exitDate: v.exitDate || null, exitTime: v.exitTime || null, exitPrice: num(v.exitPrice), pnL: num(v.pnL),
       fees: num(v.fees), rr: num(v.rr), notes: text(v.notes), isManualOverride: !!v.isManualOverride,
-      deviationNotes: v.isManualOverride ? text(v.deviationNotes) : null
+      deviationNotes: v.isManualOverride ? text(v.deviationNotes) : null,
+      journal
     };
   }
 }

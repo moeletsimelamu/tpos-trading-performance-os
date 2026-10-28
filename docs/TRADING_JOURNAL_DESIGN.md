@@ -7,7 +7,7 @@ This document is phase J1 of [`../PLAN.md`](../PLAN.md) §7a. It records:
 - the decisions for every journal phase;
 - the exact scope of J2, which is built alongside it.
 
-J1 and J2 are built (2026-10-28). Later sections describe J3–J7 as designed, not built.
+J1, J2 and J3 are built (2026-10-28). Later sections describe J4–J7 as designed, not built.
 
 ## 1. Audit of the existing trading module (2026-10-28)
 
@@ -84,24 +84,32 @@ Draft ──▶ Open ──▶ Closed ──▶ Reviewed
 
 Analytics read completed trades through one projection (`CompletedTrade`). That projection is the only place that decides what counts. Average R ignores trades without an R; all imported trades have one, so current figures do not change.
 
-**J3–J4 (designed):**
-- **`JournalTemplate`:** id, owner, name, description, `IsDefault`, `Status` (Active/Archived), current version.
-- **`JournalTemplateVersion`:** id, template id, version number, created at, and a `Fields` JSON document. Versions are immutable.
-- **`TradeJournalEntry`:** trade id, template version id, `Answers` JSON keyed by field id, completed at, and change history (J4).
+**J3 (built):**
+- **`JournalTemplate`:** id, owner, name, description, `IsDefault`, `Status` (Active/Archived), current version. A filtered unique index allows one default per owner.
+- **`JournalTemplateVersion`:** id, template id, version number, created at, and a `Schema` JSON document (sections and fields). Versions are immutable; (template, version) is unique.
+- **`TradeJournalEntry`:** one per trade (unique), template version id, `Answers` JSON keyed by field id, created and updated times. Deleted with its trade; a version in use cannot be deleted.
+
+**J4 (designed):**
+- **`TradeJournalEntry`** gains change history.
 - **Strategy (J4):** gains `UserId` (backfilled), rules (text, mandatory or optional, order), status, and a default template.
 - **`ChecklistResponse` (J4):** trade id, rule id, answer (met / not met / not applicable), answered at. A completed checklist keeps every later change as a new row, never an overwrite.
 
-## 5. Template architecture (J3)
+## 5. Template architecture (J3, built)
 
 - **A validated schema, not a form builder.** A template version is a list of sections, each holding fields. A field has an id (stable across versions), label, type, required flag, help text and options.
-- **Supported types:** short text, long text, number, date/time, single select, multi select, checkbox, rating (1–5), URL, attachment, and the structured price and risk block (which maps to the `Trade` columns above).
+- **Supported types (built):** short text, long text, number, date/time, single select, multi select, checkbox (yes/no), checklist (a list of items, each ticked or not), rating (1–5) and URL. Ids are lowercase letters, digits and hyphens. Select, multi-select and checklist fields need options.
+- **Not template fields:** attachments arrive with J5; the price and risk block is the fixed part of the trade form (the `Trade` columns), not a field type.
 - **The core execution fields stay columns on `Trade`,** not template answers. That way analytics never depend on how a template is configured. Templates decide *which* of them are shown and add their own fields around them.
 - **Versioning:**
   - Editing a template creates a new version.
   - An entry stores the id of the version it was written against, and renders with that version's definitions.
   - A field removed in a later version still shows on old entries, labelled from the old definition.
   - Nothing is reinterpreted or lost.
-- **Default template:** seeded per user on first use. It contains the brief's sections A–G (identification, context and setup, pre-trade checklist, execution, psychology, post-trade review, review and learning), and every one of them is editable.
+  - Renaming a template or changing its description does not create a version; changing sections or fields does.
+  - Moving an entry to a newer version is the trader's choice, on the edit form. Answers move where the field id still exists with the same type; the others are named on screen before saving, and the old version keeps them.
+- **Answers:** validated against the version's field types and options; empty answers are dropped rather than stored. Required questions are not needed to save a draft, open or closed trade, but must be answered before the trade can be marked reviewed.
+- **Archived templates** are hidden from new trades; entries written with them keep rendering. The default template cannot be archived, and an archived template cannot be made default.
+- **Default template:** "Standard trade journal", seeded per user the first time templates are listed if the user has no default. Identification and execution (the brief's A and D) are the trade form's own sections, so the template holds the rest: market context and setup, a seven-item pre-trade checklist, psychology and behaviour, post-trade review ("Was the trade valid according to the strategy?" required) and review and learning ("Key lesson" required). Every part is editable, and an edit creates version 2.
 
 ## 6. Strategy and checklist (J4)
 
@@ -140,7 +148,7 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 |---|---|---|
 | **J1** ✅ | This document | — |
 | **J2** ✅ | Statuses, nullable execution fields, new columns, migration; status-aware create and update; review action; status filter; idempotent create; analytics count completed trades only; New trade, journal entry and edit pages; status filter on the trade log | Unit: per-status validation, R and duration calculation, completed-trade projection. Integration: a draft has missing fields and is excluded from analytics; closing it counts it; review needs a closed trade; the idempotent create; isolation still holds; existing tests unchanged. Angular: form per status, draft save, idempotency key, entry page. |
-| J3 | Templates and versions, default template, rendering answers | Schema validation; editing a template leaves old entries intact |
+| **J3** ✅ | Templates and immutable versions; default template; create, edit, duplicate, archive, restore, make default; editor with live preview; answers on the trade form and entry page; moving an entry to the latest version; required answers before review | Unit: default template valid, schema rules, answer types, empty answers dropped, versioning, entries keep their version, default and archive rules. Integration: one default per trader, editing leaves old entries on their version, review refused with required questions unanswered, duplicate/archive/restore/default, invalid templates refused (400), owner isolation. Angular: answer carrying, renderer, editor body and ids, version message, form journal body, entry answers and blocked review. |
 | J4 | Strategy rules, checklists, adherence | Mandatory versus optional; change history; denominators |
 | J5 | Journal overview, calendar, attachments, import reconciliation | Attachment type, size and access; no duplicate on import |
 | J6 | Analytics filters (adherence, emotion, rating), sample sizes | One calculation path; filters only narrow it |
