@@ -68,6 +68,41 @@ public class ChecklistItemConfiguration : IEntityTypeConfiguration<ChecklistItem
     }
 }
 
+public class TradeAttachmentConfiguration : IEntityTypeConfiguration<TradeAttachment>
+{
+    public void Configure(EntityTypeBuilder<TradeAttachment> builder)
+    {
+        builder.Property(a => a.FileName).HasMaxLength(TradeAttachment.MaxFileNameLength).IsRequired();
+        builder.Property(a => a.ContentType).HasMaxLength(50).IsRequired();
+        builder.Property(a => a.StorageKey).HasMaxLength(40).IsRequired();
+        builder.Property(a => a.Caption).HasMaxLength(TradeAttachment.MaxCaptionLength);
+        builder.Ignore(a => a.IsImage);
+        builder.HasIndex(a => a.StorageKey).IsUnique();
+        // The record goes with its trade; the service removes the file
+        builder.HasOne<Trade>().WithMany().HasForeignKey(a => a.TradeId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class ImportMatchConfiguration : IEntityTypeConfiguration<ImportMatch>
+{
+    public void Configure(EntityTypeBuilder<ImportMatch> builder)
+    {
+        builder.Property(m => m.Row).IsRequired();
+        builder.Property(m => m.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(m => m.RowVersion).IsRowVersion();
+        builder.Ignore(m => m.Values);
+        builder.HasIndex(m => new { m.UserId, m.Status });
+
+        // Deleting the matched trade keeps the row (TradeId becomes null). The upload log and the user are never
+        // deleted from under a match; SQL Server also allows only one cascading path into this table.
+        builder.HasOne<Trade>().WithMany().HasForeignKey(m => m.TradeId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne<UploadLog>().WithMany().HasForeignKey(m => m.UploadLogId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<User>().WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Restrict);
+        // A journaled trade is linked to at most one imported row
+        builder.HasIndex(m => m.TradeId).IsUnique().HasFilter("[Status] = 'Linked'").HasDatabaseName("IX_ImportMatches_OneLinkPerTrade");
+    }
+}
+
 public class ChecklistResponseConfiguration : IEntityTypeConfiguration<ChecklistResponse>
 {
     public void Configure(EntityTypeBuilder<ChecklistResponse> builder)

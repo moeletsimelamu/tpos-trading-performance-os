@@ -21,6 +21,8 @@ public class AppDbContext : DbContext
     public DbSet<TradeJournalEntry> TradeJournalEntries => Set<TradeJournalEntry>();
     public DbSet<StrategyRule> StrategyRules => Set<StrategyRule>();
     public DbSet<TradeChecklist> TradeChecklists => Set<TradeChecklist>();
+    public DbSet<TradeAttachment> TradeAttachments => Set<TradeAttachment>();
+    public DbSet<ImportMatch> ImportMatches => Set<ImportMatch>();
 
     public DbSet<Fund> Funds => Set<Fund>();
     public DbSet<FinancialAccount> FinancialAccounts => Set<FinancialAccount>();
@@ -57,6 +59,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new TradeChecklistConfiguration());
         modelBuilder.ApplyConfiguration(new ChecklistItemConfiguration());
         modelBuilder.ApplyConfiguration(new ChecklistResponseConfiguration());
+        modelBuilder.ApplyConfiguration(new TradeAttachmentConfiguration());
+        modelBuilder.ApplyConfiguration(new ImportMatchConfiguration());
 
         modelBuilder.ApplyConfiguration(new FundConfiguration());
         modelBuilder.ApplyConfiguration(new FinancialAccountConfiguration());

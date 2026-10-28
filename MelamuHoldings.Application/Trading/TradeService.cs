@@ -16,15 +16,19 @@ public class TradeService
     private readonly IStrategyRepository _strategyRepository;
     private readonly TradeJournal _journal;
     private readonly TradeChecklists _checklists;
+    private readonly AttachmentService _attachments;
+    private readonly IAttachmentRepository _attachmentRecords;
     private readonly TimeProvider _clock;
 
     public TradeService(ITradeRepository tradeRepository, IStrategyRepository strategyRepository, TradeJournal journal,
-        TradeChecklists checklists, TimeProvider clock)
+        TradeChecklists checklists, AttachmentService attachments, IAttachmentRepository attachmentRecords, TimeProvider clock)
     {
         _tradeRepository = tradeRepository;
         _strategyRepository = strategyRepository;
         _journal = journal;
         _checklists = checklists;
+        _attachments = attachments;
+        _attachmentRecords = attachmentRecords;
         _clock = clock;
     }
 
@@ -118,8 +122,11 @@ public class TradeService
         var trade = await _tradeRepository.GetForUserAsync(tradeId, userId);
         if (trade is null) return false;
 
+        // The records go with the trade (cascade); the files are removed once that is saved
+        var files = (await _attachmentRecords.ListAsync(trade.Id)).Select(a => a.StorageKey).ToList();
         await _tradeRepository.DeleteAsync(trade);
         await _tradeRepository.SaveChangesAsync();
+        _attachments.DeleteFiles(files);
         return true;
     }
 
@@ -131,6 +138,7 @@ public class TradeService
         var dto = MapToResponseDto(trade);
         dto.Journal = await _journal.GetAsync(trade.Id, userId);
         dto.Checklist = await _checklists.GetAsync(trade);
+        dto.Attachments = await _attachments.ListAsync(trade.Id);
         return dto;
     }
 

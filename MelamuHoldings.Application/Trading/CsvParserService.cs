@@ -37,6 +37,7 @@ public class CsvParserService
             {
                 var record = csv.GetRecord<TradeCsvRecord>();
                 if (record is null) continue;
+                record.RowNumber = rowNumber;
 
                 var validationError = ValidateRecord(record, rowNumber);
                 if (validationError is not null)

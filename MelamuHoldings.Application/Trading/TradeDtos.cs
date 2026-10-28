@@ -42,6 +42,9 @@ public class TradeResponseDto
 
     // The checklist for the trade's strategy, with every answer given; also only when one trade is read
     public TradeChecklistDto? Checklist { get; set; }
+
+    // Files kept with the trade; also only when one trade is read
+    public IReadOnlyList<TradeAttachmentDto>? Attachments { get; set; }
 }
 
 public record TradeResult(TradeResponseDto Trade, bool Replayed);

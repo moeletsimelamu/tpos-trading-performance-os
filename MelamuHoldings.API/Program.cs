@@ -11,6 +11,7 @@ using MelamuHoldings.API.Controllers;
 using MelamuHoldings.Application.Finance;
 using MelamuHoldings.Application.Identity;
 using MelamuHoldings.Application.Trading;
+using MelamuHoldings.Infrastructure.Attachments;
 using MelamuHoldings.Infrastructure.Persistence;
 using MelamuHoldings.Infrastructure.Persistence.Repositories;
 
@@ -105,6 +106,17 @@ builder.Services.AddScoped<OwnerAccountService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<IJournalRepository, JournalRepository>();
 builder.Services.AddScoped<TradeJournal>();
+builder.Services.AddScoped<JournalOverviewService>();
+builder.Services.AddScoped<ImportReconciliationService>();
+builder.Services.AddScoped<IImportMatchRepository, ImportMatchRepository>();
+builder.Services.AddScoped<AttachmentService>();
+builder.Services.AddScoped<IAttachmentRepository, AttachmentRepository>();
+// Attachment files stay outside the web root: App_Data/attachments under the content root unless configured.
+// Read when first needed, so configuration added by the host (and by tests) applies.
+builder.Services.AddSingleton<IAttachmentStore>(services => new FileSystemAttachmentStore(
+    services.GetRequiredService<IConfiguration>()["Attachments:Path"] is { Length: > 0 } attachmentPath
+        ? attachmentPath
+        : Path.Combine(services.GetRequiredService<IWebHostEnvironment>().ContentRootPath, "App_Data", "attachments")));
 builder.Services.AddScoped<TradeChecklists>();
 builder.Services.AddScoped<StrategyService>();
 builder.Services.AddScoped<AdherenceService>();

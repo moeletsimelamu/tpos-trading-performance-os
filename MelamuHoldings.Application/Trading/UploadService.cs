@@ -10,6 +10,8 @@ public class UploadResultDto
     public int ParsedRows { get; set; }
     public int FailedRows { get; set; }
     public string Status { get; set; } = string.Empty;
+    public int DuplicateRows { get; set; }
+    public int MatchedRows { get; set; }
     public List<string> Errors { get; set; } = new();
 }
 
@@ -19,17 +21,20 @@ public class UploadService
     private readonly ITradeRepository _tradeRepository;
     private readonly IStrategyRepository _strategyRepository;
     private readonly IUploadLogRepository _uploadLogRepository;
+    private readonly IImportMatchRepository _matchRepository;
 
     public UploadService(
         CsvParserService csvParser,
         ITradeRepository tradeRepository,
         IStrategyRepository strategyRepository,
-        IUploadLogRepository uploadLogRepository)
+        IUploadLogRepository uploadLogRepository,
+        IImportMatchRepository matchRepository)
     {
         _csvParser = csvParser;
         _tradeRepository = tradeRepository;
         _strategyRepository = strategyRepository;
         _uploadLogRepository = uploadLogRepository;
+        _matchRepository = matchRepository;
     }
 
     public async Task<UploadResultDto> ProcessUploadAsync(Stream fileStream, string fileName, int userId)
@@ -60,43 +65,40 @@ public class UploadService
             return BuildResult(uploadLog, parseResult.Errors);
         }
 
-        // Persist valid trades
+        // A row already imported (or already decided on) is skipped. A row matching a trade journaled by hand is
+        // held back as a match for the trader to link, import separately or leave out; it never duplicates the trade.
+        var existing = (await _tradeRepository.GetByUserIdAsync(userId)).ToList();
+        var decided = await _matchRepository.GetForUserAsync(userId);
+        var linkedTrades = decided.Where(m => m.Status == ImportMatchStatus.Linked && m.TradeId is not null).Select(m => m.TradeId!.Value).ToHashSet();
+        var imported = 0;
+
         foreach (var record in parseResult.ValidRecords)
         {
-            var strategy = string.IsNullOrWhiteSpace(record.Strategy) ? null
-                : await _strategyRepository.GetOrCreateAsync(userId, record.Strategy, DateTime.UtcNow);
-
-            var trade = new Trade
+            var row = ImportReconciliationService.ToRow(record);
+            if (existing.Any(row.Duplicates) || decided.Any(m => m.Values with { RowNumber = row.RowNumber } == row))
             {
-                UserId = userId,
-                UploadLogId = uploadLog.Id,
-                StrategyId = strategy?.Id,
-                TradeDate = DateOnly.Parse(record.TradeDate),
-                EntryTime = TimeOnly.TryParse(record.EntryTime, out var t) ? t : TimeOnly.MinValue,
-                Instrument = record.Instrument,
-                Direction = Enum.Parse<TradeDirection>(record.Direction!, ignoreCase: true),
-                EntryPrice = record.EntryPrice,
-                ExitPrice = record.ExitPrice,
-                RiskAmount = record.RiskAmount,
-                PnL = record.PnL,
-                RR = record.RR,
-                Session = record.Session,
-                DayOfWeek = record.DayOfWeek,
-                TradeDuration = record.TradeDuration,
-                IsManualOverride = record.IsManualOverride,
-                DeviationNotes = record.DeviationNotes,
-                Notes = record.Notes,
-                CreatedAt = DateTime.UtcNow
-            };
+                uploadLog.DuplicateRows++;
+                continue;
+            }
 
-            await _tradeRepository.AddAsync(trade);
+            if (existing.Where(t => row.Matches(t) && !linkedTrades.Contains(t.Id)).OrderBy(t => t.Id).FirstOrDefault() is { } manual)
+            {
+                _matchRepository.Add(new ImportMatch(userId, uploadLog.Id, manual.Id, row, DateTime.UtcNow));
+                uploadLog.MatchedRows++;
+                continue;
+            }
+
+            var strategy = string.IsNullOrWhiteSpace(row.Strategy) ? null
+                : await _strategyRepository.GetOrCreateAsync(userId, row.Strategy, DateTime.UtcNow);
+            await _tradeRepository.AddAsync(ImportReconciliationService.ToTrade(row, userId, uploadLog.Id, strategy?.Id, DateTime.UtcNow));
+            imported++;
         }
 
         await _tradeRepository.SaveChangesAsync();
 
         // Update the upload log with final counts
         uploadLog.TotalRows = parseResult.ValidRecords.Count + parseResult.Errors.Count;
-        uploadLog.ParsedRows = parseResult.ValidRecords.Count;
+        uploadLog.ParsedRows = imported;
         uploadLog.FailedRows = parseResult.Errors.Count;
         uploadLog.Status = parseResult.Errors.Count == 0
             ? UploadStatus.Completed
@@ -118,6 +120,8 @@ public class UploadService
             TotalRows = l.TotalRows,
             ParsedRows = l.ParsedRows,
             FailedRows = l.FailedRows,
+            DuplicateRows = l.DuplicateRows,
+            MatchedRows = l.MatchedRows,
             Status = l.Status.ToString()
         });
     }
@@ -129,6 +133,8 @@ public class UploadService
         TotalRows = log.TotalRows,
         ParsedRows = log.ParsedRows,
         FailedRows = log.FailedRows,
+        DuplicateRows = log.DuplicateRows,
+        MatchedRows = log.MatchedRows,
         Status = log.Status.ToString(),
         Errors = errors
     };

@@ -10,6 +10,10 @@ public class UploadLog
     public int TotalRows { get; set; }
     public int ParsedRows { get; set; }
     public int FailedRows { get; set; }
+
+    // Rows not imported: already imported before, or matching a trade journaled by hand (awaiting a decision)
+    public int DuplicateRows { get; set; }
+    public int MatchedRows { get; set; }
     public UploadStatus Status { get; set; }
     public DateTime UploadedAt { get; set; }
 

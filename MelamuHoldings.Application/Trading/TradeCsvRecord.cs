@@ -51,4 +51,8 @@ public class TradeCsvRecord
 
     [Name("DeviationNotes")]
     public string? DeviationNotes { get; set; }
+
+    // The row's line number in the file (the header is row 1); set by the parser, not read from a column
+    [Ignore]
+    public int RowNumber { get; set; }
 }

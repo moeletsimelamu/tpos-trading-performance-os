@@ -32,6 +32,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public int LoginAttemptsPerMinute { get; init; } = 100;
 
+    // Attachment files for this run only; removed with the database
+    public string AttachmentsPath { get; } = Path.Combine(Path.GetTempPath(), $"melamu-attachments-{Guid.NewGuid():N}");
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // "Testing" skips appsettings.Development.json and user-secrets, so a missed override can never reach a real database
@@ -40,7 +43,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             ["ConnectionStrings:DefaultConnection"] = _connectionString,
             ["Jwt:Key"] = "integration-test-signing-key-at-least-32-bytes-long",
-            ["Auth:LoginAttemptsPerMinute"] = LoginAttemptsPerMinute.ToString()
+            ["Auth:LoginAttemptsPerMinute"] = LoginAttemptsPerMinute.ToString(),
+            ["Attachments:Path"] = AttachmentsPath
         }));
     }
 
@@ -58,6 +62,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         using (var scope = Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureDeletedAsync();
+        if (Directory.Exists(AttachmentsPath)) Directory.Delete(AttachmentsPath, recursive: true);
 
         await base.DisposeAsync();
     }
