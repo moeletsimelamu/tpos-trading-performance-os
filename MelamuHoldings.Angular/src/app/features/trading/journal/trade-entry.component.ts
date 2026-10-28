@@ -8,6 +8,7 @@ import { TRADE_STATUS, Trade } from '../models/trade.model';
 import { isAnswered } from '../models/journal.model';
 import { answerLabel } from '../models/strategy.model';
 import { JournalAnswersComponent } from './journal-fields.component';
+import { TradeAttachmentsComponent } from './trade-attachments.component';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
@@ -16,7 +17,7 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 @Component({
   selector: 'app-trade-entry',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent, JournalAnswersComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent, JournalAnswersComponent, TradeAttachmentsComponent],
   template: `
     <div class="page narrow">
       @switch (state()) {
@@ -112,11 +113,16 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
               </div>
               <div class="prose">
                 @if (t.journal; as j) {
-                  <app-journal-answers [sections]="j.sections" [answers]="j.answers" />
+                  <app-journal-answers [sections]="j.sections" [answers]="j.answers" [collapseUnanswered]="true" />
                 } @else {
                   <p class="muted">No journal answers yet. <a [routerLink]="['/trading/trades', t.id, 'edit']">Answer the journal questions</a></p>
                 }
               </div>
+            </section>
+
+            <section class="card flush" aria-labelledby="files-heading">
+              <div class="card-header"><h2 id="files-heading">Files</h2></div>
+              <div class="prose"><app-trade-attachments [tradeId]="t.id" [initial]="t.attachments ?? []" /></div>
             </section>
 
             <section class="card flush" aria-labelledby="review-heading">

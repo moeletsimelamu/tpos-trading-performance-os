@@ -47,7 +47,7 @@ function configure(component: unknown, id?: number) {
     imports: [component as never],
     providers: [
       provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(id ? { id: String(id) } : {}) } } }
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(id ? { id: String(id) } : {}), queryParamMap: convertToParamMap({}) } } }
     ]
   });
   // Saving navigates to the trade; the test router has no such route

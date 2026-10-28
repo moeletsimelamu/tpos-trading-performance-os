@@ -1,5 +1,6 @@
 import { JournalAnswers, TradeJournal } from './journal.model';
 import { RuleAnswer, TradeChecklist } from './strategy.model';
+import { TradeAttachment } from './journal-view.model';
 
 // Property names follow the API's System.Text.Json camelCase output: C# `RR` arrives as `rr`, `PnL` as `pnL`.
 
@@ -41,6 +42,7 @@ export interface Trade {
   updatedAt?: string | null;
   journal?: TradeJournal | null;   // included when one trade is read
   checklist?: TradeChecklist | null;   // likewise: the checklist for the trade's strategy
+  attachments?: TradeAttachment[] | null;   // likewise: files kept with the trade
 }
 
 export type SaveStatus = 'Draft' | 'Open' | 'Closed';

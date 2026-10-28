@@ -49,6 +49,65 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-28 (branch `journal-j5-overview`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 148 passed, 0 failed |
+| `dotnet test` (Release): integration, applying all eight migrations | 74 passed, 0 failed. The J5 tests (including concurrent import decisions) passed 5 runs in a row. |
+| `ng test --watch=false` | 129 passed, 0 failed (17 files) |
+| `ng build` (production) | Succeeded; initial bundle 308.17 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+
+**What the new tests cover**
+- **Unit:**
+  - **File types:** PNG, JPEG, WebP and PDF are recognised by their bytes; SVG, HTML, GIF, executables and other RIFF files are refused.
+  - **File names:** stored names lose folders and unsafe characters and take the detected extension; empty and oversized files are refused.
+  - **Matching:** a row matches a journaled trade only when nothing recorded disagrees, and not on the day alone. A row duplicates only an imported trade with the same values.
+  - **Linking:** fills only empty fields, keeps notes and status, and cannot be decided twice.
+  - **Calendar:** totals count completed trades only, with drafts and open trades counted apart.
+- **Integration:**
+  - **Calendar:** 2 completed trades (+120, −45) and a draft with a P&L total +75; a draft-only day is listed with 0 completed. Month 13 is refused, and another trader's month is empty.
+  - **Overview:** lists drafts and trades awaiting review, newest first.
+  - **Attachments:**
+    - **Uploading and serving:** an image is stored as `setup chart.png` (the path is stripped) and served inline with `nosniff`. A PDF named `.png` is stored and served as a PDF download.
+    - **Access:** another trader gets 404 on read, delete and upload; anonymous gets 401.
+    - **Refused:** SVG and HTML-as-PNG (422), a 5 MB + 1 byte file (422), an empty form (400) and an 11th file (422).
+    - **Cleanup:** deleting a trade removes its files from disk.
+  - **Import:**
+    - **First upload:** the matching row is held back, the new row is imported, and the identical re-upload skips both.
+    - **Isolation:** another trader cannot see or link the match.
+    - **Linking:** fills exit, P&L and session but not the recorded entry price, keeps the notes and the Open status, and a second link is refused.
+    - **Other decisions:** import separately creates an imported trade, and dismiss removes the row from the list.
+    - **Weak match:** a draft with neither entry time nor price is not matched.
+    - **Concurrency:** 4 concurrent "import separately" requests create exactly one trade.
+- **Angular:**
+  - **Calendar:** the month grid starts on Monday. Cells give totals, a dashed unfinished day, links with the date, labels for screen readers, and a compact amount format.
+  - **Journal page:** counts, the import reminder, the "All N" link and month navigation; it still loads when matches fail.
+  - **Trade log:** date and status from the address; strategy, session and account filters; P&L sorting with empty values last; 25 per page, back to the first page on a filter change.
+  - **Attachments:** image previews; client-side refusal of SVG and oversized files; upload with caption; delete after confirmation.
+  - **Folded answers:** unanswered questions are folded behind a toggle.
+  - **Import page:** skipped and matched counts, the side-by-side comparison, the link message naming filled fields, and only import or leave out when the trade was deleted.
+
+**Found and fixed while testing:** the attachment folder was read from configuration while the app was being built, before test (and host) overrides applied. The integration tests showed files landing in the API project folder instead of the test folder. It is now read when first needed, and the stray files were removed.
+
+### Manual browser verification (J5)
+Run against `MelamuHoldings_Scratch` after applying `AddAttachmentsAndImportMatches`:
+- **Journal page:**
+  - **Counts:** 0 drafts, 0 open, 20 awaiting review, 2 reviewed.
+  - **October calendar:** 22 completed trades, +2,460.00. That matches Performance (21 trades, +1,960.00) plus the J3 trade (+500.00).
+  - **28 October:** +875.00 (375 + 500).
+- **Day link:** clicking 12 October opened the trade log at `?date=2026-10-12` with "Trades on Monday 12 October 2026" and 6 trades summing to +270.00, as the calendar showed. Sorting by P&L ordered them +400 … −200 with `aria-sort="descending"`.
+- **Attachments:** trade 22 got a 320 × 200 PNG (created in the browser) with the caption "Retest entry", shown as a thumbnail. An HTML file named `harmless.png` was refused: "Only PNG, JPEG, WebP images and PDF files can be attached. (HTTP 422)".
+- **Folded answers:** the trade's journal showed only the answered sections, with "Show 17 unanswered questions".
+- **Import:** a 3-row CSV was uploaded: one row identical to imported trade 2, one matching hand-journaled trade 22, and one new CL trade.
+  - **Result:** 1 imported, 1 already imported, 1 matching the journal, shown side by side with trade 22.
+  - **Linking:** "Filled in: duration, strategy". The database showed trade 22 still Reviewed with its review notes, now with duration 30 and strategy ORB. There is still one ES trade on 5 October, CL was imported as trade 23, and the match is Linked.
+  - **Calendar after:** 23 trades, +2,710.00.
+- **Phone width (375 px):** the journal page, trade log, trade page and import page have no page-level horizontal scroll.
+- **Fixed during the walkthrough:** calendar cells cut off amounts like "+100.0" at phone width. They now show a compact amount there (+100, +1.2k), and the full amount stays in each day's label.
+
 ## Results — 2026-10-28 (branch `journal-j4-strategies`)
 
 | Command | Result |

@@ -37,11 +37,13 @@ The landing page shows the business as recorded:
 - A retried save cannot create the same trade twice (`Idempotency-Key`).
 - **Strategies and checklists:** each strategy has your own rules, mandatory or optional. A trade's checklist records whether each rule was met, keeps every change, and is never rewritten when a rule is reworded later. **Rule adherence** is shown with its denominator: of the closed trades with a complete checklist, how many followed every mandatory rule. Results of trades that did and did not follow the rules are compared side by side, labelled when the sample is small, and never presented as cause and effect.
 - **Journal templates:** the questions answered for each trade (context, a pre-trade checklist, psychology, post-trade review and lessons), from a standard template you can edit, duplicate, archive or replace as the default. The editor shows a live preview. Changing the questions creates a new version, and trades already journaled keep the version they were written with. Required questions must be answered before a trade can be marked reviewed.
+- **Journal page:** drafts, open trades and trades awaiting review at a glance, recent activity, and a **calendar** of each day's completed trades and net P&L. Days with only unfinished trades are marked apart, and each day opens the trade log for that date.
+- **Files:** attach chart screenshots or statements to a trade (PNG, JPEG, WebP or PDF, up to 5 MB, 10 per trade). Files are checked by their content, stored outside any public folder and shown only to you.
 - The design for checklists, strategy rules and AI-assisted review is in [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md).
-- Import trades from CSV, with row-level validation. Valid rows are kept and failed rows are reported with their row number.
+- Import trades from CSV, with row-level validation. Valid rows are kept and failed rows are reported with their row number. Importing the same row twice is skipped, and a row that matches a trade you journaled by hand waits for your decision: **link** it (filling only what your trade is missing, never your notes), import it as a separate trade, or leave it out.
 - Upload history per user.
 - Strategies are created automatically from the CSV `Strategy` column.
-- View, search and delete trades. Search covers instrument, strategy, session and day; filters cover direction and result.
+- View, search and delete trades. Search covers instrument, strategy, session and day; filters cover status, direction, strategy, session, account, result and date. Sort by date, instrument, P&L or R; 25 trades per page.
 
 ### Performance analytics
 - **Win rate**: winning trades ÷ total trades.
@@ -196,7 +198,13 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/strategies/{id}/archive` · `/restore` · `/rules/{ruleId}/restore` | Strategy actions |
 | DELETE | `/api/trades/{id}` | Delete a trade |
 | POST | `/api/upload` | Import a CSV journal (max 10 MB) |
-| GET | `/api/upload/logs` | Upload history |
+| GET | `/api/upload/logs` | Upload history (imported, skipped, matched and failed rows) |
+| GET | `/api/upload/matches?status=` | CSV rows that matched trades journaled by hand (default: those waiting for a decision) |
+| POST | `/api/upload/matches/{id}/link` · `/import` · `/dismiss` | Decide on a matched row |
+| GET | `/api/journal/overview` | Drafts, open trades, trades awaiting review and recent activity |
+| GET | `/api/journal/calendar?year=&month=` | A month of trading by day (completed trades and net P&L; drafts and open trades counted apart) |
+| GET · POST | `/api/trades/{id}/attachments` | Attach a file to a trade (multipart, `file` and optional `caption`) |
+| GET · DELETE | `/api/trades/{id}/attachments/{attachmentId}` | Download or delete an attachment |
 | GET | `/api/analytics/summary` | KPI summary |
 | GET | `/api/analytics/equity-curve` | Daily equity curve |
 | GET | `/api/analytics/by-strategy` | Strategy breakdown |

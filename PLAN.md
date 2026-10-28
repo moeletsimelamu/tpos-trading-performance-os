@@ -14,7 +14,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Trading journal J1 (design, `docs/TRADING_JOURNAL_DESIGN.md`) and J2 (manual journaling with drafts) are complete on branch `journal-j1-j2`, cut from `develop`.
 - J3 (versioned journal templates) is complete on branch `journal-j3-templates`, cut from `journal-j1-j2`.
 - J4 (owned strategies, rules, checklists with history, adherence) is complete on branch `journal-j4-strategies`, cut from `journal-j3-templates`. It also delivers the `Strategies.UserId` backfill planned in §4.
-- Next: J5 (journal overview, calendar, attachments, import reconciliation), or Phase 6, at the owner's choice.
+- J5 (journal page with calendar, trade log filters, sorting and paging, attachments, CSV import reconciliation) is complete on branch `journal-j5-overview`, cut from `journal-j4-strategies`. It also delivers the "CSV duplicate detection" planned for Phase 8.
+- Next: J6 (analytics filters by strategy, adherence, emotion and rating), or Phase 6, at the owner's choice.
 
 ---
 
@@ -387,7 +388,7 @@ CSV import stays, but only as a bulk and migration path.
 | J2 ✅ | Manual journaling: New trade, drafts, edit, detail page, the extended `Trade` fields, migration |
 | J3 ✅ | Templates: create, duplicate, archive, default, preview, versioned snapshots, field-type validation |
 | J4 ✅ | Strategies and checklists: per-user strategies with rules (mandatory or optional), recorded responses, adherence |
-| J5 | Journal interface: overview (drafts, awaiting review), trade log with filters and sorting, calendar, journal document page, attachments |
+| J5 ✅ | Journal interface: overview (drafts, awaiting review), trade log with filters and sorting, calendar, journal document page, attachments |
 | J6 | Analytics integration: filters by account, session, strategy, adherence, emotion and rating; compliant versus non-compliant results, with sample sizes shown |
 | J7 | AI assistant: provider abstraction, bounded context, review drafts, insufficient-data handling, prompt-injection safeguards |
 | J8 | Verification and documentation |

@@ -9,6 +9,7 @@ import {
 import { SaveTrade, Trade, TradeStatus } from './models/trade.model';
 import { JournalSection, JournalTemplate } from './models/journal.model';
 import { AdherenceReport, SaveStrategy, Strategy } from './models/strategy.model';
+import { CalendarMonth, ImportMatch, JournalOverview, LinkResult, MatchDecision, TradeAttachment } from './models/journal-view.model';
 
 @Injectable({ providedIn: 'root' })
 export class TradingApiService {
@@ -107,6 +108,42 @@ export class TradingApiService {
 
   getUploadLogs(): Observable<UploadResult[]> {
     return this.http.get<UploadResult[]>(`${this.base}/upload/logs`);
+  }
+
+  // CSV rows that matched trades journaled by hand; by default those still waiting for a decision
+  getImportMatches(): Observable<ImportMatch[]> {
+    return this.http.get<ImportMatch[]>(`${this.base}/upload/matches`);
+  }
+
+  decideMatch(id: number, decision: MatchDecision): Observable<ImportMatch | LinkResult> {
+    return this.http.post<ImportMatch | LinkResult>(`${this.base}/upload/matches/${id}/${decision}`, {});
+  }
+
+  // ---- Journal views ----
+
+  getJournalOverview(): Observable<JournalOverview> {
+    return this.http.get<JournalOverview>(`${this.base}/journal/overview`);
+  }
+
+  getCalendar(year: number, month: number): Observable<CalendarMonth> {
+    return this.http.get<CalendarMonth>(`${this.base}/journal/calendar`, { params: new HttpParams().set('year', year).set('month', month) });
+  }
+
+  // ---- Attachments: files are fetched with the session's token, so they are read as blobs ----
+
+  uploadAttachment(tradeId: number, file: File, caption?: string): Observable<TradeAttachment> {
+    const form = new FormData();
+    form.append('file', file);
+    if (caption?.trim()) form.append('caption', caption.trim());
+    return this.http.post<TradeAttachment>(`${this.base}/trades/${tradeId}/attachments`, form);
+  }
+
+  getAttachment(tradeId: number, id: number): Observable<Blob> {
+    return this.http.get(`${this.base}/trades/${tradeId}/attachments/${id}`, { responseType: 'blob' });
+  }
+
+  deleteAttachment(tradeId: number, id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/trades/${tradeId}/attachments/${id}`);
   }
 
   // Analytics

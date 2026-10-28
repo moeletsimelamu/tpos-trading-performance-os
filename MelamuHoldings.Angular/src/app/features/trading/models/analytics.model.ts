@@ -58,6 +58,9 @@ export interface UploadResult {
   totalRows: number;
   parsedRows: number;
   failedRows: number;
+  // Not imported: already imported before, or matching a trade journaled by hand (waiting for a decision)
+  duplicateRows: number;
+  matchedRows: number;
   status: string;
   errors: string[];
 }

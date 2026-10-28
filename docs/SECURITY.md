@@ -24,6 +24,12 @@ The current access model and how secrets are handled. Remaining risks are listed
   - Finance foreign keys never cascade from users.
   - No bank or brokerage credentials are stored.
 - **Login throttling:** `Auth:LoginAttemptsPerMinute` (default 5) per client IP. Excess attempts get HTTP 429.
+- **Trade attachments:**
+  - **Accepted:** only PNG, JPEG, WebP and PDF, decided from the file's first bytes; the name and the claimed content type are ignored. SVG and HTML are refused, so an uploaded file cannot run script in the app's origin.
+  - **Limits:** 5 MB per file (the request limit is set just above it) and 10 per trade.
+  - **Storage:** under random 32-hex-character names in `Attachments:Path` (default `App_Data/attachments` under the API's content root, never a web root, ignored by git). A storage key outside that exact shape is rejected, so a key cannot reach another folder.
+  - **Serving:** only through the API, to the trade's owner (404 for anyone else, 401 without a token), with `nosniff` and `private, no-store`. Images are served inline and PDFs as downloads.
+  - **Backups:** database backups do not include these files. Back up the attachments folder alongside the database.
 
 ## Secrets
 

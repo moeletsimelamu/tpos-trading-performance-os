@@ -7,7 +7,7 @@ This document is phase J1 of [`../PLAN.md`](../PLAN.md) §7a. It records:
 - the decisions for every journal phase;
 - the exact scope of J2, which is built alongside it.
 
-J1 to J4 are built (2026-10-28). Later sections describe J5–J7 as designed, not built.
+J1 to J5 are built (2026-10-28). Later sections describe J6–J7 as designed, not built.
 
 ## 1. Audit of the existing trading module (2026-10-28)
 
@@ -29,7 +29,7 @@ J1 to J4 are built (2026-10-28). Later sections describe J5–J7 as designed, no
 2. **During the trade:** reopen the entry; add the stop, target and notes.
 3. **After exit:** record the exit, P&L and fees → **Save as closed**. It now counts in analytics.
 4. **Review:** read the entry, write the post-trade review → **Mark reviewed**. In J3–J4 the template's review section and checklist answers become part of this step.
-5. **Bulk history:** CSV import creates closed trades. In J5 an import offers to link to a matching manual trade instead of duplicating it.
+5. **Bulk history:** CSV import creates closed trades. A row already imported is skipped, and a row matching a trade journaled by hand waits for the trader to link it, import it separately or leave it out (J5, §7).
 
 ## 3. Trade lifecycle (J2)
 
@@ -59,7 +59,7 @@ Draft ──▶ Open ──▶ Closed ──▶ Reviewed
 **Deletion policy:**
 - Any trade can be deleted with a two-step confirmation, as today.
 - A draft is the normal thing to delete.
-- Archiving instead of deleting comes with J5, when the journal view needs it.
+- Archiving trades was considered for J5 and not built: the journal page lists what needs finishing, so nothing needed hiding. Deletion with confirmation stays the only way to remove a trade.
 - Trading records are not financial records. A trade never posts to the ledger, so deleting one cannot change a balance.
 
 **Duplicate protection:** `POST /api/trades` accepts an `Idempotency-Key`. A unique (user, key) index means a retried save returns the trade already created instead of a second copy.
@@ -104,7 +104,7 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 
 - **A validated schema, not a form builder.** A template version is a list of sections, each holding fields. A field has an id (stable across versions), label, type, required flag, help text and options.
 - **Supported types (built):** short text, long text, number, date/time, single select, multi select, checkbox (yes/no), checklist (a list of items, each ticked or not), rating (1–5) and URL. Ids are lowercase letters, digits and hyphens. Select, multi-select and checklist fields need options.
-- **Not template fields:** attachments arrive with J5; the price and risk block is the fixed part of the trade form (the `Trade` columns), not a field type.
+- **Not template fields:** attachments are kept with the trade, not as answers (J5, §7); the price and risk block is the fixed part of the trade form (the `Trade` columns), not a field type.
 - **The core execution fields stay columns on `Trade`,** not template answers. That way analytics never depend on how a template is configured. Templates decide *which* of them are shown and add their own fields around them.
 - **Versioning:**
   - Editing a template creates a new version.
@@ -129,12 +129,41 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
   - **The report (`GET /api/analytics/adherence?strategyId=`)** gives the rate with its denominator, and for each group its count, win rate, net P&L and average R. It also lists the five mandatory rules most often not met, with how many times each was answered, and a per-strategy breakdown.
   - **Where to find it:** the Strategies page shows the overall report; each strategy's page shows its own.
 
-## 7. Journal interface (J5)
+## 7. Journal interface (J5, built)
 
-- **Journal overview:** drafts, open trades, closed but not reviewed, recent activity, and a New trade button.
-- **Trade log:** search, filters (strategy, account, session, outcome, status), sorting and paging.
-- **Calendar:** a month grid, with each day showing its trade count and net P&L. A day with no trades is shown differently from a day that only has drafts.
-- **Journal entry:** a readable document with progressive disclosure, attachments (type- and size-checked, stored outside any public directory, served only to the owner), and the review section.
+- **Journal page (`/trading/journal`):**
+  - **Counts:** drafts, open, awaiting review (closed, not reviewed) and reviewed; each links to the trade log filtered by that status.
+  - **Lists:** the eight latest of each, plus recent activity.
+  - **Import reminder:** a notice when imported rows are waiting for a decision.
+  - **Data:** `GET /api/journal/overview`.
+- **Calendar:** a month grid, Monday first (`GET /api/journal/calendar?year=&month=`).
+  - **Totals:** each day shows the number of completed trades and net P&L, counted from closed and reviewed trades through `CompletedTrade`, the same projection analytics use.
+  - **Unfinished trades:** drafts and open trades are counted beside the totals and never in them. A day with only drafts or open trades is dashed; a day with no trades is plain.
+  - **Links:** each day with trades opens the trade log for that date.
+  - **Phone width:** cells show a compact amount (+100, +1.2k).
+- **Trade log:**
+  - **Filters:** search; status tabs; direction, strategy, session, account and result filters; and a date taken from the calendar link.
+  - **Sorting:** by date, instrument, P&L or R (`aria-sort`); trades without the value (a draft has no P&L) sort last.
+  - **Paging:** 25 per page.
+  - **Scope:** filtering, sorting and paging run in the browser over the trader's trades. That is enough for one trader's journal; server paging can follow if it grows large.
+- **Journal entry:** the review section, the strategy checklist, and template answers. Unanswered questions are folded behind "Show N unanswered questions".
+- **Attachments (`/api/trades/{id}/attachments`):**
+  - **Accepted:** PNG, JPEG, WebP and PDF, recognised by their first bytes. The file name and the browser's content type are ignored, and SVG, HTML and anything else are refused.
+  - **Limits:** 5 MB and 10 files per trade.
+  - **Storage:** files are stored under random names in `Attachments:Path` (default `App_Data/attachments` under the API's content root, outside any web root, ignored by git). The shown name is cleaned of folders and unsafe characters and takes the detected extension.
+  - **Serving:** only to the trade's owner (another trader gets 404, an anonymous caller 401), with `X-Content-Type-Options: nosniff` and `Cache-Control: private, no-store`. Images are shown inline and PDFs are downloaded.
+  - **Deletion:** deleting a trade removes its files.
+  - **In the browser:** files are fetched with the session token, so thumbnails use object URLs that are released when the page closes.
+- **Import reconciliation:**
+  - **Already imported:** a CSV row identical to an already imported trade (date, instrument, direction, entry time, entry and exit price, P&L), or to a row already decided on, is skipped and counted.
+  - **Matches a journaled trade:** a row on the same day and instrument as a trade journaled by hand is held back as an `ImportMatch`, as long as nothing the trader recorded disagrees on direction, entry time (to the minute) or entry price, and the trade has at least an entry time or entry price.
+  - **The trader decides:**
+    - **Link:** fills only the trade's empty fields (direction, times, prices, risk, P&L, R, duration, session, strategy). It never changes notes, status or recorded values, and a trade can be linked once.
+    - **Import separately:** creates the trade as a normal import.
+    - **Don't import.**
+  - **Safeguards:**
+    - **Concurrency:** a `rowversion` makes concurrent decisions on one row fail cleanly with a 409, so only one trade is created.
+    - **Deleted trade:** deleting the journaled trade keeps the row (the link becomes empty), and it can still be imported or left out.
 
 ## 8. AI assistant (J7)
 
@@ -162,7 +191,7 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 | **J2** ✅ | Statuses, nullable execution fields, new columns, migration; status-aware create and update; review action; status filter; idempotent create; analytics count completed trades only; New trade, journal entry and edit pages; status filter on the trade log | Unit: per-status validation, R and duration calculation, completed-trade projection. Integration: a draft has missing fields and is excluded from analytics; closing it counts it; review needs a closed trade; the idempotent create; isolation still holds; existing tests unchanged. Angular: form per status, draft save, idempotency key, entry page. |
 | **J3** ✅ | Templates and immutable versions; default template; create, edit, duplicate, archive, restore, make default; editor with live preview; answers on the trade form and entry page; moving an entry to the latest version; required answers before review | Unit: default template valid, schema rules, answer types, empty answers dropped, versioning, entries keep their version, default and archive rules. Integration: one default per trader, editing leaves old entries on their version, review refused with required questions unanswered, duplicate/archive/restore/default, invalid templates refused (400), owner isolation. Angular: answer carrying, renderer, editor body and ids, version message, form journal body, entry answers and blocked review. |
 | **J4** ✅ | Owned strategies with the backfill; rules (edit in place, retire, restore); checklists that copy the rules and keep every answer; checklist on the trade form and entry page; adherence report on the Strategies pages | Unit: rule editing, retiring and restoring; rule validation; the checklist copy; violations and compliance; appended history; N/A rules; adherence counts, rate and sample flags. Integration: per-trader ownership and names, concurrent first use of a new name, retire and restore, checklist history, rejected answers saving nothing, the adherence report, owner isolation, UTC times. Angular: list and report, editor bodies and messages, form checklist, entry history. The backfill was tested by hand on a throwaway database with shared, unused, duplicate and over-long strategies. |
-| J5 | Journal overview, calendar, attachments, import reconciliation | Attachment type, size and access; no duplicate on import |
+| **J5** ✅ | Journal page and calendar; trade log filters, sorting and paging; folded journal answers; attachments; import reconciliation | Unit: type detection, file names and size limits, match and duplicate rules, linking fills only empty fields, calendar totals. Integration: calendar and overview, attachment types, size, count limit and access, files removed with the trade, re-import skipped, link / import separately / dismiss, concurrent decisions create one trade. Angular: month grid, calendar cells and links, journal page, log filters, sorting and paging, attachments, import decisions, folded answers. |
 | J6 | Analytics filters (adherence, emotion, rating), sample sizes | One calculation path; filters only narrow it |
 | J7 | AI assistant | Disabled mode; enough versus insufficient context; draft never auto-saved; prompt-injection text treated as data |
 | J8 | Verification and documentation | Full regression; browser walkthrough |

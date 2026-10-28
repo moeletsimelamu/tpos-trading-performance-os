@@ -1,5 +1,5 @@
-import { Component, input, output } from '@angular/core';
-import { JournalAnswer, JournalAnswers, JournalField, JournalSection } from '../models/journal.model';
+import { Component, computed, input, output, signal } from '@angular/core';
+import { JournalAnswer, JournalAnswers, JournalField, JournalSection, isAnswered } from '../models/journal.model';
 
 // Renders a template version's questions as inputs. Answers flow in and every change flows out as a new
 // object; the parent decides when to save. Also used as the live preview in the template editor.
@@ -134,12 +134,13 @@ export class JournalFieldsComponent {
   }
 }
 
-// The same questions, read-only: what was answered, and a dash for what was not
+// The same questions, read-only: what was answered, and a dash for what was not. With collapseUnanswered the
+// unanswered questions (and sections with none answered) are folded away behind a button.
 @Component({
   selector: 'app-journal-answers',
   standalone: true,
   template: `
-    @for (section of sections(); track section.id) {
+    @for (section of visibleSections(); track section.id) {
       <section class="a-section">
         <h3>{{ section.title }}</h3>
         <dl>
@@ -164,9 +165,17 @@ export class JournalFieldsComponent {
           }
         </dl>
       </section>
+    } @empty {
+      <p class="muted">No questions answered yet.</p>
+    }
+    @if (collapseUnanswered() && hiddenCount() > 0) {
+      <button type="button" class="btn-link small toggle" [attr.aria-expanded]="showAll()" (click)="showAll.set(!showAll())">
+        {{ showAll() ? 'Hide unanswered questions' : 'Show ' + hiddenCount() + ' unanswered ' + (hiddenCount() === 1 ? 'question' : 'questions') }}
+      </button>
     }
   `,
   styles: [`
+    .toggle { margin-top: var(--space-4); }
     .a-section + .a-section { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--border-subtle); }
     h3 { font-size: var(--text-md); margin-bottom: var(--space-3); }
     dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3) var(--space-5); }
@@ -182,6 +191,18 @@ export class JournalFieldsComponent {
 export class JournalAnswersComponent {
   readonly sections = input.required<JournalSection[]>();
   readonly answers = input<Record<string, JournalAnswer>>({});
+  readonly collapseUnanswered = input(false);
+  readonly showAll = signal(false);
+
+  readonly hiddenCount = computed(() =>
+    this.sections().flatMap(s => s.fields).filter(f => !isAnswered(this.answers()[f.id])).length);
+
+  readonly visibleSections = computed<JournalSection[]>(() => {
+    if (!this.collapseUnanswered() || this.showAll()) return this.sections();
+    return this.sections()
+      .map(s => ({ ...s, fields: s.fields.filter(f => isAnswered(this.answers()[f.id])) }))
+      .filter(s => s.fields.length > 0);
+  });
 
   checklist(id: string): Record<string, boolean> | null {
     const value = this.answers()[id];

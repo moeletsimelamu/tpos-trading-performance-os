@@ -1,7 +1,10 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TradingApiService } from '../trading-api.service';
 import { UploadResult } from '../models/analytics.model';
+import { ImportMatch, LinkResult, MatchDecision } from '../models/journal-view.model';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
@@ -9,14 +12,19 @@ import { IconComponent } from '../../../shared/ui/icon.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
+const FIELD_NAMES: Record<string, string> = {
+  Direction: 'direction', EntryTime: 'entry time', EntryPrice: 'entry price', ExitPrice: 'exit price', RiskAmount: 'risk',
+  PnL: 'P&L', RR: 'R-multiple', TradeDuration: 'duration', Session: 'session', Strategy: 'strategy'
+};
+
 @Component({
   selector: 'app-trading-import',
   standalone: true,
-  imports: [LoadErrorComponent, PageHeaderComponent, IconComponent],
+  imports: [DecimalPipe, RouterLink, LoadErrorComponent, PageHeaderComponent, IconComponent],
   template: `
     <div class="page narrow">
       <app-page-header section="Trading operations" title="Import trades"
-        description="Bring trade history in from a CSV export. Valid rows are kept; rows that fail are listed with their row number." />
+        description="Bring trade history in from a CSV export. Rows already imported are skipped, and a row that matches a trade you journaled waits for your decision instead of duplicating it." />
 
       <div class="drop-zone"
         role="button"
@@ -56,6 +64,8 @@ type LoadState = 'loading' | 'ready' | 'error';
           <dl class="result-stats">
             <div><dt>Rows read</dt><dd>{{ result.totalRows }}</dd></div>
             <div><dt>Imported</dt><dd>{{ result.parsedRows }}</dd></div>
+            <div><dt>Already imported</dt><dd>{{ result.duplicateRows }}</dd></div>
+            <div><dt>Match your journal</dt><dd [class.text-warning]="result.matchedRows > 0">{{ result.matchedRows }}</dd></div>
             <div><dt>Failed</dt><dd [class.text-negative]="result.failedRows > 0">{{ result.failedRows }}</dd></div>
           </dl>
           @if (result.errors.length > 0) {
@@ -65,6 +75,51 @@ type LoadState = 'loading' | 'ready' | 'error';
                 @for (err of result.errors; track $index) { <li>{{ err }}</li> }
               </ul>
             </div>
+          }
+        </section>
+      }
+
+      @if (matches().length > 0 || decision()) {
+        <section class="card matches" aria-labelledby="matches-heading">
+          <h2 id="matches-heading">Rows matching your journal</h2>
+          <p class="secondary small">
+            These rows look like trades you recorded by hand (same day and instrument, and no recorded direction, entry time or entry price that disagrees).
+            Linking fills only what your trade is missing; your values, notes and status stay as they are.
+          </p>
+          @if (decision()) { <p class="notice notice-success" role="status">{{ decision() }}</p> }
+          @if (matchError()) { <p class="notice notice-error" role="alert">{{ matchError() }}</p> }
+          @for (m of matches(); track m.id) {
+            <article class="match" [attr.aria-label]="'Row ' + m.rowNumber + ' of ' + m.fileName">
+              <div class="match-head small secondary">Row {{ m.rowNumber }} of {{ m.fileName }}</div>
+              <table class="data-table compare">
+                <thead><tr><th></th><th>Date</th><th>Instrument</th><th>Direction</th><th>Entry</th><th class="num">Entry price</th><th class="num">Exit price</th><th class="num">P&amp;L</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Imported row</th>
+                    <td>{{ m.row.tradeDate }}</td><td>{{ m.row.instrument }}</td><td>{{ m.row.direction }}</td><td>{{ m.row.entryTime.slice(0, 5) }}</td>
+                    <td class="num">{{ m.row.entryPrice | number: '1.0-5' }}</td><td class="num">{{ m.row.exitPrice | number: '1.0-5' }}</td><td class="num">{{ m.row.pnL | number: '1.2-2' }}</td>
+                  </tr>
+                  @if (m.trade; as t) {
+                    <tr>
+                      <th scope="row"><a [routerLink]="['/trading/trades', t.id]">Your trade</a> <span class="small muted">({{ t.status }})</span></th>
+                      <td>{{ t.tradeDate }}</td><td>{{ t.instrument }}</td><td>{{ t.direction ?? '—' }}</td><td>{{ t.entryTime?.slice(0, 5) ?? '—' }}</td>
+                      <td class="num">{{ t.entryPrice != null ? (t.entryPrice | number: '1.0-5') : '—' }}</td>
+                      <td class="num">{{ t.exitPrice != null ? (t.exitPrice | number: '1.0-5') : '—' }}</td>
+                      <td class="num">{{ t.pnL != null ? (t.pnL | number: '1.2-2') : '—' }}</td>
+                    </tr>
+                  } @else {
+                    <tr><th scope="row">Your trade</th><td colspan="7" class="muted">Deleted since the import. Import the row as its own trade, or leave it out.</td></tr>
+                  }
+                </tbody>
+              </table>
+              <div class="match-actions">
+                @if (m.trade) {
+                  <button type="button" class="btn btn-primary btn-sm" [disabled]="deciding() !== null" (click)="decide(m, 'link')">{{ deciding() === m.id ? 'Saving…' : 'Link to my trade' }}</button>
+                }
+                <button type="button" class="btn btn-sm" [disabled]="deciding() !== null" (click)="decide(m, 'import')">Import as a separate trade</button>
+                <button type="button" class="btn-link small" [disabled]="deciding() !== null" (click)="decide(m, 'dismiss')">Don't import</button>
+              </div>
+            </article>
           }
         </section>
       }
@@ -91,7 +146,7 @@ type LoadState = 'loading' | 'ready' | 'error';
             @if (logs().length > 0) {
               <table class="data-table">
                 <thead>
-                  <tr><th>File</th><th class="num">Rows</th><th class="num">Imported</th><th class="num">Failed</th><th>Status</th></tr>
+                  <tr><th>File</th><th class="num">Rows</th><th class="num">Imported</th><th class="num">Skipped</th><th class="num">Matched</th><th class="num">Failed</th><th>Status</th></tr>
                 </thead>
                 <tbody>
                   @for (log of logs(); track log.uploadLogId) {
@@ -99,6 +154,8 @@ type LoadState = 'loading' | 'ready' | 'error';
                       <td>{{ log.fileName }}</td>
                       <td class="num">{{ log.totalRows }}</td>
                       <td class="num">{{ log.parsedRows }}</td>
+                      <td class="num">{{ log.duplicateRows }}</td>
+                      <td class="num">{{ log.matchedRows }}</td>
                       <td class="num">{{ log.failedRows }}</td>
                       <td>
                         <span class="tag" [class.tag-positive]="log.status === 'Completed'" [class.tag-negative]="log.status === 'Failed'"
@@ -147,6 +204,13 @@ type LoadState = 'loading' | 'ready' | 'error';
     .columns { display: flex; flex-wrap: wrap; gap: 6px; }
     code { font-family: var(--font-mono); font-size: 12px; background: var(--neutral-bg); border-radius: var(--radius-sm); padding: 2px 6px; }
     .empty-state.small { padding: var(--space-6); }
+    .matches > p { margin: var(--space-1) 0 var(--space-3); }
+    .match { border-top: 1px solid var(--border-subtle); padding-top: var(--space-3); margin-top: var(--space-3); }
+    .match-head { margin-bottom: var(--space-2); }
+    .compare { margin-bottom: var(--space-3); }
+    .match { overflow-x: auto; }
+    .match-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+    .text-warning { color: var(--warning); }
   `]
 })
 export class ImportComponent {
@@ -160,6 +224,10 @@ export class ImportComponent {
   readonly logsState = signal<LoadState>('loading');
   readonly logsError = signal('');
   readonly logs = signal<UploadResult[]>([]);
+  readonly matches = signal<ImportMatch[]>([]);
+  readonly matchError = signal('');
+  readonly decision = signal('');
+  readonly deciding = signal<number | null>(null);
 
   readonly expectedColumns = [
     'TradeDate', 'EntryTime', 'Instrument', 'Direction',
@@ -170,6 +238,39 @@ export class ImportComponent {
 
   constructor() {
     this.loadLogs();
+    this.loadMatches();
+  }
+
+  loadMatches(): void {
+    this.api.getImportMatches().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: matches => { this.matches.set(matches); this.matchError.set(''); },
+      error: err => this.matchError.set(`Could not load rows waiting for a decision: ${describeHttpError(err)}`)
+    });
+  }
+
+  decide(match: ImportMatch, decision: MatchDecision): void {
+    if (this.deciding() !== null) return;
+    this.deciding.set(match.id);
+    this.matchError.set('');
+    this.api.decideMatch(match.id, decision).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: result => {
+        this.deciding.set(null);
+        this.matches.update(list => list.filter(m => m.id !== match.id));
+        this.decision.set(this.describe(match, decision, result));
+        this.loadLogs();
+      },
+      error: err => { this.deciding.set(null); this.matchError.set(`Row ${match.rowNumber}: ${describeHttpError(err)}`); this.loadMatches(); }
+    });
+  }
+
+  private describe(match: ImportMatch, decision: MatchDecision, result: ImportMatch | LinkResult): string {
+    const row = `Row ${match.rowNumber} (${match.row.instrument})`;
+    if (decision === 'dismiss') return `${row} was left out.`;
+    if (decision === 'import') return `${row} was imported as a separate trade.`;
+    const filled = (result as LinkResult).filledFields ?? [];
+    return filled.length > 0
+      ? `${row} was linked to your trade. Filled in: ${filled.map(f => FIELD_NAMES[f] ?? f).join(', ')}.`
+      : `${row} was linked to your trade. It already had every value, so nothing changed.`;
   }
 
   loadLogs(): void {
@@ -222,7 +323,9 @@ export class ImportComponent {
         next: result => {
           this.lastResult.set(result);
           this.isUploading.set(false);
+          this.decision.set('');
           this.loadLogs();
+          this.loadMatches();
         },
         error: err => {
           this.uploadError.set(`Upload failed: ${describeHttpError(err)}`);

@@ -24,6 +24,7 @@ export const NAVIGATION: NavSection[] = [
     heading: 'Trading operations',
     items: [
       { label: 'Performance', route: '/trading/performance', icon: 'performance' },
+      { label: 'Journal', route: '/trading/journal', icon: 'journal' },
       { label: 'Trades', route: '/trading/trades', icon: 'trades' },
       { label: 'Strategies', route: '/trading/strategies', icon: 'strategy' },
       { label: 'Journal templates', route: '/trading/journal-templates', icon: 'template' },
