@@ -1,6 +1,7 @@
 using System.Globalization;
 using CsvHelper;
 using CsvHelper.Configuration;
+using MelamuHoldings.Domain.Trading;
 
 namespace MelamuHoldings.Application.Trading;
 
@@ -68,6 +69,9 @@ public class CsvParserService
 
         if (record.ExitPrice <= 0)
             return $"Row {rowNumber}: ExitPrice must be greater than zero.";
+
+        if (record.Strategy?.Trim().Length > Strategy.MaxNameLength)
+            return $"Row {rowNumber}: Strategy must be at most {Strategy.MaxNameLength} characters.";
 
         return null;
     }

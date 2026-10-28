@@ -719,6 +719,71 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.ChecklistItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsMandatory")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StrategyRuleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("TradeChecklistId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StrategyRuleId");
+
+                    b.HasIndex("TradeChecklistId");
+
+                    b.ToTable("ChecklistItems", (string)null);
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.ChecklistResponse", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("AnsweredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ChecklistItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChecklistItemId", "Sequence")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ChecklistResponses_ChecklistItemId_Sequence");
+
+                    b.ToTable("ChecklistResponses", (string)null);
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", b =>
                 {
                     b.Property<int>("Id")
@@ -835,16 +900,67 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("UserId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Strategies_UserId_Name");
+
                     b.ToTable("Strategies");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.StrategyRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsMandatory")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("RetiredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StrategyId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StrategyId");
+
+                    b.ToTable("StrategyRules");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Trade", b =>
@@ -976,6 +1092,34 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "TradeDate");
 
                     b.ToTable("Trades");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.TradeChecklist", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("StrategyId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TradeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StrategyId");
+
+                    b.HasIndex("TradeId", "StrategyId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TradeChecklists_TradeId_StrategyId");
+
+                    b.ToTable("TradeChecklists");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.UploadLog", b =>
@@ -1158,6 +1302,30 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.ChecklistItem", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.StrategyRule", null)
+                        .WithMany()
+                        .HasForeignKey("StrategyRuleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MelamuHoldings.Domain.Trading.TradeChecklist", null)
+                        .WithMany("Items")
+                        .HasForeignKey("TradeChecklistId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.ChecklistResponse", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.ChecklistItem", null)
+                        .WithMany("Responses")
+                        .HasForeignKey("ChecklistItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", b =>
                 {
                     b.HasOne("MelamuHoldings.Domain.Identity.User", null)
@@ -1191,6 +1359,24 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.Strategy", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.StrategyRule", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.Strategy", null)
+                        .WithMany("Rules")
+                        .HasForeignKey("StrategyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Trade", b =>
                 {
                     b.HasOne("MelamuHoldings.Domain.Trading.Strategy", "Strategy")
@@ -1213,6 +1399,21 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Navigation("UploadLog");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.TradeChecklist", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.Strategy", null)
+                        .WithMany()
+                        .HasForeignKey("StrategyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MelamuHoldings.Domain.Trading.Trade", null)
+                        .WithMany()
+                        .HasForeignKey("TradeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.UploadLog", b =>
@@ -1246,6 +1447,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Navigation("Entries");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.ChecklistItem", b =>
+                {
+                    b.Navigation("Responses");
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", b =>
                 {
                     b.Navigation("Versions");
@@ -1253,7 +1459,14 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Strategy", b =>
                 {
+                    b.Navigation("Rules");
+
                     b.Navigation("Trades");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.TradeChecklist", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.UploadLog", b =>

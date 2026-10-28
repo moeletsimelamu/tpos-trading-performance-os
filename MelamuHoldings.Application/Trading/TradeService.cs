@@ -15,13 +15,16 @@ public class TradeService
     private readonly ITradeRepository _tradeRepository;
     private readonly IStrategyRepository _strategyRepository;
     private readonly TradeJournal _journal;
+    private readonly TradeChecklists _checklists;
     private readonly TimeProvider _clock;
 
-    public TradeService(ITradeRepository tradeRepository, IStrategyRepository strategyRepository, TradeJournal journal, TimeProvider clock)
+    public TradeService(ITradeRepository tradeRepository, IStrategyRepository strategyRepository, TradeJournal journal,
+        TradeChecklists checklists, TimeProvider clock)
     {
         _tradeRepository = tradeRepository;
         _strategyRepository = strategyRepository;
         _journal = journal;
+        _checklists = checklists;
         _clock = clock;
     }
 
@@ -37,9 +40,7 @@ public class TradeService
     {
         var trade = await _tradeRepository.GetForUserAsync(tradeId, userId);
         if (trade is null) return null;
-        var dto = MapToResponseDto(trade);
-        dto.Journal = await _journal.GetAsync(trade.Id, userId);
-        return dto;
+        return await DetailAsync(trade, userId);
     }
 
     // A retry with the same Idempotency-Key returns the trade it already created instead of saving a copy
@@ -50,6 +51,7 @@ public class TradeService
             return new TradeResult(MapToResponseDto(previous), Replayed: true);
 
         if (dto.Journal is not null) await _journal.ValidateAsync(userId, dto.Journal);
+        await _checklists.ValidateNewAsync(userId, dto.StrategyName, dto.Checklist);
         var trade = new Trade { UserId = userId, CreatedAt = Now, IdempotencyKey = key };
         await ApplyAsync(trade, dto);
         trade.SetStatus(ParseStatus(dto.Status) ?? TradeStatus.Closed);
@@ -71,9 +73,12 @@ public class TradeService
             await _journal.RecordAsync(trade.Id, userId, dto.Journal, Now);
             await _tradeRepository.SaveChangesAsync();
         }
-        var created = MapToResponseDto(trade);
-        created.Journal = await _journal.GetAsync(trade.Id, userId);
-        return new TradeResult(created, Replayed: false);
+        if (dto.Checklist is { Count: > 0 })
+        {
+            await _checklists.RecordAsync(trade, dto.Checklist, Now);
+            await _checklists.SaveAsync();
+        }
+        return new TradeResult(await DetailAsync(trade, userId), Replayed: false);
     }
 
     public async Task<TradeResponseDto?> UpdateTradeAsync(int tradeId, int userId, UpdateTradeDto dto)
@@ -85,12 +90,11 @@ public class TradeService
         trade.SetStatus(ParseStatus(dto.Status) ?? trade.Status);
         trade.UpdatedAt = Now;
         if (dto.Journal is not null) await _journal.RecordAsync(trade.Id, userId, dto.Journal, Now);
+        await _checklists.RecordAsync(trade, dto.Checklist, Now);
 
         await _tradeRepository.UpdateAsync(trade);
-        await _tradeRepository.SaveChangesAsync();
-        var updated = MapToResponseDto(trade);
-        updated.Journal = await _journal.GetAsync(trade.Id, userId);
-        return updated;
+        await _checklists.SaveAsync();
+        return await DetailAsync(trade, userId);
     }
 
     public async Task<TradeResponseDto?> ReviewTradeAsync(int tradeId, int userId, ReviewTradeDto dto)
@@ -106,9 +110,7 @@ public class TradeService
         trade.MarkReviewed(dto.ReviewNotes, Now);
         await _tradeRepository.UpdateAsync(trade);
         await _tradeRepository.SaveChangesAsync();
-        var reviewed = MapToResponseDto(trade);
-        reviewed.Journal = await _journal.GetAsync(trade.Id, userId);
-        return reviewed;
+        return await DetailAsync(trade, userId);
     }
 
     public async Task<bool> DeleteTradeAsync(int tradeId, int userId)
@@ -123,11 +125,20 @@ public class TradeService
 
     // --- Private helpers ---
 
+    // One trade with its journal answers and checklist
+    private async Task<TradeResponseDto> DetailAsync(Trade trade, int userId)
+    {
+        var dto = MapToResponseDto(trade);
+        dto.Journal = await _journal.GetAsync(trade.Id, userId);
+        dto.Checklist = await _checklists.GetAsync(trade);
+        return dto;
+    }
+
     // Copies what was entered. Calculated values (R, duration) are cleared first so they are recalculated
     // from the new figures rather than kept stale.
     private async Task ApplyAsync(Trade trade, CreateTradeDto dto)
     {
-        var strategy = await ResolveStrategyAsync(dto.StrategyName);
+        var strategy = string.IsNullOrWhiteSpace(dto.StrategyName) ? null : await _strategyRepository.GetOrCreateAsync(trade.UserId, dto.StrategyName, Now);
         trade.StrategyId = strategy?.Id;
         trade.Strategy = strategy;
         trade.TradeDate = dto.TradeDate;
@@ -159,26 +170,6 @@ public class TradeService
         status is null ? null : Enum.Parse<TradeStatus>(status, ignoreCase: true);
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private async Task<Strategy?> ResolveStrategyAsync(string? strategyName)
-    {
-        if (string.IsNullOrWhiteSpace(strategyName)) return null;
-
-        var strategy = await _strategyRepository.GetByNameAsync(strategyName.Trim());
-
-        if (strategy is null)
-        {
-            strategy = new Strategy
-            {
-                Name = strategyName.Trim(),
-                CreatedAt = Now
-            };
-            await _strategyRepository.AddAsync(strategy);
-            await _strategyRepository.SaveChangesAsync();
-        }
-
-        return strategy;
-    }
 
     private static TradeResponseDto MapToResponseDto(Trade trade) => new()
     {

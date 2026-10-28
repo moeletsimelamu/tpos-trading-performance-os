@@ -12,15 +12,18 @@ public class AnalyticsController : ControllerBase
 {
     private readonly AnalyticsService _analyticsService;
     private readonly BehaviourAnalyticsService _behaviourService;
+    private readonly AdherenceService _adherenceService;
     private readonly JwtService _jwtService;
 
     public AnalyticsController(
         AnalyticsService analyticsService,
         BehaviourAnalyticsService behaviourService,
+        AdherenceService adherenceService,
         JwtService jwtService)
     {
         _analyticsService = analyticsService;
         _behaviourService = behaviourService;
+        _adherenceService = adherenceService;
         _jwtService = jwtService;
     }
 
@@ -37,6 +40,11 @@ public class AnalyticsController : ControllerBase
     [HttpGet("by-strategy")]
     public async Task<IActionResult> GetByStrategy() =>
         Ok(await _analyticsService.GetStrategyPerformanceAsync(GetUserId()));
+
+    // Rule adherence over closed and reviewed trades, optionally for one strategy
+    [HttpGet("adherence")]
+    public async Task<IActionResult> GetAdherence(int? strategyId = null) =>
+        Ok(await _adherenceService.GetReportAsync(GetUserId(), strategyId));
 
     [HttpGet("by-day")]
     public async Task<IActionResult> GetByDay() =>

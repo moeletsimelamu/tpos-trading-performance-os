@@ -74,7 +74,7 @@ internal static class TradeFactory
         RiskAmount = 100,
         PnL = pnl,
         RR = rr,
-        Strategy = strategy is null ? null : new Strategy { Name = strategy },
+        Strategy = strategy is null ? null : new Strategy(userId, strategy, null, DateTime.UtcNow),
         Session = session,
         DayOfWeek = DateOnly.Parse(date).DayOfWeek.ToString(),
         IsManualOverride = manualOverride

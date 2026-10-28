@@ -63,7 +63,8 @@ public class UploadService
         // Persist valid trades
         foreach (var record in parseResult.ValidRecords)
         {
-            var strategy = await ResolveStrategyAsync(record.Strategy);
+            var strategy = string.IsNullOrWhiteSpace(record.Strategy) ? null
+                : await _strategyRepository.GetOrCreateAsync(userId, record.Strategy, DateTime.UtcNow);
 
             var trade = new Trade
             {
@@ -119,19 +120,6 @@ public class UploadService
             FailedRows = l.FailedRows,
             Status = l.Status.ToString()
         });
-    }
-
-    private async Task<Strategy?> ResolveStrategyAsync(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name)) return null;
-        var strategy = await _strategyRepository.GetByNameAsync(name);
-        if (strategy is null)
-        {
-            strategy = new Strategy { Name = name, CreatedAt = DateTime.UtcNow };
-            await _strategyRepository.AddAsync(strategy);
-            await _strategyRepository.SaveChangesAsync();
-        }
-        return strategy;
     }
 
     private static UploadResultDto BuildResult(UploadLog log, List<string> errors) => new()

@@ -39,6 +39,9 @@ public class TradeResponseDto
 
     // The template answers and their questions; included when one trade is read, not in lists
     public TradeJournalDto? Journal { get; set; }
+
+    // The checklist for the trade's strategy, with every answer given; also only when one trade is read
+    public TradeChecklistDto? Checklist { get; set; }
 }
 
 public record TradeResult(TradeResponseDto Trade, bool Replayed);
@@ -99,6 +102,9 @@ public class CreateTradeDto : IValidatableObject
 
     // Answers to the journal template's questions; omitted, the trade's answers are left as they are
     public JournalAnswersRequest? Journal { get; set; }
+
+    // Answers to the strategy's rules; omitted or empty, the checklist is left as it is
+    public List<RuleAnswerRequest>? Checklist { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
