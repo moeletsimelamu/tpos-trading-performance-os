@@ -7,7 +7,7 @@ This document is phase J1 of [`../PLAN.md`](../PLAN.md) §7a. It records:
 - the decisions for every journal phase;
 - the exact scope of J2, which is built alongside it.
 
-J1 to J6 are built (2026-10-28). Later sections describe J7 as designed, not built.
+J1 to J7 are built (2026-10-28). J8 (verification and documentation) remains.
 
 ## 1. Audit of the existing trading module (2026-10-28)
 
@@ -198,7 +198,7 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
   - **Phone width:** the filters fold behind "Filters (n applied)", so the figures come first.
   - **Behaviour:** the page says patterns are looked for only among the filtered trades.
 
-## 8. AI assistant (J7)
+## 8. AI assistant (J7, built)
 
 - **A provider abstraction in Application,** with an OpenAI-compatible HTTP implementation in Infrastructure. Configuration covers base URL, model and key, all optional. With no configuration, every AI control is hidden and the journal works unchanged.
 - **Bounded context:** the selected trade, its template answers, its strategy rules, and at most N recent comparable trades (by strategy and session), each with an id and date. Never the whole database.
@@ -208,6 +208,34 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 - **Answer format:** recorded facts (with trade ids), calculated metrics (computed by the app, not the model), and interpretations, in separate labelled parts. "Not enough data" is an expected answer, not a failure.
 - **Drafted reviews are suggestions.** The trader edits and confirms before anything is saved, and a draft never overwrites the trader's text.
 - **Boundaries:** no diagnosis of mental-health conditions, no trading signals, no autonomous actions. Behaviour patterns are described as recorded evidence with stated uncertainty.
+
+**As built:**
+- **Configuration (`AiReview`):**
+  - **Required to switch it on:** `BaseUrl` and `Model`. Anything OpenAI-compatible works: a hosted provider, or a local server such as Ollama or LM Studio.
+  - **Optional:** `ApiKey` (from user-secrets or `AiReview__ApiKey`, never appsettings; it is never returned by the API); `TimeoutSeconds` (60); `MaxComparableTrades` (10); `JsonMode` (true, which sends `response_format: json_object`); and `DraftsPerMinute` (6 per user, enforced by a rate limiter after authentication).
+  - **Without `BaseUrl` and `Model`:** `GET /api/ai-review/status` says it is off, the trade page shows no AI control, and `POST /api/trades/{id}/ai-review` returns 503.
+- **Which trades:** drafting needs a closed or reviewed trade (otherwise 422) belonging to the caller (otherwise 404). The panel is offered only while a closed trade's review is being written.
+- **Bounded context:**
+  - **Sent:** the trade's own fields and notes; its journal answers, with the question wording of their version; its checklist (rule wording, mandatory flag, answer); at most `MaxComparableTrades` recent completed trades with the same strategy and session (id, date, P&L and R only); and the app's metrics.
+  - **Not sent:** anything else, including other traders' records.
+- **Not enough data:** with no notes, override reason, journal answers or checklist answers, the model is **not called**. The reply is "not enough data", saying what is missing.
+- **Prompt safety:**
+  - **Data block:** the context is JSON inside `<journal_data>`…`</journal_data>`. JSON encoding escapes `<` and `>`, so text in a note cannot close the block.
+  - **System prompt:** it says the block is data, never instructions; that the model has no tools and cannot change records; and that there are no signals, no diagnoses, no own calculations, and no patterns from fewer than 5 comparable trades.
+  - **The call:** one system and one user message, with no tools.
+- **The reply is checked:**
+  - **Facts:** a fact must cite only trade ids that were sent, or it is dropped with a warning; at most 10 facts and 6 interpretations.
+  - **Lengths:** the suggested review is cut to the review's 4,000-character limit.
+  - **Figures:** they always come from the app, never from the model. They are formatted invariantly, because this machine's comma decimals had produced "2,50R".
+  - **Unusable replies:** an unreadable reply or a provider failure is a 502 with a plain message, and nothing is saved.
+- **Nothing is saved by the assistant.**
+  - **Using a draft:** "Use as my review" fills an empty review box; with text already there it becomes "Add below my notes". The trader then edits and saves through the existing **Mark reviewed** action.
+  - **On the page:** facts (with links to each trade), "Calculated by the app" figures and an "AI interpretation · may be wrong" part are shown separately, with the model's name.
+- **Privacy:**
+  - **Leaving the machine:** with a hosted provider, the context above leaves the machine. With a local server it does not.
+  - **Logs:** prompts and replies are not logged; HttpClient logs only the URL and timing.
+  - **Error messages:** provider error bodies are never echoed.
+- **Verified against a stub, not a real model:** the browser check used a local stub server that answers in the same protocol (built from the data it receives). It shows the wiring, the escaping and the boundaries work, not the quality of a real model's drafts.
 
 ## 9. Data integrity and security
 
@@ -226,5 +254,5 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 | **J4** ✅ | Owned strategies with the backfill; rules (edit in place, retire, restore); checklists that copy the rules and keep every answer; checklist on the trade form and entry page; adherence report on the Strategies pages | Unit: rule editing, retiring and restoring; rule validation; the checklist copy; violations and compliance; appended history; N/A rules; adherence counts, rate and sample flags. Integration: per-trader ownership and names, concurrent first use of a new name, retire and restore, checklist history, rejected answers saving nothing, the adherence report, owner isolation, UTC times. Angular: list and report, editor bodies and messages, form checklist, entry history. The backfill was tested by hand on a throwaway database with shared, unused, duplicate and over-long strategies. |
 | **J5** ✅ | Journal page and calendar; trade log filters, sorting and paging; folded journal answers; attachments; import reconciliation | Unit: type detection, file names and size limits, match and duplicate rules, linking fills only empty fields, calendar totals. Integration: calendar and overview, attachment types, size, count limit and access, files removed with the trade, re-import skipped, link / import separately / dismiss, concurrent decisions create one trade. Angular: month grid, calendar cells and links, journal page, log filters, sorting and paging, attachments, import decisions, folded answers. |
 | **J6** ✅ | One filter for every analytics figure (dates, strategy, session, account, adherence, journal answers), filter options, sample-size flag, filter bar on Performance and Behaviour, adherence comparison on Performance | Unit: filtered summaries equal the same calculation over only the kept trades; each filter; adherence from the current strategy's checklist; answers by shape and field id; options across versions; validation; sample flag. Integration: dates, session and account narrow every endpoint alike; a strategy filter equals its breakdown row; adherence and answer filters (and adherence under a filter); invalid filters 400; options private. Angular: the address round trip, the filter bar (answer only applies with a question), filters sent with every figure, no-match state and clearing, Behaviour filtered. |
-| J7 | AI assistant | Disabled mode; enough versus insufficient context; draft never auto-saved; prompt-injection text treated as data |
+| **J7** ✅ | Optional AI-drafted review: provider abstraction (OpenAI-compatible HTTP), bounded context, not-enough-data path, reply checks, rate limit, panel on the trade page | Integration: off by default (status off, 503); status never shows the key; not enough data without calling the model; only the caller's closed trades; context bounded to N same-strategy-and-session trades; injected text stays escaped data and nothing is saved; facts citing unknown trades dropped; app figures (invariant formatting); 502 on unusable replies; per-user rate limit. Provider: request shape (no tools, JSON mode, Content-Length), no key, failures without echoing bodies. Angular: hidden when off or after review, parts kept apart, box filled only on request and appended below the trader's words, not-enough-data and failure states. |
 | J8 | Verification and documentation | Full regression; browser walkthrough |

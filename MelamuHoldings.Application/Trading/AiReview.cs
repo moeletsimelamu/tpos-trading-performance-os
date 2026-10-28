@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -188,12 +189,14 @@ public class AiReviewService
     // Calculated here, from the same records analytics use, so the model never supplies a number
     private static List<AiMetricDto> Metrics(Trade trade, TradeChecklistDto? checklist, List<Trade> comparables)
     {
-        static string Money(decimal v) => (v > 0 ? "+" : "") + v.ToString("N2", System.Globalization.CultureInfo.InvariantCulture);
+        // Invariant, so a machine that writes decimals with a comma still sends and shows 2.40R
+        static string Money(decimal v) => (v > 0 ? "+" : "") + v.ToString("N2", CultureInfo.InvariantCulture);
+        static string R(decimal v) => v.ToString("0.00", CultureInfo.InvariantCulture) + "R";
         var metrics = new List<AiMetricDto>
         {
             new("This trade's P&L", Money(trade.PnL!.Value), "recorded"),
         };
-        if (trade.RR is { } r) metrics.Add(new("This trade's R", $"{r:0.00}R", trade.RiskAmount is > 0 ? "P&L ÷ risk" : "recorded"));
+        if (trade.RR is { } r) metrics.Add(new("This trade's R", R(r), trade.RiskAmount is > 0 ? "P&L ÷ risk" : "recorded"));
         if (checklist is { IsComplete: true })
             metrics.Add(new("Mandatory rules", checklist.IsCompliant == true ? "all met" : $"{checklist.Violations.Count} not met", "checklist"));
 
@@ -202,10 +205,10 @@ public class AiReviewService
         if (comparables.Count > 0)
         {
             var wins = comparables.Count(t => t.PnL > 0);
-            metrics.Add(new("Comparable win rate", $"{Math.Round((decimal)wins / comparables.Count * 100, 1):0.#}%", basis));
+            metrics.Add(new("Comparable win rate", Math.Round((decimal)wins / comparables.Count * 100, 1).ToString("0.#", CultureInfo.InvariantCulture) + "%", basis));
             metrics.Add(new("Comparable net P&L", Money(comparables.Sum(t => t.PnL!.Value)), basis));
             var withR = comparables.Where(t => t.RR is not null).ToList();
-            if (withR.Count > 0) metrics.Add(new("Comparable average R", $"{Math.Round(withR.Average(t => t.RR!.Value), 2):0.00}R", basis));
+            if (withR.Count > 0) metrics.Add(new("Comparable average R", R(Math.Round(withR.Average(t => t.RR!.Value), 2)), basis));
         }
         else metrics.Add(new("Comparable trades", "none", "no other completed trade with the same strategy and session"));
         return metrics;
@@ -247,7 +250,9 @@ public class AiReviewService
         var review = string.IsNullOrWhiteSpace(reply.SuggestedReview) ? null : reply.SuggestedReview.Trim();
         if (review is { Length: > Trade.MaxReviewNotesLength }) review = review[..Trade.MaxReviewNotesLength];
         if (comparables.Count < MinimumForPatterns && interpretations.Count > 0)
-            warnings.Add($"Only {comparables.Count} comparable {(comparables.Count == 1 ? "trade" : "trades")}: too few to show a pattern.");
+            warnings.Add(comparables.Count == 0
+                ? "No comparable trades (same strategy and session), so no pattern can be shown."
+                : $"Only {comparables.Count} comparable {(comparables.Count == 1 ? "trade" : "trades")}: too few to show a pattern.");
 
         var missing = (reply.NotEnoughData ?? []).Select(Clip).OfType<string>().Take(MaxInterpretations).ToList();
         return new AiReviewDraftDto(review is not null || facts.Count > 0, missing, facts.Take(MaxFacts).ToList(), metrics, interpretations,

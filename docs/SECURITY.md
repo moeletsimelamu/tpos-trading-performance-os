@@ -30,12 +30,18 @@ The current access model and how secrets are handled. Remaining risks are listed
   - **Storage:** under random 32-hex-character names in `Attachments:Path` (default `App_Data/attachments` under the API's content root, never a web root, ignored by git). A storage key outside that exact shape is rejected, so a key cannot reach another folder.
   - **Serving:** only through the API, to the trade's owner (404 for anyone else, 401 without a token), with `nosniff` and `private, no-store`. Images are served inline and PDFs as downloads.
   - **Backups:** database backups do not include these files. Back up the attachments folder alongside the database.
+- **AI-drafted reviews (optional, off by default):**
+  - **What is sent:** with a hosted provider, a draft sends that trade, its journal answers and checklist, and up to `MaxComparableTrades` comparable trades (id, date, P&L, R) to the provider. Use a local OpenAI-compatible server to keep journal text on the machine.
+  - **Prompt injection:** journal text is sent as escaped JSON data under a system prompt that says it is data. The model has no tools, and its reply cannot change any record; nothing is saved without the trader.
+  - **Checking the reply:** facts must cite trades that were sent. Figures come from the app. Provider error bodies are not echoed, and prompts and replies are not logged.
+  - **Rate limit:** drafting is limited per user (`AiReview:DraftsPerMinute`, default 6) to bound cost and abuse.
 
 ## Secrets
 
 | Setting | Where it lives | Never in |
 |---|---|---|
 | `Jwt:Key` (at least 32 bytes) | user-secrets (development), `Jwt__Key` environment variable (deployment) | `appsettings*.json`, git |
+| `AiReview:ApiKey` (optional) | user-secrets (development), `AiReview__ApiKey` environment variable (deployment); never returned by the API | `appsettings*.json`, git |
 | `ConnectionStrings:DefaultConnection` | `appsettings.Development.json` (trusted local connection, no password), user-secrets or the `ConnectionStrings__DefaultConnection` environment variable when a password is involved | git, when it contains a password |
 
 - The API **refuses to start** if `Jwt:Key` is missing or too short.

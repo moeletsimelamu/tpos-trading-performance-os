@@ -246,6 +246,7 @@ describe('Trade entry checklist', () => {
     const fixture = TestBed.createComponent(TradeEntryComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/trades/5`).flush(trade({ checklist: checklist() }));
+    http.expectOne(`${api}/ai-review/status`).flush({ enabled: false, model: null, maxComparableTrades: 10 });
     await fixture.whenStable();
     const text = fixture.nativeElement.textContent as string;
 
@@ -260,6 +261,7 @@ describe('Trade entry checklist', () => {
     const fixture = TestBed.createComponent(TradeEntryComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/trades/5`).flush(trade());
+    http.expectOne(`${api}/ai-review/status`).flush({ enabled: false, model: null, maxComparableTrades: 10 });
     await fixture.whenStable();
 
     expect(fixture.nativeElement.textContent).toContain('No checklist answered for ORB.');

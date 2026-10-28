@@ -225,6 +225,7 @@ describe('TradeEntryComponent', () => {
     const fixture = TestBed.createComponent(TradeEntryComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/trades/5`).flush(t);
+    http.expectOne(`${api}/ai-review/status`).flush({ enabled: false, model: null, maxComparableTrades: 10 });
     await fixture.whenStable();
     return fixture;
   }

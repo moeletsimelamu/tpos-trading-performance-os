@@ -39,6 +39,10 @@ The landing page shows the business as recorded:
 - **Journal templates:** the questions answered for each trade (context, a pre-trade checklist, psychology, post-trade review and lessons), from a standard template you can edit, duplicate, archive or replace as the default. The editor shows a live preview. Changing the questions creates a new version, and trades already journaled keep the version they were written with. Required questions must be answered before a trade can be marked reviewed.
 - **Journal page:** drafts, open trades and trades awaiting review at a glance, recent activity, and a **calendar** of each day's completed trades and net P&L. Days with only unfinished trades are marked apart, and each day opens the trade log for that date.
 - **Files:** attach chart screenshots or statements to a trade (PNG, JPEG, WebP or PDF, up to 5 MB, 10 per trade). Files are checked by their content, stored outside any public folder and shown only to you.
+- **Optional AI-drafted review:** off unless you configure a model.
+  - **What it reads:** only that trade, its journal answers and checklist, and a few comparable trades (same strategy and session). Your notes are passed to the model as data, never as instructions.
+  - **What you get:** a closed trade's review can be drafted, with recorded facts, figures calculated by the app, and the AI's interpretation shown separately.
+  - **What it never does:** save anything. The draft goes into your review box only when you choose, and you edit and save it yourself. No trading signals and no diagnoses.
 - The design for checklists, strategy rules and AI-assisted review is in [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md).
 - Import trades from CSV, with row-level validation. Valid rows are kept and failed rows are reported with their row number. Importing the same row twice is skipped, and a row that matches a trade you journaled by hand waits for your decision: **link** it (filling only what your trade is missing, never your notes), import it as a separate trade, or leave it out.
 - Upload history per user.
@@ -163,6 +167,18 @@ You need:
 
    Signing in lands on the Executive overview (`/overview`). The trading pages are under `/trading/…` and the finance pages under `/finance/…`.
 
+6. Optional: turn on AI-drafted reviews with any OpenAI-compatible endpoint: a hosted provider, or a local server such as Ollama, which keeps journal text on your machine. Without these settings the feature stays off and hidden.
+
+   ```bash
+   dotnet user-secrets set "AiReview:BaseUrl" "http://127.0.0.1:11434/v1" --project MelamuHoldings.API
+   ```
+
+   ```bash
+   dotnet user-secrets set "AiReview:Model" "llama3.2" --project MelamuHoldings.API
+   ```
+
+   For a hosted provider, also set `AiReview:ApiKey` the same way (never in `appsettings.json`).
+
 ### CSV format
 
 The journal CSV needs a header row with these columns:
@@ -214,6 +230,8 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/analytics/by-session` | Performance by session |
 | GET | `/api/analytics/behaviour` | Behavioural alerts and metrics |
 | GET | `/api/analytics/adherence` | Rule adherence over closed trades, with results compared and sample sizes |
+| GET | `/api/ai-review/status` | Whether AI-drafted reviews are on, and the model name (never the key) |
+| POST | `/api/trades/{id}/ai-review` | Draft a review of a closed trade (not saved; 503 when off, 502 if the provider fails) |
 | GET | `/api/analytics/filter-options` | What the filters can be set to: strategies, sessions, accounts and journal questions with fixed answers |
 
 **Finance endpoints** require the Owner role. Money-moving POSTs accept an `Idempotency-Key` header: a retry with the same key returns the original (`Idempotent-Replayed: true`) instead of posting twice.

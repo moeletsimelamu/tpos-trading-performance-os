@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MelamuHoldings.Application.Trading;
@@ -25,12 +26,13 @@ public class OpenAiCompatibleProvider : IAiReviewProvider
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"{_options.BaseUrl!.TrimEnd('/')}/chat/completions")
         {
-            Content = JsonContent.Create(new ChatRequest(
+            // Buffered with a Content-Length rather than chunked: some small OpenAI-compatible servers only read the former
+            Content = new StringContent(JsonSerializer.Serialize(new ChatRequest(
                 _options.Model!,
                 [new ChatMessage("system", systemPrompt), new ChatMessage("user", userPrompt)],
                 Temperature: 0.2,
                 MaxTokens: 1200,
-                ResponseFormat: _options.JsonMode ? new ResponseFormat("json_object") : null))
+                ResponseFormat: _options.JsonMode ? new ResponseFormat("json_object") : null)), Encoding.UTF8, "application/json")
         };
         if (!string.IsNullOrWhiteSpace(_options.ApiKey))
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);

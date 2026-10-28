@@ -49,6 +49,8 @@ public class OpenAiCompatibleProviderTests
         Assert.Equal(["system", "user"], body.GetProperty("messages").EnumerateArray().Select(m => m.GetProperty("role").GetString()));
         Assert.Equal("json_object", body.GetProperty("response_format").GetProperty("type").GetString());
         Assert.False(body.TryGetProperty("tools", out _));
+        Assert.NotNull(handler.Request.Content!.Headers.ContentLength);   // not chunked
+        Assert.Equal("application/json", handler.Request.Content.Headers.ContentType!.MediaType);
     }
 
     [Fact]

@@ -165,6 +165,9 @@ public class AiReviewEndpointTests : IClassFixture<AiApiFactory>
         var metrics = draft.GetProperty("metrics").EnumerateArray().ToDictionary(m => m.GetProperty("label").GetString()!, m => m.GetProperty("value").GetString());
         Assert.Equal("+60.00", metrics["Comparable net P&L"]);   // -30 + 70 + 20, calculated by the app
         Assert.Equal("all met", metrics["Mandatory rules"]);
+        Assert.Equal("2.40R", metrics["This trade's R"]);              // 120 ÷ 50, with a decimal point on any machine culture
+        Assert.Equal("66.7%", metrics["Comparable win rate"]);          // +70 and +20 won, -30 lost
+        Assert.Equal("0.40R", metrics["Comparable average R"]);         // (-0.6 + 1.4 + 0.4) ÷ 3
         Assert.Contains("too few to show a pattern", string.Join(" ", draft.GetProperty("warnings").EnumerateArray().Select(w => w.GetString())));
         Assert.True(draft.GetProperty("sufficientData").GetBoolean());
         Assert.Equal("test-model", draft.GetProperty("model").GetString());

@@ -10,6 +10,7 @@ import { SaveTrade, Trade, TradeStatus } from './models/trade.model';
 import { JournalSection, JournalTemplate } from './models/journal.model';
 import { AdherenceReport, SaveStrategy, Strategy } from './models/strategy.model';
 import { AnalyticsFilter, AnalyticsFilterOptions, filterParams } from './models/analytics-filter.model';
+import { AiReviewDraft, AiReviewStatus } from './models/ai-review.model';
 import { CalendarMonth, ImportMatch, JournalOverview, LinkResult, MatchDecision, TradeAttachment } from './models/journal-view.model';
 
 @Injectable({ providedIn: 'root' })
@@ -122,6 +123,16 @@ export class TradingApiService {
 
   decideMatch(id: number, decision: MatchDecision): Observable<ImportMatch | LinkResult> {
     return this.http.post<ImportMatch | LinkResult>(`${this.base}/upload/matches/${id}/${decision}`, {});
+  }
+
+  // ---- Optional AI-drafted review (nothing is saved by these calls) ----
+
+  getAiReviewStatus(): Observable<AiReviewStatus> {
+    return this.http.get<AiReviewStatus>(`${this.base}/ai-review/status`);
+  }
+
+  draftAiReview(tradeId: number): Observable<AiReviewDraft> {
+    return this.http.post<AiReviewDraft>(`${this.base}/trades/${tradeId}/ai-review`, {});
   }
 
   // ---- Journal views ----

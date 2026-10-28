@@ -9,6 +9,9 @@ import { isAnswered } from '../models/journal.model';
 import { answerLabel } from '../models/strategy.model';
 import { JournalAnswersComponent } from './journal-fields.component';
 import { TradeAttachmentsComponent } from './trade-attachments.component';
+import { AiReviewDraftComponent } from './ai-review-draft.component';
+import { AiReviewStatus } from '../models/ai-review.model';
+import { catchError, of } from 'rxjs';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
@@ -17,7 +20,7 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 @Component({
   selector: 'app-trade-entry',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent, JournalAnswersComponent, TradeAttachmentsComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent, JournalAnswersComponent, TradeAttachmentsComponent, AiReviewDraftComponent],
   template: `
     <div class="page narrow">
       @switch (state()) {
@@ -143,6 +146,9 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
                         <p class="notice notice-warning" role="status">Answer the required journal questions first: {{ unanswered().join('; ') }} <a [routerLink]="['/trading/trades', t.id, 'edit']">Edit the journal</a></p>
                       }
                       @if (reviewError()) { <p class="notice notice-error" role="alert">{{ reviewError() }}</p> }
+                      @if (ai()?.enabled) {
+                        <app-ai-review-draft [tradeId]="t.id" [maxComparable]="ai()!.maxComparableTrades" [hasNotes]="!!reviewNotes.trim()" (use)="useDraft($event)" />
+                      }
                       <div class="form-actions">
                         <button type="submit" class="btn btn-primary" [disabled]="busy() || !reviewNotes.trim() || unanswered().length > 0">{{ busy() ? 'Saving…' : 'Mark reviewed' }}</button>
                       </div>
@@ -204,6 +210,8 @@ export class TradeEntryComponent {
   readonly reviewError = signal('');
   readonly deleteError = signal('');
   readonly confirmingDelete = signal(false);
+  // The optional AI assistant; hidden unless the API says it is turned on
+  readonly ai = signal<AiReviewStatus | null>(null);
   reviewNotes = '';
 
   readonly heading = computed(() => {
@@ -259,6 +267,13 @@ export class TradeEntryComponent {
 
   constructor() {
     this.load();
+    this.api.getAiReviewStatus().pipe(catchError(() => of(null)), takeUntilDestroyed(this.destroyRef)).subscribe(s => this.ai.set(s));
+  }
+
+  // A draft fills an empty review box, or is added below what the trader already wrote; it is never saved by itself
+  useDraft(text: string): void {
+    const current = this.reviewNotes.trim();
+    this.reviewNotes = (current ? `${current}\n\n${text}` : text).slice(0, 4000);
   }
 
   load(): void {
