@@ -50,7 +50,7 @@ Verification is recorded in [`TESTING.md`](TESTING.md). Each stage has automated
 | Field types | Partly | Short and long text, number, date-time, single / multi select, checkbox, checklist, rating, URL | Images are trade attachments, not a template field type; price and risk are the trade form's fixed section |
 | Versioning without reinterpreting old entries | Built | Immutable versions; entries keep theirs; moving one is explicit | J3 integration tests |
 | Default template with the brief's sections, configurable | Built | Standard trade journal (identification and execution are the trade form) | J3 tests |
-| Checklist answers with completion time, changes preserved | Partly | The **strategy** checklist keeps every answer with its time (J4). A *template* checklist question is overwritten on edit, with no history. | See gap 1 |
+| Checklist answers with completion time, changes preserved | Built | The strategy checklist keeps every answer with its time (J4); template answers, including checklist questions, are kept in the trade's change history (after J8) | Change-history integration tests |
 | Partial exits / multiple executions | Not built | One entry and one exit per trade | Documented limitation |
 | Psychology fields configurable; no assumptions from the result | Built | Template questions; the AI prompt forbids result-based assumptions | J7 system prompt test |
 | Distinguish a compliant loss from a violation | Built | Rule adherence per trade, independent of P&L | J4 adherence tests |
@@ -113,14 +113,12 @@ Verification is recorded in [`TESTING.md`](TESTING.md). Each stage has automated
 | Ownership on trades, templates, strategies, attachments, matches, AI | Built | Every lookup scoped to the user; 404 for others (tests per stage) |
 | Validation, constraints, transactions, no duplicates | Built | Unique indexes, rowversions, idempotency keys, concurrency tests |
 | Decimal arithmetic; currency preserved | Built | Decimal everywhere; trade currency stored when stated (imports have none) |
-| No silent rewriting of records or reflections; audit of corrections | Partly | Strategy checklist history; matches are append-only decisions. **Trade edits and template answers overwrite without a history.** (gap 1) |
+| No silent rewriting of records or reflections; audit of corrections | Built | Every saved change to a trade, its journal answers, checklist, review, import links and files is kept with before and after values (`TradeRevision`, after J8). Changes made before 2026-10-29 were not recorded. |
 | No sensitive content or secrets in logs | Built | Prompts and replies not logged; provider error bodies not echoed; key never returned |
 
 ## Gaps and recommendations
 
-1. **Change history for trade edits and journal answers.**
-   - **Problem:** editing a trade or its template answers replaces the previous values. The brief asks that a completed checklist not be changed without a record, and that corrections keep audit information. Only the strategy checklist does this today.
-   - **Recommendation:** an append-only revision record per save (field, old value, new value, time), shown as a history on the trade page. This is the most important gap.
+1. **Change history for trade edits and journal answers.** *Closed after J8 (2026-10-29).* Every save that changes a trade records an append-only revision with each value before and after, shown in a History section on the trade page (`TRADING_JOURNAL_DESIGN.md` §8a). Changes made before then were not recorded.
 2. **Journal-wide AI questions.** The assistant drafts one trade's review. Questions across entries ("Which rules have I struggled to follow?", "Summarise my last session") need a bounded multi-trade context and a page to ask from.
 3. **Outcome analysis by journal answer, and trends.** Filters answer "how did Calm trades do?" one value at a time. A breakdown table (outcomes per emotion, per rating, per recorded mistake) and adherence over time would cover the rest of brief §6 and §8.
 4. **Richer strategies:** rule categories (setup, entry, exit, risk), the instruments and sessions a strategy applies to, and a default journal template per strategy.

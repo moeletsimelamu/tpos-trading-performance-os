@@ -121,6 +121,8 @@ builder.Services.AddScoped<OwnerAccountService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<IJournalRepository, JournalRepository>();
 builder.Services.AddScoped<TradeJournal>();
+builder.Services.AddScoped<TradeHistory>();
+builder.Services.AddScoped<ITradeHistoryRepository, TradeHistoryRepository>();
 builder.Services.AddScoped<JournalOverviewService>();
 builder.Services.AddScoped<ImportReconciliationService>();
 builder.Services.AddScoped<IImportMatchRepository, ImportMatchRepository>();

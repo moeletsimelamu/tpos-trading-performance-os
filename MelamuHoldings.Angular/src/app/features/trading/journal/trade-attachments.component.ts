@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, input, output, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -80,6 +80,8 @@ export class TradeAttachmentsComponent implements OnInit {
 
   readonly tradeId = input.required<number>();
   readonly initial = input<TradeAttachment[]>([]);
+  // After a file is added or deleted
+  readonly changed = output<void>();
 
   readonly limits = ATTACHMENT_LIMITS;
   readonly files = signal<TradeAttachment[]>([]);
@@ -122,6 +124,7 @@ export class TradeAttachmentsComponent implements OnInit {
         this.busy.set(false);
         this.caption = '';
         this.files.update(list => [...list, created]);
+        this.changed.emit();
         if (this.isImage(created)) this.loadPreview(created);
       },
       error: err => { this.busy.set(false); this.error.set(`Not attached: ${describeHttpError(err)}`); }
@@ -154,6 +157,7 @@ export class TradeAttachmentsComponent implements OnInit {
         this.busy.set(false);
         this.confirming.set(null);
         this.files.update(list => list.filter(x => x.id !== f.id));
+        this.changed.emit();
         const url = this.previews()[f.id];
         if (url) URL.revokeObjectURL(url);
       },

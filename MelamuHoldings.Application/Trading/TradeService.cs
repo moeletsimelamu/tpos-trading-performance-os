@@ -18,11 +18,14 @@ public class TradeService
     private readonly TradeChecklists _checklists;
     private readonly AttachmentService _attachments;
     private readonly IAttachmentRepository _attachmentRecords;
+    private readonly TradeHistory _history;
     private readonly TimeProvider _clock;
 
     public TradeService(ITradeRepository tradeRepository, IStrategyRepository strategyRepository, TradeJournal journal,
-        TradeChecklists checklists, AttachmentService attachments, IAttachmentRepository attachmentRecords, TimeProvider clock)
+        TradeChecklists checklists, AttachmentService attachments, IAttachmentRepository attachmentRecords, TradeHistory history,
+        TimeProvider clock)
     {
+        _history = history;
         _tradeRepository = tradeRepository;
         _strategyRepository = strategyRepository;
         _journal = journal;
@@ -66,6 +69,7 @@ public class TradeService
         var trade = new Trade { UserId = userId, CreatedAt = Now, IdempotencyKey = key };
         await ApplyAsync(trade, dto);
         trade.SetStatus(ParseStatus(dto.Status) ?? TradeStatus.Closed);
+        _history.Record(trade, TradeRevisionKind.Created, [], Now);
 
         try
         {
@@ -97,11 +101,15 @@ public class TradeService
         var trade = await _tradeRepository.GetForUserAsync(tradeId, userId);
         if (trade is null) return null;
 
+        // Every changed field, journal answer and checklist answer is recorded in the same save as the change
+        var before = TradeValues.Capture(trade);
         await ApplyAsync(trade, dto);
         trade.SetStatus(ParseStatus(dto.Status) ?? trade.Status);
         trade.UpdatedAt = Now;
-        if (dto.Journal is not null) await _journal.RecordAsync(trade.Id, userId, dto.Journal, Now);
-        await _checklists.RecordAsync(trade, dto.Checklist, Now);
+        var journalChanges = dto.Journal is null ? [] : await _journal.RecordAsync(trade.Id, userId, dto.Journal, Now);
+        var checklistChanges = await _checklists.RecordAsync(trade, dto.Checklist, Now);
+        _history.Record(trade, TradeRevisionKind.Edited,
+            [.. TradeValues.Diff(before, TradeValues.Capture(trade)), .. journalChanges, .. checklistChanges], Now);
 
         await _tradeRepository.UpdateAsync(trade);
         await _checklists.SaveAsync();
@@ -118,7 +126,9 @@ public class TradeService
         if (missing.Count > 0)
             throw new DomainException($"Answer the required journal questions first: {string.Join("; ", missing)}.");
 
+        var before = TradeValues.Capture(trade);
         trade.MarkReviewed(dto.ReviewNotes, Now);
+        _history.Record(trade, TradeRevisionKind.Reviewed, TradeValues.Diff(before, TradeValues.Capture(trade)), Now);
         await _tradeRepository.UpdateAsync(trade);
         await _tradeRepository.SaveChangesAsync();
         return await DetailAsync(trade, userId);

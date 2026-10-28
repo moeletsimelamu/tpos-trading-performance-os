@@ -8,7 +8,8 @@ How the code is organised today (after Phase 5 and trading journal J1–J8). Pla
 MelamuHoldings.Domain/          no dependencies
   Identity/     User
   Trading/      Trade (Draft → Open → Closed → Reviewed), Strategy (+ StrategyRule), TradeChecklist (+ items,
-                append-only responses), TradeAttachment (+ AttachmentType), ImportMatch, UploadLog
+                append-only responses), TradeAttachment (+ AttachmentType), ImportMatch,
+                TradeRevision (append-only change history), UploadLog
     Journal/    JournalTemplate (+ immutable versions), JournalSchema, TradeJournalEntry, DefaultJournalTemplate
   Common/       DomainException, Text (length rules)
   Finance/      Money, Currency, Fund, FinancialAccount, LedgerTransaction (+ LedgerEntry, fee role), AuditEvent,
@@ -20,7 +21,7 @@ MelamuHoldings.Application/     depends on Domain
                 analytics read trades; filters only narrow), CompletedTrade (which of them count),
                 AnalyticsService, BehaviourAnalyticsService, AdherenceService, JournalOverviewService,
                 JournalTemplateService + TradeJournal, StrategyService + TradeChecklists,
-                AttachmentService (+ IAttachmentStore), UploadService + ImportReconciliationService,
+                TradeHistory + TradeValues (change history), AttachmentService (+ IAttachmentStore), UploadService + ImportReconciliationService,
                 AiReviewService (+ IAiReviewProvider, optional), CsvParserService, DTOs, repository interfaces
   Finance/      LedgerPosting (the one path every ledger transaction takes: idempotency, save, audit),
                 LedgerService (direct money movements), PayoutService, AllocationService (policies,
@@ -51,6 +52,7 @@ tests/
 - **Errors are ProblemDetails.** `ProblemExceptionHandler` maps `DomainException` → 422, `NotFoundException` → 404, `ConflictException` → 409, `ServiceUnavailableException` → 503 (AI review off) and `UpstreamException` → 502 (AI provider failed).
 - **Analytics read trades in one place.** Performance, behaviour and adherence all take their trades from `AnalyticsScope`, which applies the shared filter. Then `CompletedTrade` decides which count. No second calculation path exists.
 - **The journal never depends on AI.** `IAiReviewProvider` is called only when `AiReview:BaseUrl` and `AiReview:Model` are set; nothing an AI reply contains is saved without the trader.
+- **Changes to a trade are recorded with the change.** Services stage a `TradeRevision` (each value before and after) and it is saved in the same `SaveChanges`; there is no path that edits or deletes a revision except deleting the trade.
 - **Files stay out of the database and the web root.** Attachment records are in SQL Server and the bytes are in `Attachments:Path`, served only through the API to the owner.
 
 ## Frontend (Angular 21, standalone, zoneless, signals)

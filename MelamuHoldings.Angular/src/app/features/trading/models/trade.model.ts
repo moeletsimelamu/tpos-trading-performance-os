@@ -49,6 +49,36 @@ export interface Trade {
 
 export type SaveStatus = 'Draft' | 'Open' | 'Closed';
 
+// One saved change to a trade: each value before and after, as text. Null means it was empty.
+export interface FieldChange {
+  field: string;
+  label: string;
+  before: string | null;
+  after: string | null;
+}
+
+export type RevisionKind = 'Created' | 'Edited' | 'Reviewed' | 'ImportLinked' | 'FileAdded' | 'FileRemoved';
+
+export interface TradeRevision {
+  id: number;
+  occurredAt: string;
+  kind: RevisionKind;
+  status: TradeStatus;   // after the change
+  changes: FieldChange[];
+}
+
+export function revisionTitle(r: TradeRevision): string {
+  switch (r.kind) {
+    case 'Created': return r.status === 'Draft' ? 'Created as a draft' : `Created as ${r.status === 'Open' ? 'an open' : 'a closed'} trade`;
+    case 'Edited': return 'Edited';
+    // The first review changes the status; a later one corrects the wording
+    case 'Reviewed': return r.changes.some(c => c.field === 'Status') ? 'Marked reviewed' : 'Review corrected';
+    case 'ImportLinked': return 'Filled in from a CSV import';
+    case 'FileAdded': return 'File added';
+    case 'FileRemoved': return 'File removed';
+  }
+}
+
 // What the journal form sends. Status is the one the trader saves as; omitted, the trade keeps its status
 // (used for a reviewed trade, which reaches Reviewed only through its own action).
 export interface SaveTrade {

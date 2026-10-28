@@ -130,11 +130,11 @@ public class TradeChecklists
     }
 
     // Starts the checklist on the first answer (copying the strategy's active rules) and appends changed answers.
-    // The caller saves.
-    public async Task RecordAsync(Trade trade, IReadOnlyList<RuleAnswerRequest>? answers, DateTime now)
+    // The caller saves. Returns the answers that changed, for the trade's history.
+    public async Task<IReadOnlyList<FieldChange>> RecordAsync(Trade trade, IReadOnlyList<RuleAnswerRequest>? answers, DateTime now)
     {
         var parsed = Parse(answers);
-        if (parsed.Count == 0) return;
+        if (parsed.Count == 0) return [];
         if (trade.Strategy is null) throw new DomainException("Choose a strategy with rules before answering its checklist.");
 
         var checklist = trade.Id == 0 ? null : await _repository.GetChecklistAsync(trade.Id, trade.Strategy.Id);
@@ -143,7 +143,12 @@ public class TradeChecklists
             checklist = new TradeChecklist(trade.Id, trade.Strategy, now);
             _repository.Add(checklist);
         }
+        var before = checklist.Items.ToDictionary(i => i.StrategyRuleId, i => i.Current?.Answer);
         checklist.Answer(parsed, now);
+        return checklist.Items
+            .Where(i => before[i.StrategyRuleId] != i.Current?.Answer)
+            .Select(i => new FieldChange($"rule.{i.StrategyRuleId}", $"Rule: {i.Text}", TradeValues.Rule(before[i.StrategyRuleId]), TradeValues.Rule(i.Current?.Answer)))
+            .ToList();
     }
 
     public async Task SaveAsync()

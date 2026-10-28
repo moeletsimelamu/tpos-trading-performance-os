@@ -6,7 +6,7 @@ import {
   AnalyticsSummary, EquityPoint, StrategyPerformance,
   TimePerformance, BehaviourSummary, UploadResult
 } from './models/analytics.model';
-import { SaveTrade, Trade, TradeStatus } from './models/trade.model';
+import { SaveTrade, Trade, TradeRevision, TradeStatus } from './models/trade.model';
 import { JournalSection, JournalTemplate } from './models/journal.model';
 import { AdherenceReport, SaveStrategy, Strategy } from './models/strategy.model';
 import { AnalyticsFilter, AnalyticsFilterOptions, filterParams } from './models/analytics-filter.model';
@@ -27,6 +27,11 @@ export class TradingApiService {
 
   getTrade(id: number): Observable<Trade> {
     return this.http.get<Trade>(`${this.base}/trades/${id}`);
+  }
+
+  // Every saved change to the trade, newest first
+  getTradeHistory(id: number): Observable<TradeRevision[]> {
+    return this.http.get<TradeRevision[]>(`${this.base}/trades/${id}/history`);
   }
 
   // The key makes a retried save return the trade already created instead of a second copy

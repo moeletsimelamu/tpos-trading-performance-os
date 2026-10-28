@@ -31,11 +31,13 @@ public class ImportReconciliationService
     private readonly ITradeRepository _trades;
     private readonly IStrategyRepository _strategies;
     private readonly IUploadLogRepository _logs;
+    private readonly TradeHistory _history;
     private readonly TimeProvider _clock;
 
     public ImportReconciliationService(IImportMatchRepository matches, ITradeRepository trades, IStrategyRepository strategies,
-        IUploadLogRepository logs, TimeProvider clock)
+        IUploadLogRepository logs, TradeHistory history, TimeProvider clock)
     {
+        _history = history;
         _matches = matches;
         _trades = trades;
         _strategies = strategies;
@@ -63,10 +65,14 @@ public class ImportReconciliationService
         if (trade is null) throw new Domain.Common.DomainException("The matched trade was deleted. Import the row as its own trade, or leave it out.");
 
         var row = match.Values;
-        var strategyId = trade.StrategyId is null && !string.IsNullOrWhiteSpace(row.Strategy)
-            ? (await _strategies.GetOrCreateAsync(userId, row.Strategy, Now)).Id
-            : (int?)null;
-        var filled = match.Link(trade, strategyId, Now);
+        var strategy = trade.StrategyId is null && !string.IsNullOrWhiteSpace(row.Strategy)
+            ? await _strategies.GetOrCreateAsync(userId, row.Strategy, Now)
+            : null;
+        var before = TradeValues.Capture(trade);
+        var filled = match.Link(trade, strategy?.Id, Now);
+        if (strategy is not null) trade.Strategy = strategy;
+        // The filled fields are recorded with the decision; a link that filled nothing leaves no revision
+        _history.Record(trade, TradeRevisionKind.ImportLinked, TradeValues.Diff(before, TradeValues.Capture(trade)), Now);
         await _matches.SaveChangesAsync();
         return new LinkResultDto(ToDto(match, trade, await FileNameAsync(match, userId)), filled);
     }

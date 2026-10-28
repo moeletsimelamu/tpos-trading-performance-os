@@ -1226,6 +1226,41 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.ToTable("TradeChecklists");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.TradeRevision", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Changes")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("TradeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TradeId", "OccurredAt");
+
+                    b.ToTable("TradeRevisions");
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.UploadLog", b =>
                 {
                     b.Property<int>("Id")
@@ -1553,6 +1588,17 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TradeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.TradeRevision", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.Trade", "Trade")
+                        .WithMany()
+                        .HasForeignKey("TradeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Trade");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.UploadLog", b =>

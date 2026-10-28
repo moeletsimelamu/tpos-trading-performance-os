@@ -208,7 +208,16 @@ public class JournalViewEndpointTests : IClassFixture<ApiFactory>
         Assert.Equal("Open", trade.GetProperty("status").GetString());   // closing it stays the trader's decision
         Assert.Equal(800m, trade.GetProperty("pnL").GetDecimal());
         Assert.Equal("REC-NQ", trade.GetProperty("instrument").GetString());
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await client.PostAsync($"/api/upload/matches/{matchId}/link", null)).StatusCode);
+
+        // The trade's history records what the link filled in, and nothing it left alone
+        var link = (await Ok(client.GetAsync($"/api/trades/{manual}/history")))[0];
+        Assert.Equal("ImportLinked", link.GetProperty("kind").GetString());
+        var linkChanges = link.GetProperty("changes").EnumerateArray().ToDictionary(c => c.GetProperty("field").GetString()!, c => c.GetProperty("after").GetString());
+        Assert.Equal("800", linkChanges["PnL"]);
+        Assert.Equal("New York", linkChanges["Session"]);
+        Assert.False(linkChanges.ContainsKey("Notes"));
+        Assert.False(linkChanges.ContainsKey("EntryPrice"));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,(await client.PostAsync($"/api/upload/matches/{matchId}/link", null)).StatusCode);
 
         var trades = await Ok(client.GetAsync("/api/trades"));
         Assert.Single(trades.EnumerateArray(), t => t.GetProperty("instrument").GetString()!.Equals("REC-NQ", StringComparison.OrdinalIgnoreCase));

@@ -10,6 +10,7 @@ import { answerLabel } from '../models/strategy.model';
 import { JournalAnswersComponent } from './journal-fields.component';
 import { TradeAttachmentsComponent } from './trade-attachments.component';
 import { AiReviewDraftComponent } from './ai-review-draft.component';
+import { TradeHistoryComponent } from './trade-history.component';
 import { AiReviewStatus } from '../models/ai-review.model';
 import { catchError, of } from 'rxjs';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
@@ -20,7 +21,7 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 @Component({
   selector: 'app-trade-entry',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent, JournalAnswersComponent, TradeAttachmentsComponent, AiReviewDraftComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule, RouterLink, LoadErrorComponent, PageHeaderComponent, JournalAnswersComponent, TradeAttachmentsComponent, AiReviewDraftComponent, TradeHistoryComponent],
   template: `
     <div class="page narrow">
       @switch (state()) {
@@ -125,7 +126,7 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
             <section class="card flush" aria-labelledby="files-heading">
               <div class="card-header"><h2 id="files-heading">Files</h2></div>
-              <div class="prose"><app-trade-attachments [tradeId]="t.id" [initial]="t.attachments ?? []" /></div>
+              <div class="prose"><app-trade-attachments [tradeId]="t.id" [initial]="t.attachments ?? []" (changed)="filesChanged.update(n => n + 1)" /></div>
             </section>
 
             <section class="card flush" aria-labelledby="review-heading">
@@ -156,6 +157,13 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
                   }
                   @default { <p class="muted">Review the trade once it is closed.</p> }
                 }
+              </div>
+            </section>
+
+            <section class="card flush" aria-labelledby="history-heading">
+              <div class="card-header"><h2 id="history-heading">History</h2></div>
+              <div class="prose">
+                <app-trade-history [tradeId]="t.id" [stamp]="[t.updatedAt, t.reviewNotes, filesChanged()]" [createdAt]="t.createdAt" [isImported]="t.isImported" />
               </div>
             </section>
 
@@ -210,6 +218,8 @@ export class TradeEntryComponent {
   readonly reviewError = signal('');
   readonly deleteError = signal('');
   readonly confirmingDelete = signal(false);
+  // Bumped when a file is added or deleted, so an open history reloads
+  readonly filesChanged = signal(0);
   // The optional AI assistant; hidden unless the API says it is turned on
   readonly ai = signal<AiReviewStatus | null>(null);
   reviewNotes = '';

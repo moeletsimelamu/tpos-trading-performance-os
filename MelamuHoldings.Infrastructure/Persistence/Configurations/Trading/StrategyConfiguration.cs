@@ -113,3 +113,17 @@ public class ChecklistResponseConfiguration : IEntityTypeConfiguration<Checklist
         builder.HasIndex(r => new { r.ChecklistItemId, r.Sequence }).IsUnique().HasDatabaseName("IX_ChecklistResponses_ChecklistItemId_Sequence");
     }
 }
+
+public class TradeRevisionConfiguration : IEntityTypeConfiguration<TradeRevision>
+{
+    public void Configure(EntityTypeBuilder<TradeRevision> builder)
+    {
+        builder.Property(r => r.Kind).HasConversion<string>().HasMaxLength(20);
+        builder.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(r => r.Changes).IsRequired();
+        builder.Ignore(r => r.ChangeList);
+        builder.HasIndex(r => new { r.TradeId, r.OccurredAt });
+        // The history goes with its trade and with nothing else
+        builder.HasOne(r => r.Trade).WithMany().HasForeignKey(r => r.TradeId).OnDelete(DeleteBehavior.Cascade);
+    }
+}

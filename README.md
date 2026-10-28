@@ -33,6 +33,7 @@ The landing page shows the business as recorded:
 
 - **New trade:** record a trade by hand, as a **draft** (just date and instrument), **open** (entry recorded) or **closed** (exit and P&L recorded). Nothing missing is filled in with zeros.
 - **Journal entry page:** execution, notes and a **post-trade review**; marking a closed trade reviewed keeps your own words. R-multiple, duration and day are calculated from what you recorded.
+- **Change history:** every save that changes a trade, its journal answers, checklist, review or files is recorded with each value before and after, and shown on the trade page. Nothing is overwritten without a record.
 - **Only closed and reviewed trades count** in performance and behaviour analytics; drafts and open positions never move the numbers.
 - A retried save cannot create the same trade twice (`Idempotency-Key`).
 
@@ -54,7 +55,7 @@ The landing page shows the business as recorded:
 - Upload history per user.
 - Strategies are created automatically from the CSV `Strategy` column.
 - View, search and delete trades. Search covers instrument, strategy, session and day; filters cover status, direction, strategy, session, account, result and date. Each row shows the trade's rule adherence. Sort by date, instrument, P&L or R; 25 trades per page.
-- **What the journal does not do yet** is listed in [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): most importantly, edits to a trade or its journal answers are not kept as a history (only the strategy checklist is), and the AI assistant drafts one trade's review but does not answer questions across entries.
+- **What the journal does not do yet** is listed in [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): most importantly, the AI assistant drafts one trade's review but does not answer questions across entries, and outcomes are filtered by one journal answer at a time rather than broken down.
 
 ### Performance analytics
 - **Win rate**: winning trades ÷ total trades.
@@ -211,6 +212,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/trades/{id}` | Get one trade |
 | POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted; optional `journal` and `checklist` answers); accepts `Idempotency-Key` |
 | PUT | `/api/trades/{id}` | Update a journal entry (omit `status` to keep it) |
+| GET | `/api/trades/{id}/history` | Every saved change to the trade, newest first, with each value before and after |
 | POST | `/api/trades/{id}/review` | Mark a closed trade reviewed, with the review notes (refused while required journal questions are unanswered) |
 | GET | `/api/journal-templates?includeArchived=` | List your journal templates (the standard one is created on first use) |
 | GET | `/api/journal-templates/{id}` | Get a template with its current questions and versions |

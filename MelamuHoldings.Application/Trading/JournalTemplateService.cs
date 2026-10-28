@@ -1,5 +1,7 @@
+using System.Text.Json;
 using MelamuHoldings.Application.Common;
 using MelamuHoldings.Domain.Common;
+using MelamuHoldings.Domain.Trading;
 using MelamuHoldings.Domain.Trading.Journal;
 
 namespace MelamuHoldings.Application.Trading;
@@ -161,15 +163,42 @@ public class TradeJournal
         JournalSchema.ValidateAnswers(found.Version.Sections, request.Answers);
     }
 
-    // Validates and stages the answers; the caller saves them with the trade
-    public async Task RecordAsync(int tradeId, int userId, JournalAnswersRequest request, DateTime now)
+    // Validates and stages the answers; the caller saves them with the trade.
+    // Returns what changed, question by question, for the trade's history.
+    public async Task<IReadOnlyList<FieldChange>> RecordAsync(int tradeId, int userId, JournalAnswersRequest request, DateTime now)
     {
         var found = await _repository.GetVersionAsync(request.TemplateVersionId!.Value, userId)
             ?? throw new DomainException($"Template version {request.TemplateVersionId} does not exist.");
         var answers = request.Answers ?? new();
         var entry = await _repository.GetEntryAsync(tradeId);
-        if (entry is null) _repository.Add(new TradeJournalEntry(tradeId, found.Version, answers, now));
+        var before = entry?.AnswerValues ?? new Dictionary<string, JsonElement>();
+        var previous = entry is null ? null : await _repository.GetVersionAsync(entry.JournalTemplateVersionId, userId);
+
+        if (entry is null)
+        {
+            entry = new TradeJournalEntry(tradeId, found.Version, answers, now);
+            _repository.Add(entry);
+        }
         else entry.Record(found.Version, answers, now);
+
+        var changes = new List<FieldChange>();
+        if (previous?.Version.Id != found.Version.Id)
+            changes.Add(new FieldChange("journal.template", "Journal template",
+                previous is { } p ? $"{p.Template.Name} (version {p.Version.Version})" : null,
+                $"{found.Template.Name} (version {found.Version.Version})"));
+
+        // Questions in the order of the version saved, then any only the earlier version had
+        var fields = found.Version.Sections.SelectMany(s => s.Fields)
+            .Concat(previous?.Version.Sections.SelectMany(s => s.Fields) ?? [])
+            .DistinctBy(f => f.Id);
+        var after = entry.AnswerValues;
+        foreach (var field in fields)
+        {
+            var was = before.TryGetValue(field.Id, out var b) ? TradeValues.Answer(b) : null;
+            var isNow = after.TryGetValue(field.Id, out var a) ? TradeValues.Answer(a) : null;
+            if (was != isNow) changes.Add(new FieldChange($"journal.{field.Id}", field.Label, was, isNow));
+        }
+        return changes;
     }
 
     // Required questions the trader has not answered yet, checked before a trade is marked reviewed

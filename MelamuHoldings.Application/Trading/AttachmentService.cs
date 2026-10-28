@@ -31,10 +31,13 @@ public class AttachmentService
     private readonly ITradeRepository _trades;
     private readonly IAttachmentRepository _attachments;
     private readonly IAttachmentStore _store;
+    private readonly TradeHistory _history;
     private readonly TimeProvider _clock;
 
-    public AttachmentService(ITradeRepository trades, IAttachmentRepository attachments, IAttachmentStore store, TimeProvider clock)
+    public AttachmentService(ITradeRepository trades, IAttachmentRepository attachments, IAttachmentStore store, TradeHistory history,
+        TimeProvider clock)
     {
+        _history = history;
         _trades = trades;
         _attachments = attachments;
         _store = store;
@@ -46,7 +49,7 @@ public class AttachmentService
 
     public async Task<TradeAttachmentDto> UploadAsync(int tradeId, int userId, Stream content, string fileName, string? caption)
     {
-        await RequireTradeAsync(tradeId, userId);
+        var trade = await RequireTradeAsync(tradeId, userId);
         if ((await _attachments.ListAsync(tradeId)).Count >= TradeAttachment.MaxPerTrade)
             throw new DomainException($"A trade can keep at most {TradeAttachment.MaxPerTrade} files. Delete one first.");
 
@@ -71,6 +74,7 @@ public class AttachmentService
         {
             var attachment = new TradeAttachment(tradeId, fileName, type, bytes.Length, key, caption, _clock.GetUtcNow().UtcDateTime);
             _attachments.Add(attachment);
+            _history.Record(trade, TradeRevisionKind.FileAdded, [new FieldChange("file", "File", null, attachment.FileName)], attachment.UploadedAt);
             await _attachments.SaveChangesAsync();
             return ToDto(attachment);
         }
@@ -92,9 +96,10 @@ public class AttachmentService
 
     public async Task DeleteAsync(int tradeId, int attachmentId, int userId)
     {
-        await RequireTradeAsync(tradeId, userId);
+        var trade = await RequireTradeAsync(tradeId, userId);
         var attachment = await AttachmentAsync(tradeId, attachmentId);
         _attachments.Remove(attachment);
+        _history.Record(trade, TradeRevisionKind.FileRemoved, [new FieldChange("file", "File", attachment.FileName, null)], _clock.GetUtcNow().UtcDateTime);
         await _attachments.SaveChangesAsync();
         _store.Delete(attachment.StorageKey);
     }
@@ -105,10 +110,8 @@ public class AttachmentService
         foreach (var key in storageKeys) _store.Delete(key);
     }
 
-    private async Task RequireTradeAsync(int tradeId, int userId)
-    {
-        if (!await _trades.ExistsAsync(tradeId, userId)) throw new NotFoundException($"Trade {tradeId} does not exist.");
-    }
+    private async Task<Trade> RequireTradeAsync(int tradeId, int userId) =>
+        await _trades.GetForUserAsync(tradeId, userId) ?? throw new NotFoundException($"Trade {tradeId} does not exist.");
 
     private async Task<TradeAttachment> AttachmentAsync(int tradeId, int attachmentId) =>
         await _attachments.GetAsync(tradeId, attachmentId) ?? throw new NotFoundException($"Attachment {attachmentId} does not exist.");

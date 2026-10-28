@@ -49,6 +49,38 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-29 (branch `journal-change-history`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 175 passed, 0 failed |
+| `dotnet test` (Release): integration | 93 passed, 0 failed (run twice) |
+| `ng test --watch=false` | 150 passed, 0 failed (20 files) |
+| `ng build` (production) | Succeeded; initial bundle 309.99 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddTradeRevisions` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+**New tests**
+- **Unit (`TradeValuesTests`):** the same number at another precision is not a change; values in the invariant culture, empty as null; journal answers as text (lists, yes/no, blanks).
+- **Integration (`TradeHistoryEndpointTests`):**
+  - **Edits:** one revision per edit listing each changed field, journal answer and rule with before and after, including calculated R and duration. Unchanged values are not listed, and an identical save records nothing.
+  - **Review:** marking reviewed records the text and status; a corrected review keeps the earlier wording.
+  - **Files and privacy:** files added and removed are recorded. Another trader gets 404, and the history goes with the trade.
+- **Integration (import link):** a link records only the fields it filled.
+- **Angular (`trade-history.spec.ts`):**
+  - **Loading:** nothing is requested until the section is opened, and an open history reloads when the trade is saved.
+  - **Display:** newest first with before and after; the note when there is no creation record; plain-word titles.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Older trade:** trade 24, saved before the history existed, says "Created on 29 Oct 2026, before changes were recorded: only later changes are listed".
+- **One edit:** its notes and one journal answer were changed through the API, with the same body the edit form sends (status omitted for a reviewed trade). The edit recorded exactly those two values, with no false changes from stored precision or time formats, and the History section showed them as What / Before / After.
+- **Phone width:** each change stacks as label, Before and After, with no horizontal scroll. No console errors.
+- **Fixed during the check:**
+  - **Missing space:** "Edited· 29 Oct". Angular removes whitespace between elements, so the space now sits inside the date span.
+  - **Phone layout:** the question label kept its desktop width, so it wrapped into a narrow column, and wrapped values ran back under the "After" label.
+- **Not done:** the edit was sent by script, not typed into the form, because my click on Save collided with a click in the same pane; the form's request body is covered by the existing journal specs.
+
 ## Results — 2026-10-29 (branch `journal-j8-verification`)
 
 | Command | Result |

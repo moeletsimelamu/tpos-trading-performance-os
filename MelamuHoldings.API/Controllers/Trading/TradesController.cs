@@ -12,11 +12,13 @@ namespace MelamuHoldings.API.Controllers;
 public class TradesController : ControllerBase
 {
     private readonly TradeService _tradeService;
+    private readonly TradeHistory _history;
     private readonly JwtService _jwtService;
 
-    public TradesController(TradeService tradeService, JwtService jwtService)
+    public TradesController(TradeService tradeService, TradeHistory history, JwtService jwtService)
     {
         _tradeService = tradeService;
+        _history = history;
         _jwtService = jwtService;
     }
 
@@ -32,6 +34,11 @@ public class TradesController : ControllerBase
         var trade = await _tradeService.GetTradeByIdAsync(id, GetUserId());
         return trade is null ? NotFound() : Ok(trade);
     }
+
+    // Every saved change to the trade, newest first
+    [HttpGet("{id}/history")]
+    public async Task<IActionResult> History(int id) =>
+        Ok(await _history.ListAsync(id, GetUserId()));
 
     // 201 for a new trade; 200 plus Idempotent-Replayed when the same Idempotency-Key already created one
     [HttpPost]

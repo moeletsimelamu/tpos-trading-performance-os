@@ -98,7 +98,7 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 - **`StrategyRule`:** text (200), mandatory flag, order, created and retired times. A rule left out when the strategy is saved is retired, never deleted, and can be restored.
 - **`TradeChecklist`:** one per trade and strategy. It is created on the first answer and copies the strategy's active rules as **`ChecklistItem`** rows (rule id, text and mandatory flag as they were). Later rule edits never change it.
 - **`ChecklistResponse`:** item, sequence, answer (Met / NotMet / NotApplicable), answered at. Answers are appended, never overwritten: the latest per item counts, and every earlier one is history. A unique (item, sequence) index stops two requests writing the same change.
-- **Not built:** a strategy's default journal template, and change history for template answers (`TradeJournalEntry`). Both are deferred; neither affects adherence.
+- **Not built:** a strategy's default journal template (deferred; it does not affect adherence). Change history for template answers was added after J8 (§8a).
 
 ## 5. Template architecture (J3, built)
 
@@ -238,6 +238,22 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
   - **Error messages:** provider error bodies are never echoed.
 - **Verified against a stub, not a real model:** the browser check used a local stub server that answers in the same protocol (built from the data it receives). It shows the wiring, the escaping and the boundaries work, not the quality of a real model's drafts.
 
+## 8a. Change history (built after J8, 2026-10-29)
+
+The brief asks that a completed checklist is not changed without a record and that corrections keep audit information. The strategy checklist already kept every answer (J4); every other part of a trade was overwritten on save. Now:
+
+- **`TradeRevision`:** one append-only row per save that changed something: trade, time, kind, the trade's status after the change, and each changed value with its label, before and after (JSON). There is no update path. Revisions are deleted only with their trade, so deleting a trade remains permanent (§3).
+- **What is recorded:**
+  - **Created:** a trade journaled by hand.
+  - **Edited:** every changed trade field, journal answer (and a move to another template version) and strategy checklist answer, in one revision per save.
+  - **Reviewed:** the review text, and the status the first time. A later correction keeps the earlier wording.
+  - **Filled in from a CSV import:** the empty fields a link filled.
+  - **File added or removed:** the file name.
+- **Written with the change:** each service stages the revision and it is saved in the same `SaveChanges` as the change, so a change cannot be saved without its record. A save that changes nothing records nothing.
+- **Values as the trader sees them:** invariant culture, numbers without trailing zeros (so 21100 and 21100.00000 are the same value), yes/no for checkboxes, lists joined, rule answers as Met / Not met / Not applicable. Empty is null.
+- **On the trade page:** a History section, folded and loaded only when opened, lists revisions newest first as What / Before / After. Trades saved before the history existed (and CSV imports, which have no creation record) say that earlier changes were not recorded.
+- **Not recorded:** the creation of CSV-imported trades (the upload log has it), and changes made before the migration.
+
 ## 9. Data integrity and security
 
 - Trades, templates, entries and attachments are scoped to their owner. Another user's id returns 404, as trades do today.
@@ -256,4 +272,5 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 | **J5** ✅ | Journal page and calendar; trade log filters, sorting and paging; folded journal answers; attachments; import reconciliation | Unit: type detection, file names and size limits, match and duplicate rules, linking fills only empty fields, calendar totals. Integration: calendar and overview, attachment types, size, count limit and access, files removed with the trade, re-import skipped, link / import separately / dismiss, concurrent decisions create one trade. Angular: month grid, calendar cells and links, journal page, log filters, sorting and paging, attachments, import decisions, folded answers. |
 | **J6** ✅ | One filter for every analytics figure (dates, strategy, session, account, adherence, journal answers), filter options, sample-size flag, filter bar on Performance and Behaviour, adherence comparison on Performance | Unit: filtered summaries equal the same calculation over only the kept trades; each filter; adherence from the current strategy's checklist; answers by shape and field id; options across versions; validation; sample flag. Integration: dates, session and account narrow every endpoint alike; a strategy filter equals its breakdown row; adherence and answer filters (and adherence under a filter); invalid filters 400; options private. Angular: the address round trip, the filter bar (answer only applies with a question), filters sent with every figure, no-match state and clearing, Behaviour filtered. |
 | **J7** ✅ | Optional AI-drafted review: provider abstraction (OpenAI-compatible HTTP), bounded context, not-enough-data path, reply checks, rate limit, panel on the trade page | Integration: off by default (status off, 503); status never shows the key; not enough data without calling the model; only the caller's closed trades; context bounded to N same-strategy-and-session trades; injected text stays escaped data and nothing is saved; facts citing unknown trades dropped; app figures (invariant formatting); 502 on unusable replies; per-user rate limit. Provider: request shape (no tools, JSON mode, Content-Length), no key, failures without echoing bodies. Angular: hidden when off or after review, parts kept apart, box filled only on request and appended below the trader's words, not-enough-data and failure states. |
+| **History** ✅ | Change history for trades, journal answers, checklists, import links and files (§8a) | Unit: values compared at any stored precision, invariant formatting, empty as null, journal answers as text. Integration: an edit records each changed field, answer and rule with before and after; an unchanged save records nothing; review and a corrected review; files added and removed; history private (404) and deleted with the trade; an import link records only what it filled. Angular: loaded only when opened, newest first with before and after, the no-creation-record note, reload while open, plain-word titles. |
 | **J8** ✅ | Verification and documentation | Full regression, run three times; package audits; idempotent migration script; the brief traced in `JOURNAL_REVIEW.md`; an end-to-end browser flow across J2–J7; small gaps closed (instrument filter, rule-adherence column, reflection prompts, New trade from a template) |
