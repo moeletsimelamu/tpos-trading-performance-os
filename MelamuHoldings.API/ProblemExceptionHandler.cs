@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using MelamuHoldings.Application.Common;
+using MelamuHoldings.Application.Trading;
 using MelamuHoldings.Domain.Common;
 
 namespace MelamuHoldings.API;
@@ -21,6 +22,8 @@ public sealed class ProblemExceptionHandler : IExceptionHandler
             DomainException => StatusCodes.Status422UnprocessableEntity,
             NotFoundException => StatusCodes.Status404NotFound,
             ConflictException => StatusCodes.Status409Conflict,
+            ServiceUnavailableException => StatusCodes.Status503ServiceUnavailable,
+            UpstreamException => StatusCodes.Status502BadGateway,
             _ => 0
         };
         if (status == 0) return false;

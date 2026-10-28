@@ -11,6 +11,7 @@ using MelamuHoldings.API.Controllers;
 using MelamuHoldings.Application.Finance;
 using MelamuHoldings.Application.Identity;
 using MelamuHoldings.Application.Trading;
+using MelamuHoldings.Infrastructure.Ai;
 using MelamuHoldings.Infrastructure.Attachments;
 using MelamuHoldings.Infrastructure.Persistence;
 using MelamuHoldings.Infrastructure.Persistence.Repositories;
@@ -60,10 +61,24 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 builder.Services.AddAuthorization(options =>
     options.AddPolicy(Policies.Owner, policy => policy.RequireAuthenticatedUser().RequireRole(Roles.Owner)));
 
+// Optional AI-assisted review (docs/TRADING_JOURNAL_DESIGN.md §8). Off unless AiReview:BaseUrl and AiReview:Model are set;
+// the key belongs in user-secrets or the AiReview__ApiKey environment variable, never in appsettings.
+builder.Services.AddOptions<AiReviewOptions>().Bind(builder.Configuration.GetSection(AiReviewOptions.SectionName));
+builder.Services.AddHttpClient<IAiReviewProvider, OpenAiCompatibleProvider>();
+builder.Services.AddScoped<AiReviewService>();
+
 // Login throttling — the limit is read when the limiter is created, so configuration added late (tests) applies
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // AI drafts can cost money: a few per minute per user is plenty for writing reviews
+    options.AddPolicy("ai-review", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = context.RequestServices.GetRequiredService<IConfiguration>().GetValue("AiReview:DraftsPerMinute", 6),
+            Window = TimeSpan.FromMinutes(1)
+        }));
     options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions
@@ -146,8 +161,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
-app.UseRateLimiter();
 app.UseAuthentication();
+// After authentication, so a policy can tell users apart (AI drafts); login is limited per IP either way
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 
