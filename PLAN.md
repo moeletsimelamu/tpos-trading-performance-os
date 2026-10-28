@@ -19,7 +19,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - J7 (optional AI-drafted reviews: off unless configured, bounded context, journal text as data, nothing saved without the trader) is complete on branch `journal-j7-ai-review`, cut from `journal-j6-analytics`. It was verified against a local stub server, not a real model.
 - J8 (verification and documentation) is complete on branch `journal-j8-verification`: full regression, the brief traced requirement by requirement in `docs/JOURNAL_REVIEW.md`, small gaps closed, larger ones listed with recommendations.
 - Change history (journal gap 1) is complete on branch `journal-change-history`, cut from `develop`: every saved change to a trade, its journal answers, checklist, review, import links and files is kept with before and after values and shown on the trade page.
-- Next: the remaining journal gaps in `docs/JOURNAL_REVIEW.md` (journal-wide AI questions, outcome breakdowns and trends, richer strategies), or Phase 6, at the owner's choice.
+- Questions about the journal (journal gap 2) are complete on branch `journal-ai-questions`, cut from `journal-change-history`: "Ask about these trades" on Performance and Behaviour, bounded to the most recent closed trades in the filter, with the app's figures kept apart. Checked against a stub, not a real model.
+- Next: the remaining journal gaps in `docs/JOURNAL_REVIEW.md` (outcome breakdowns by journal answer and adherence trends, then richer strategies), or Phase 6, at the owner's choice.
 
 ---
 

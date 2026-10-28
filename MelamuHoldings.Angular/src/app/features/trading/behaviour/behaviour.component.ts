@@ -7,6 +7,7 @@ import { TradingApiService } from '../trading-api.service';
 import { BehaviourSummary } from '../models/analytics.model';
 import { AnalyticsFilter, AnalyticsFilterOptions, filterFromQuery, filterToQuery, isFilterEmpty } from '../models/analytics-filter.model';
 import { AnalyticsFilterBarComponent } from '../analytics/analytics-filter-bar.component';
+import { AiJournalQuestionComponent } from '../analytics/ai-journal-question.component';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
@@ -17,7 +18,7 @@ type LoadState = 'loading' | 'ready' | 'error';
 @Component({
   selector: 'app-behaviour',
   standalone: true,
-  imports: [DecimalPipe, LoadErrorComponent, PageHeaderComponent, IconComponent, AnalyticsFilterBarComponent],
+  imports: [DecimalPipe, LoadErrorComponent, PageHeaderComponent, IconComponent, AnalyticsFilterBarComponent, AiJournalQuestionComponent],
   template: `
     <div class="page">
       <app-page-header section="Trading operations" title="Behaviour"
@@ -107,6 +108,7 @@ type LoadState = 'loading' | 'ready' | 'error';
           }
         }
       }
+      <app-ai-journal-question [filter]="filter()" [options]="options()" />
     </div>
   `,
   styles: [`

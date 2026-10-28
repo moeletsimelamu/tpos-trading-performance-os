@@ -85,7 +85,8 @@ public static class TradeValues
             .Select(p => new FieldChange(p.First.Field, p.First.Label, p.First.Text, p.Second.Text))
             .ToList();
 
-    // A journal answer as text: lists joined, yes/no for checkboxes, nothing for an empty answer
+    // A journal answer as text: lists joined, yes/no for checkboxes, a checklist as each item with its answer,
+    // nothing for an empty answer
     public static string? Answer(JsonElement value) => value.ValueKind switch
     {
         JsonValueKind.String => Text(value.GetString()),
@@ -93,9 +94,12 @@ public static class TradeValues
         JsonValueKind.True => "Yes",
         JsonValueKind.False => "No",
         JsonValueKind.Array => value.GetArrayLength() == 0 ? null : string.Join(", ", value.EnumerateArray().Select(Answer).Where(v => v is not null)),
-        JsonValueKind.Object => value.GetRawText(),
+        JsonValueKind.Object => Joined(value.EnumerateObject().Select(p => Answer(p.Value) is { } answer ? $"{p.Name}: {answer}" : null)),
         _ => null
     };
+
+    private static string? Joined(IEnumerable<string?> parts) =>
+        string.Join("; ", parts.OfType<string>()) is { Length: > 0 } text ? text : null;
 
     public static string? Rule(RuleAnswer? answer) => answer switch
     {

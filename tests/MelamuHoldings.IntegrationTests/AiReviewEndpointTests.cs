@@ -172,6 +172,9 @@ public class AiReviewEndpointTests : IClassFixture<AiApiFactory>
         Assert.Contains("too few to show a pattern", string.Join(" ", draft.GetProperty("warnings").EnumerateArray().Select(w => w.GetString())));
         Assert.True(draft.GetProperty("sufficientData").GetBoolean());
         Assert.Equal(4, draft.GetProperty("reflectionPrompts").GetArrayLength());   // at most four
+        // The model's words come through whole, not cut short
+        Assert.Equal("What told you the retest was valid?", draft.GetProperty("reflectionPrompts")[0].GetString());
+        Assert.Equal("Patience may have helped here, though one trade shows little.", draft.GetProperty("interpretations")[0].GetString());
         Assert.Contains("Never encourage revenge trading", system);
         Assert.Equal("test-model", draft.GetProperty("model").GetString());
 
@@ -258,9 +261,11 @@ public class AiReviewDisabledTests : IClassFixture<ApiFactory>
         })).Content.ReadFromJsonAsync<JsonElement>();
 
         var draft = await client.PostAsync($"/api/trades/{trade.GetProperty("id").GetInt32()}/ai-review", null);
+        var ask = await client.PostAsJsonAsync("/api/ai-review/ask", new { question = "Which rules have I struggled to follow?" });
 
         Assert.False(status.GetProperty("enabled").GetBoolean());
         Assert.Equal(JsonValueKind.Null, status.GetProperty("model").ValueKind);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, draft.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, ask.StatusCode);
     }
 }

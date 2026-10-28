@@ -10,6 +10,7 @@ import { AnalyticsSummary, EquityPoint } from '../models/analytics.model';
 import { AdherenceReport } from '../models/strategy.model';
 import { AnalyticsFilter, AnalyticsFilterOptions, filterFromQuery, filterToQuery, isFilterEmpty } from '../models/analytics-filter.model';
 import { AnalyticsFilterBarComponent } from '../analytics/analytics-filter-bar.component';
+import { AiJournalQuestionComponent } from '../analytics/ai-journal-question.component';
 import { AdherencePanelComponent } from '../strategies/adherence-panel.component';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
@@ -31,7 +32,7 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
 @Component({
   selector: 'app-trading-performance',
   standalone: true,
-  imports: [DecimalPipe, RouterLink, BaseChartDirective, LoadErrorComponent, PageHeaderComponent, AnalyticsFilterBarComponent, AdherencePanelComponent],
+  imports: [DecimalPipe, RouterLink, BaseChartDirective, LoadErrorComponent, PageHeaderComponent, AnalyticsFilterBarComponent, AdherencePanelComponent, AiJournalQuestionComponent],
   providers: [provideCharts(withDefaultRegisterables())],
   template: `
     <div class="page">
@@ -166,6 +167,7 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
           }
         }
       }
+      <app-ai-journal-question [filter]="filter()" [options]="options()" />
     </div>
   `,
   styles: [`

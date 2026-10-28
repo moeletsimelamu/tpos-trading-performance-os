@@ -13,11 +13,13 @@ namespace MelamuHoldings.API.Controllers;
 public class AiReviewController : ControllerBase
 {
     private readonly AiReviewService _review;
+    private readonly AiJournalQuestionService _questions;
     private readonly JwtService _jwtService;
 
-    public AiReviewController(AiReviewService review, JwtService jwtService)
+    public AiReviewController(AiReviewService review, AiJournalQuestionService questions, JwtService jwtService)
     {
         _review = review;
+        _questions = questions;
         _jwtService = jwtService;
     }
 
@@ -30,4 +32,10 @@ public class AiReviewController : ControllerBase
     [EnableRateLimiting("ai-review")]
     public async Task<IActionResult> Draft(int tradeId, CancellationToken cancellationToken) =>
         Ok(await _review.DraftAsync(tradeId, UserId, cancellationToken));
+
+    // A question about the closed trades matching the analytics filter; the answer is returned, never saved
+    [HttpPost("api/ai-review/ask")]
+    [EnableRateLimiting("ai-review")]
+    public async Task<IActionResult> Ask([FromBody] AiQuestionRequest request, [FromQuery] AnalyticsFilter filter, CancellationToken cancellationToken) =>
+        Ok(await _questions.AskAsync(UserId, request.Question, filter, cancellationToken));
 }

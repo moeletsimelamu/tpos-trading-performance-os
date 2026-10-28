@@ -109,9 +109,11 @@ describe('BehaviourComponent filters', () => {
     expect(req.request.params.get('session')).toBe('New York');
     req.flush({ alerts: [], revengeTradingCount: 0, overtradingDayCount: 0, maxConsecutiveLosses: 0, strategyDeviationCount: 0, deviationPnLImpact: 0 });
     http.expectOne(`${environment.apiUrl}/analytics/filter-options`).flush(options);
+    http.expectOne(`${environment.apiUrl}/ai-review/status`).flush({ enabled: false, model: null, maxComparableTrades: 10, maxJournalTrades: 30 });
     await fixture.whenStable();
 
     expect(fixture.nativeElement.textContent).toContain('Patterns are looked for only among the trades that match the filters');
+    expect(fixture.nativeElement.querySelector('#ask-heading')).toBeNull();   // AI off: no question panel
     http.verify();
   });
 });

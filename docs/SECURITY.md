@@ -34,7 +34,8 @@ The current access model and how secrets are handled. Remaining risks are listed
   - **What is sent:** with a hosted provider, a draft sends that trade, its journal answers and checklist, and up to `MaxComparableTrades` comparable trades (id, date, P&L, R) to the provider. Use a local OpenAI-compatible server to keep journal text on the machine.
   - **Prompt injection:** journal text is sent as escaped JSON data under a system prompt that says it is data. The model has no tools, and its reply cannot change any record; nothing is saved without the trader.
   - **Checking the reply:** facts must cite trades that were sent. Figures come from the app. Provider error bodies are not echoed, and prompts and replies are not logged.
-  - **Rate limit:** drafting is limited per user (`AiReview:DraftsPerMinute`, default 6) to bound cost and abuse.
+  - **Questions about the journal:** a question sends the most recent closed trades in view (up to `MaxJournalTrades`, default 30) with their notes, reviews and journal answers, shortened, plus their checklist results. The same data rules, escaping and reply checks apply.
+  - **Rate limit:** drafts and questions share one per-user limit (`AiReview:DraftsPerMinute`, default 6) to bound cost and abuse.
 
 ## Secrets
 

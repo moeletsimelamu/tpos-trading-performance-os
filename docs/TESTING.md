@@ -49,6 +49,47 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-29 (branch `journal-ai-questions`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 177 passed, 0 failed |
+| `dotnet test` (Release): integration | 96 passed, 0 failed |
+| `ng test --watch=false` | 153 passed, 0 failed (21 files) |
+| `ng build` (production) | Succeeded; initial bundle 310.31 kB; no budget warnings |
+
+No migration: questions read existing records and save nothing.
+
+**New tests**
+- **Integration (`AiJournalQuestionEndpointTests`):**
+  - **What is sent:** of six closed trades in view, only the four most recent go to the model (`MaxJournalTrades` 4 in the test). Drafts, another instrument, another trader's trade and the older trades' notes do not.
+  - **Figures:** the app's figures are exact: 75% win rate, +30.00, 3 of 4 followed, losing trades 0 of 1, "Stop set (1)", 2 trades on one day, 1 trade straight after a same-day loss, and 1 of 2 in the previous period.
+  - **Reply checks:** a fact citing an unsent trade is dropped with a warning. Interpretations and prompts come through whole, and a note's `</journal_data>` stays escaped.
+  - **Nothing saved:** the trade's history still holds only its creation.
+- **Integration (refusals):** with no closed trades in view the model is not called; an empty or 501-character question and a reversed date range are 400; with AI off it is 503.
+- **Prompts:** both share the safety rules word for word, and the reply-format braces survive interpolation.
+- **J7 draft test:** now asserts that interpretations and prompts come through whole.
+- **Unit:** a template checklist answer reads "Stop set: Yes; Size within limit: No".
+- **Angular (`ai-journal-question.spec.ts`):**
+  - **Visibility:** hidden when AI is off; the scope sentence names the filter and the model.
+  - **Asking:** a suggested question fills the box but nothing is asked until Ask. The question and the filter are sent, and the parts of the answer are kept apart.
+  - **New filter:** clears the answer.
+- **Angular (existing specs):** Performance and Behaviour now answer the panel's status request (AI off), and Behaviour checks the panel stays hidden.
+
+**Browser check (scratch database, the local stub server, not a model)**
+- **Performance (NQ · New York):** "Which rules have I struggled to follow?" sent 14 of 14 trades.
+  - **The answer:** facts linked trades 3, 22 and 24, and the figures matched the records: 2 of 3 followed, "Stop placed beyond the opening range (1)", 4 trades on 12 October, and 4 straight after a same-day loss.
+  - **The panel's footer:** said what was sent and to which model.
+- **Behaviour:** shows the panel scoped to its own filter.
+- **J7 draft (trade 23, through the API):** returned whole interpretations and prompts.
+- **Phone width:** no element of the panel overflows. No console errors.
+- **Found and fixed during the check:**
+  - **Every interpretation, prompt and "missing" item showed as "…"** (draft and question alike). Moving the shared reply checks into one helper had made `Select(Clip)` bind LINQ's index overload, cutting each item to its index in characters. It was introduced on this branch and never pushed. The integration tests now assert the text; with the bug put back, both failed.
+  - **A template checklist answer showed as raw JSON** (`{"Setup meets the defined criteria":true,…}`). It now reads "item: Yes; item: No", in the change history too.
+  - **"Mixed currencies" for trades without a stated currency:** trades with no currency, such as imports, were counted as a second currency. It now says how many have no currency stated, and "mixed" only for two stated currencies.
+  - **Phone layout:** the "Calculated by the app" table ran off the right edge at phone width, in the draft panel too. Each figure now stacks as label and value with its basis underneath, and long values wrap.
+
 ## Results — 2026-10-29 (branch `journal-change-history`)
 
 | Command | Result |

@@ -93,7 +93,7 @@ Verification is recorded in [`TESTING.md`](TESTING.md). Each stage has automated
 | Insufficient data is an answer | Built | Model not called without the trader's own evidence | J7 test |
 | No diagnosis, no signals, no autonomous actions; encourage a pause, never revenge trading or more risk | Built | System prompt (the last two rules added in J8); no tools | J7 and J8 tests |
 | Untrusted journal text cannot steer the model | Built | Escaped JSON data block | J7 test and stub walkthrough |
-| Journal-wide questions (patterns, sessions, rule trends) and AI on performance screens | Not built | Only the per-trade draft | Gap 2 |
+| Journal-wide questions (patterns, sessions, rule trends) and AI on performance screens | Built | "Ask about these trades" on Performance and Behaviour, scoped by the page's filter (after J8) | Journal-question integration and Angular tests; stub walkthrough |
 | Real model quality | Not verified | Checked against a local stub server only | — |
 
 ### 8–9. Analytics and import
@@ -119,7 +119,7 @@ Verification is recorded in [`TESTING.md`](TESTING.md). Each stage has automated
 ## Gaps and recommendations
 
 1. **Change history for trade edits and journal answers.** *Closed after J8 (2026-10-29).* Every save that changes a trade records an append-only revision with each value before and after, shown in a History section on the trade page (`TRADING_JOURNAL_DESIGN.md` §8a). Changes made before then were not recorded.
-2. **Journal-wide AI questions.** The assistant drafts one trade's review. Questions across entries ("Which rules have I struggled to follow?", "Summarise my last session") need a bounded multi-trade context and a page to ask from.
+2. **Journal-wide AI questions.** *Closed after J8 (2026-10-29).* Performance and Behaviour have "Ask about these trades": a question about the most recent closed trades matching the page's filter, answered from their notes, journal answers and checklists, with the app's figures (including the previous period and same-day trades after a loss) shown apart (`TRADING_JOURNAL_DESIGN.md` §8b). Like the draft, it was checked against a stub, not a real model.
 3. **Outcome analysis by journal answer, and trends.** Filters answer "how did Calm trades do?" one value at a time. A breakdown table (outcomes per emotion, per rating, per recorded mistake) and adherence over time would cover the rest of brief §6 and §8.
 4. **Richer strategies:** rule categories (setup, entry, exit, risk), the instruments and sessions a strategy applies to, and a default journal template per strategy.
 5. **Smaller limitations, documented and not planned yet:**

@@ -49,6 +49,8 @@ public class TradeValuesTests
     [InlineData("[\"Late entry\",\"Moved stop\"]", "Late entry, Moved stop")]
     [InlineData("[]", null)]
     [InlineData("null", null)]
+    [InlineData("{\"Stop set\":true,\"Size within limit\":false}", "Stop set: Yes; Size within limit: No")]
+    [InlineData("{}", null)]
     public void Journal_answers_are_written_as_the_trader_reads_them(string json, string? expected) =>
         Assert.Equal(expected, TradeValues.Answer(JsonDocument.Parse(json).RootElement));
 }

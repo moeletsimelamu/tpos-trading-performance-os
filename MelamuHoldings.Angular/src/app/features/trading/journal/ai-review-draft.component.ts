@@ -103,6 +103,14 @@ import { describeHttpError } from '../../../shared/http-error';
     .actions { display: flex; gap: var(--space-3); align-items: center; margin-top: var(--space-2); }
     .compact th { font-weight: 400; color: var(--text-secondary); }
     .notice { margin: var(--space-3) 0 0; }
+    // On a phone each figure is its label and value, with where it comes from underneath
+    @media (max-width: 600px) {
+      .compact, .compact tbody { display: block; }
+      .compact tr { display: grid; grid-template-columns: 1fr auto; gap: 0 var(--space-3); padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle); }
+      .compact th, .compact td { padding: 0; border: 0; }
+      .compact td.num { white-space: normal; text-align: right; max-width: 55vw; overflow-wrap: anywhere; }
+      .compact td.small { grid-column: 1 / -1; }
+    }
   `]
 })
 export class AiReviewDraftComponent {

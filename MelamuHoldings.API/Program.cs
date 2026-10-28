@@ -66,6 +66,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddOptions<AiReviewOptions>().Bind(builder.Configuration.GetSection(AiReviewOptions.SectionName));
 builder.Services.AddHttpClient<IAiReviewProvider, OpenAiCompatibleProvider>();
 builder.Services.AddScoped<AiReviewService>();
+builder.Services.AddScoped<AiJournalQuestionService>();
 
 // Login throttling — the limit is read when the limiter is created, so configuration added late (tests) applies
 builder.Services.AddRateLimiter(options =>

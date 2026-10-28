@@ -10,7 +10,7 @@ import { SaveTrade, Trade, TradeRevision, TradeStatus } from './models/trade.mod
 import { JournalSection, JournalTemplate } from './models/journal.model';
 import { AdherenceReport, SaveStrategy, Strategy } from './models/strategy.model';
 import { AnalyticsFilter, AnalyticsFilterOptions, filterParams } from './models/analytics-filter.model';
-import { AiReviewDraft, AiReviewStatus } from './models/ai-review.model';
+import { AiJournalAnswer, AiReviewDraft, AiReviewStatus } from './models/ai-review.model';
 import { CalendarMonth, ImportMatch, JournalOverview, LinkResult, MatchDecision, TradeAttachment } from './models/journal-view.model';
 
 @Injectable({ providedIn: 'root' })
@@ -138,6 +138,11 @@ export class TradingApiService {
 
   draftAiReview(tradeId: number): Observable<AiReviewDraft> {
     return this.http.post<AiReviewDraft>(`${this.base}/trades/${tradeId}/ai-review`, {});
+  }
+
+  // A question about the closed trades matching the filter; the answer is never saved
+  askAboutJournal(question: string, filter: AnalyticsFilter = {}): Observable<AiJournalAnswer> {
+    return this.http.post<AiJournalAnswer>(`${this.base}/ai-review/ask`, { question }, { params: filterParams(filter) });
   }
 
   // ---- Journal views ----

@@ -50,12 +50,13 @@ The landing page shows the business as recorded:
   - **What it reads:** only that trade, its journal answers and checklist, and a few comparable trades (same strategy and session). Your notes are passed to the model as data, never as instructions.
   - **What you get:** a closed trade's review can be drafted, with recorded facts, figures calculated by the app, the AI's interpretation shown separately, and a few questions to reflect on.
   - **What it never does:** save anything. The draft goes into your review box only when you choose, and you edit and save it yourself. No trading signals and no diagnoses.
+- **Ask about these trades (optional AI):** on Performance and Behaviour, ask a question such as "Which rules have I struggled to follow?" about the most recent closed trades in the current filter. The answer cites the trades it draws on, keeps the app's own figures (including the previous period and trades taken straight after a loss) apart from the AI's interpretation, and says when the data cannot answer.
 - The design for checklists, strategy rules and AI-assisted review is in [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md).
 - Import trades from CSV, with row-level validation. Valid rows are kept and failed rows are reported with their row number. Importing the same row twice is skipped, and a row that matches a trade you journaled by hand waits for your decision: **link** it (filling only what your trade is missing, never your notes), import it as a separate trade, or leave it out.
 - Upload history per user.
 - Strategies are created automatically from the CSV `Strategy` column.
 - View, search and delete trades. Search covers instrument, strategy, session and day; filters cover status, direction, strategy, session, account, result and date. Each row shows the trade's rule adherence. Sort by date, instrument, P&L or R; 25 trades per page.
-- **What the journal does not do yet** is listed in [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): most importantly, the AI assistant drafts one trade's review but does not answer questions across entries, and outcomes are filtered by one journal answer at a time rather than broken down.
+- **What the journal does not do yet** is listed in [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): most importantly, outcomes are filtered by one journal answer at a time rather than broken down, there are no adherence trends over time, and the AI has only been checked against a stand-in server, not a real model.
 
 ### Performance analytics
 - **Win rate**: winning trades ÷ total trades.
@@ -243,6 +244,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/analytics/adherence` | Rule adherence over closed trades, with results compared and sample sizes |
 | GET | `/api/ai-review/status` | Whether AI-drafted reviews are on, and the model name (never the key) |
 | POST | `/api/trades/{id}/ai-review` | Draft a review of a closed trade (not saved; 503 when off, 502 if the provider fails) |
+| POST | `/api/ai-review/ask` | Ask about the closed trades matching the analytics filter in the query string (`{ question }`; not saved) |
 | GET | `/api/analytics/filter-options` | What the filters can be set to: strategies, sessions, accounts and journal questions with fixed answers |
 
 **Finance endpoints** require the Owner role. Money-moving POSTs accept an `Idempotency-Key` header: a retry with the same key returns the original (`Idempotent-Replayed: true`) instead of posting twice.

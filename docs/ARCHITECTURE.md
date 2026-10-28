@@ -22,7 +22,7 @@ MelamuHoldings.Application/     depends on Domain
                 AnalyticsService, BehaviourAnalyticsService, AdherenceService, JournalOverviewService,
                 JournalTemplateService + TradeJournal, StrategyService + TradeChecklists,
                 TradeHistory + TradeValues (change history), AttachmentService (+ IAttachmentStore), UploadService + ImportReconciliationService,
-                AiReviewService (+ IAiReviewProvider, optional), CsvParserService, DTOs, repository interfaces
+                AiReviewService and AiJournalQuestionService (+ IAiReviewProvider, optional), CsvParserService, DTOs, repository interfaces
   Finance/      LedgerPosting (the one path every ledger transaction takes: idempotency, save, audit),
                 LedgerService (direct money movements), PayoutService, AllocationService (policies,
                 preview, confirm, settle), FinanceSetupService (funds, accounts),

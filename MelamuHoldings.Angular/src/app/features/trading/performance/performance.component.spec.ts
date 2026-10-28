@@ -46,6 +46,8 @@ describe('PerformanceComponent', () => {
     const fixture = TestBed.createComponent(PerformanceComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/analytics/filter-options`).flush(options);
+    // The optional AI question panel asks whether AI is on; here it is off, so the panel stays hidden
+    http.expectOne(`${api}/ai-review/status`).flush({ enabled: false, model: null, maxComparableTrades: 10, maxJournalTrades: 30 });
     return fixture;
   }
 
