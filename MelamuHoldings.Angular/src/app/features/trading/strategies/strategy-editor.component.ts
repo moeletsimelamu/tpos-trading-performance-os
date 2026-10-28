@@ -72,7 +72,7 @@ export class StrategyEditorComponent {
 
   // Adherence is extra: if it fails the editor still works
   private loadAdherence(): void {
-    this.api.getAdherence(this.strategyId!).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.api.getAdherence({ strategyId: this.strategyId! }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: r => this.report.set(r),
       error: () => this.report.set(null)
     });

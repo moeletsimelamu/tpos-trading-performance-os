@@ -49,6 +49,50 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-28 (branch `journal-j6-analytics`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 165 passed, 0 failed |
+| `dotnet test` (Release): integration | 78 passed, 0 failed. Every earlier analytics test passes unchanged. |
+| `ng test --watch=false` | 138 passed, 0 failed (18 files) |
+| `ng build` (production) | Succeeded; initial bundle 308.17 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes (J6 adds no migration) |
+
+**What the new tests cover**
+- **Unit:**
+  - **Filters only narrow:** for four filters, the kept trades are a subset of the trader's trades. The filtered summary equals the summary of a journal holding only those trades (every field).
+  - **Each filter:** session (case and spaces ignored), account, and date range.
+  - **Adherence:** followed, broke, and not scored (unfinished and missing checklists).
+  - **Answers:** a single choice, a rating, a multi-select containing a choice, and no guessing for missing answers. Answer matching is checked for every shape: text, number, yes/no, several choices, checklist.
+  - **Options:** only questions with fixed answers, latest wording, options from every version, rating 1–5, Yes/No.
+  - **Validation and sample size:** filters are validated, and the summary flags under 20 trades.
+- **Integration:**
+  - **Same narrowing everywhere:** in one month, dates, session and account give 3 / +250, 2 / +50 and 2 / +120, and a draft's 999 is never counted. The same filter narrows the equity curve (two days, ending +50), the session breakdown and behaviour.
+  - **Strategy:** a strategy filter equals that strategy's breakdown row (2 trades, +180, same win rate).
+  - **Adherence and answers:** followed / broke / not scored give +100 / −60 / +40. Mood Calm gives 2 / +140, and quality 2 gives 2 / −20. Adherence under an answer filter counts 2 trades: 1 with a checklist, 1 without.
+  - **Refused:** `from` after `to`, a question without an answer, and an unknown adherence value all return 400.
+  - **Access:** filter options need a token, and another trader's accounts are not listed.
+- **Angular:**
+  - **Filter model:** the address keeps only well-formed values, the API gets the same names without half-chosen answers, and filters are described in plain words.
+  - **Filter bar:** a change applies at once and keeps the others; a journal question applies only with an answer; clearing works.
+  - **Performance:** the filter from the address goes with all six requests; "Showing only …", the sample warning and the "matching the filters" description; the no-match state; clearing reloads and updates the address; no filter bar before any trade exists.
+  - **Behaviour:** the filter is sent, and the page says patterns come only from the filtered trades.
+
+### Manual browser verification (J6)
+Run against `MelamuHoldings_Scratch` (no migration needed). Hand figures from the database: London 4 trades +1,100.00, New York 19 trades +1,610.00. Trade 1 followed its checklist (+400) and trade 3 broke it (−400).
+- **Performance unfiltered:** 23 trades, +2,710.00 (= 1,100 + 1,610).
+- **Session London:** 4 trades, +1,100.00. The address became `?session=London`, with "Showing only: London" and the under-20 notice.
+- **Rule adherence:** opening `?adherence=Followed` gave +400.00 (1 trade) with the select set from the address; Broke gave −400.00 (1); Not scored gave +2,710.00 (21). That is 1 + 1 + 21 = 23 trades, and 400 − 400 + 2,710 = 2,710.
+- **Journal answer:** choosing "Was the trade valid according to the strategy?" alone changed nothing. Choosing Yes gave +500.00 (trade 22 only) at `?answerField=valid&answerValue=Yes`, and the Rule adherence panel followed the same filter.
+- **Behaviour:** `?session=New York` showed the filter, the scope note and the four pattern counts.
+- **Phone width (375 px):** Performance and Behaviour have no page-level horizontal scroll.
+- **Fixed during the walkthrough:**
+  - **Plurals:** "1 trades" (lead metric and description) and "1 trade match" now read "1 trade" and "1 trade matches".
+  - **Punctuation:** a question no longer gains a colon after its question mark in the filter summary.
+  - **Phone layout:** eight stacked filters filled the first phone screen. They now fold behind "Filters (n applied)" and open in two columns.
+
 ## Results — 2026-10-28 (branch `journal-j5-overview`)
 
 | Command | Result |

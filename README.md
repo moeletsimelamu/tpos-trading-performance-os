@@ -53,6 +53,8 @@ The landing page shows the business as recorded:
 - **Equity curve**: cumulative P&L by day.
 - **Max drawdown**: the largest peak-to-trough fall in cumulative P&L.
 - **Breakdowns**: by strategy, day of week and trading session.
+- **Filters** (Performance and Behaviour): date range, strategy, session, account, rule adherence (followed every mandatory rule, broke one, or not scored), and any journal answer with fixed choices, such as your emotion before entry or a quality rating. Filters only narrow the trades; every figure is calculated exactly as without them. Fewer than 20 matching trades is labelled insufficient data, and the filtered view is kept in the address so it can be bookmarked.
+- **Rule adherence** for the same filters: trades that followed the mandatory rules compared with those that did not, with sample sizes.
 
 ### Behavioural analytics
 - **Revenge trading**: a trade entered within 20 minutes of a losing trade on the same day.
@@ -205,13 +207,14 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/journal/calendar?year=&month=` | A month of trading by day (completed trades and net P&L; drafts and open trades counted apart) |
 | GET · POST | `/api/trades/{id}/attachments` | Attach a file to a trade (multipart, `file` and optional `caption`) |
 | GET · DELETE | `/api/trades/{id}/attachments/{attachmentId}` | Download or delete an attachment |
-| GET | `/api/analytics/summary` | KPI summary |
+| GET | `/api/analytics/summary` | KPI summary. Every `/api/analytics/*` endpoint takes the same filter: `from`, `to`, `strategyId`, `session`, `account`, `adherence` (`Followed`, `Broke`, `NotScored`), `answerField` + `answerValue` |
 | GET | `/api/analytics/equity-curve` | Daily equity curve |
 | GET | `/api/analytics/by-strategy` | Strategy breakdown |
 | GET | `/api/analytics/by-day` | Performance by day of week |
 | GET | `/api/analytics/by-session` | Performance by session |
 | GET | `/api/analytics/behaviour` | Behavioural alerts and metrics |
-| GET | `/api/analytics/adherence?strategyId=` | Rule adherence over closed trades, with results compared and sample sizes |
+| GET | `/api/analytics/adherence` | Rule adherence over closed trades, with results compared and sample sizes |
+| GET | `/api/analytics/filter-options` | What the filters can be set to: strategies, sessions, accounts and journal questions with fixed answers |
 
 **Finance endpoints** require the Owner role. Money-moving POSTs accept an `Idempotency-Key` header: a retry with the same key returns the original (`Idempotent-Replayed: true`) instead of posting twice.
 

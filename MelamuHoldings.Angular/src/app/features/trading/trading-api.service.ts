@@ -9,6 +9,7 @@ import {
 import { SaveTrade, Trade, TradeStatus } from './models/trade.model';
 import { JournalSection, JournalTemplate } from './models/journal.model';
 import { AdherenceReport, SaveStrategy, Strategy } from './models/strategy.model';
+import { AnalyticsFilter, AnalyticsFilterOptions, filterParams } from './models/analytics-filter.model';
 import { CalendarMonth, ImportMatch, JournalOverview, LinkResult, MatchDecision, TradeAttachment } from './models/journal-view.model';
 
 @Injectable({ providedIn: 'root' })
@@ -82,9 +83,13 @@ export class TradingApiService {
     return this.http.post<Strategy>(`${this.base}/strategies/${id}/rules/${ruleId}/restore`, {});
   }
 
-  getAdherence(strategyId?: number): Observable<AdherenceReport> {
-    const params = strategyId ? new HttpParams().set('strategyId', strategyId) : undefined;
-    return this.http.get<AdherenceReport>(`${this.base}/analytics/adherence`, { params });
+  // Adherence takes the same filter as every other figure (a strategy page passes its strategyId)
+  getAdherence(filter: AnalyticsFilter = {}): Observable<AdherenceReport> {
+    return this.http.get<AdherenceReport>(`${this.base}/analytics/adherence`, { params: filterParams(filter) });
+  }
+
+  getFilterOptions(): Observable<AnalyticsFilterOptions> {
+    return this.http.get<AnalyticsFilterOptions>(`${this.base}/analytics/filter-options`);
   }
 
   templateAction(id: number, action: 'duplicate' | 'archive' | 'restore' | 'make-default', body: object = {}): Observable<JournalTemplate> {
@@ -147,27 +152,27 @@ export class TradingApiService {
   }
 
   // Analytics
-  getSummary(): Observable<AnalyticsSummary> {
-    return this.http.get<AnalyticsSummary>(`${this.base}/analytics/summary`);
+  getSummary(filter: AnalyticsFilter = {}): Observable<AnalyticsSummary> {
+    return this.http.get<AnalyticsSummary>(`${this.base}/analytics/summary`, { params: filterParams(filter) });
   }
 
-  getEquityCurve(): Observable<EquityPoint[]> {
-    return this.http.get<EquityPoint[]>(`${this.base}/analytics/equity-curve`);
+  getEquityCurve(filter: AnalyticsFilter = {}): Observable<EquityPoint[]> {
+    return this.http.get<EquityPoint[]>(`${this.base}/analytics/equity-curve`, { params: filterParams(filter) });
   }
 
-  getStrategyPerformance(): Observable<StrategyPerformance[]> {
-    return this.http.get<StrategyPerformance[]>(`${this.base}/analytics/by-strategy`);
+  getStrategyPerformance(filter: AnalyticsFilter = {}): Observable<StrategyPerformance[]> {
+    return this.http.get<StrategyPerformance[]>(`${this.base}/analytics/by-strategy`, { params: filterParams(filter) });
   }
 
-  getPerformanceByDay(): Observable<TimePerformance[]> {
-    return this.http.get<TimePerformance[]>(`${this.base}/analytics/by-day`);
+  getPerformanceByDay(filter: AnalyticsFilter = {}): Observable<TimePerformance[]> {
+    return this.http.get<TimePerformance[]>(`${this.base}/analytics/by-day`, { params: filterParams(filter) });
   }
 
-  getPerformanceBySession(): Observable<TimePerformance[]> {
-    return this.http.get<TimePerformance[]>(`${this.base}/analytics/by-session`);
+  getPerformanceBySession(filter: AnalyticsFilter = {}): Observable<TimePerformance[]> {
+    return this.http.get<TimePerformance[]>(`${this.base}/analytics/by-session`, { params: filterParams(filter) });
   }
 
-  getBehaviour(): Observable<BehaviourSummary> {
-    return this.http.get<BehaviourSummary>(`${this.base}/analytics/behaviour`);
+  getBehaviour(filter: AnalyticsFilter = {}): Observable<BehaviourSummary> {
+    return this.http.get<BehaviourSummary>(`${this.base}/analytics/behaviour`, { params: filterParams(filter) });
   }
 }

@@ -1,8 +1,12 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { catchError, of } from 'rxjs';
 import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TradingApiService } from '../trading-api.service';
 import { BehaviourSummary } from '../models/analytics.model';
+import { AnalyticsFilter, AnalyticsFilterOptions, filterFromQuery, filterToQuery, isFilterEmpty } from '../models/analytics-filter.model';
+import { AnalyticsFilterBarComponent } from '../analytics/analytics-filter-bar.component';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
@@ -13,11 +17,16 @@ type LoadState = 'loading' | 'ready' | 'error';
 @Component({
   selector: 'app-behaviour',
   standalone: true,
-  imports: [DecimalPipe, LoadErrorComponent, PageHeaderComponent, IconComponent],
+  imports: [DecimalPipe, LoadErrorComponent, PageHeaderComponent, IconComponent, AnalyticsFilterBarComponent],
   template: `
     <div class="page">
       <app-page-header section="Trading operations" title="Behaviour"
         description="Patterns detected in the journal: trades after losses, busy days, loss streaks and rule overrides." />
+
+      <app-analytics-filter-bar [options]="options()" [filter]="filter()" (filterChange)="applyFilter($event)" />
+      @if (filtered()) {
+        <p class="small secondary scope">Patterns are looked for only among the trades that match the filters, so a streak or a busy day can look different from the whole journal.</p>
+      }
 
       @switch (state()) {
         @case ('loading') {
@@ -102,6 +111,7 @@ type LoadState = 'loading' | 'ready' | 'error';
   `,
   styles: [`
     .insight { margin: var(--space-5) 0 0; app-icon { margin-top: 1px; } }
+    .scope { margin: calc(-1 * var(--space-3)) 0 var(--space-4); }
     .alerts { margin-top: var(--space-5); }
     .alert-list { list-style: none; }
     .alert-item {
@@ -121,18 +131,30 @@ type LoadState = 'loading' | 'ready' | 'error';
 export class BehaviourComponent {
   private api = inject(TradingApiService);
   private destroyRef = inject(DestroyRef);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   readonly state = signal<LoadState>('loading');
   readonly error = signal('');
   readonly summary = signal<BehaviourSummary | null>(null);
+  readonly filter = signal<AnalyticsFilter>(filterFromQuery(this.route.snapshot.queryParamMap));
+  readonly options = signal<AnalyticsFilterOptions | null>(null);
+  readonly filtered = computed(() => !isFilterEmpty(this.filter()));
 
   constructor() {
+    this.load();
+    this.api.getFilterOptions().pipe(catchError(() => of(null)), takeUntilDestroyed(this.destroyRef)).subscribe(o => this.options.set(o));
+  }
+
+  applyFilter(filter: AnalyticsFilter): void {
+    this.filter.set(filter);
+    this.router.navigate([], { relativeTo: this.route, queryParams: filterToQuery(filter), replaceUrl: true });
     this.load();
   }
 
   load(): void {
     this.state.set('loading');
-    this.api.getBehaviour()
+    this.api.getBehaviour(this.filter())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: data => {

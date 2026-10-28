@@ -7,7 +7,7 @@ This document is phase J1 of [`../PLAN.md`](../PLAN.md) §7a. It records:
 - the decisions for every journal phase;
 - the exact scope of J2, which is built alongside it.
 
-J1 to J5 are built (2026-10-28). Later sections describe J6–J7 as designed, not built.
+J1 to J6 are built (2026-10-28). Later sections describe J7 as designed, not built.
 
 ## 1. Audit of the existing trading module (2026-10-28)
 
@@ -165,6 +165,39 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
     - **Concurrency:** a `rowversion` makes concurrent decisions on one row fail cleanly with a 409, so only one trade is created.
     - **Deleted trade:** deleting the journaled trade keeps the row (the link becomes empty), and it can still be imported or left out.
 
+## 7a. Analytics filters (J6, built)
+
+- **One calculation path.**
+  - **Where trades come from:** `AnalyticsScope` is the only place that decides which of a trader's trades analytics look at. Summary, equity curve, the strategy, day and session breakdowns, behaviour and adherence all read their trades from it.
+  - **What a filter does:** it only removes trades. `CompletedTrade` then decides which count, and the calculations are unchanged.
+  - **How the tests check it:** a filtered result must equal the same calculation over a journal that holds only the kept trades, and a strategy filter must equal that strategy's breakdown row.
+- **Filters** (the same query parameters on every `/api/analytics/*` endpoint):
+  - **Dates:** `from` and `to` (trade date).
+  - **Strategy:** `strategyId`.
+  - **Session and account:** `session` and `account`, compared case-insensitively.
+  - **Rule adherence:** `adherence`, taken from the checklist of the trade's current strategy. `Followed` means a complete checklist with every mandatory rule met; `Broke` means a complete checklist with one not met; `NotScored` means no checklist, or an unfinished one.
+  - **Journal answers:** `answerField` + `answerValue`. "Emotion" and "rating" are questions in the trader's own templates, so they are not fixed fields. Any question with fixed answers can be filtered on, matched by its field id (stable across template versions):
+    - **Choice:** equals the value (case-insensitive).
+    - **Several choices:** contains it.
+    - **Checklist:** that item is ticked.
+    - **Rating:** equals the number.
+    - **Yes / no:** equals true or false.
+    - **Missing answers:** trades without an answer to that question are left out, never guessed.
+- **Validation:** `from` after `to`, a question without an answer (or the reverse), or an unknown adherence value is refused with 400.
+- **Options (`GET /api/analytics/filter-options`):**
+  - **Strategies:** the trader's strategies, archived ones included.
+  - **Sessions and accounts:** taken from closed trades.
+  - **Questions:** every question with fixed answers from any version of any template. Each keeps its latest wording, and options from all versions are offered.
+- **Sample sizes:**
+  - **Small samples:** the summary carries `insufficientData` (fewer than 20 trades, the same threshold as the adherence comparison), and the page says so.
+  - **Rule adherence on Performance:** the page shows the compliant versus non-compliant comparison for the same filters, with each group's count.
+- **In the app:**
+  - **Pages:** Performance and Behaviour share one filter bar.
+  - **The address:** the filter is kept in the address (the same names as the API), so a filtered view survives a reload and can be bookmarked; malformed values are ignored.
+  - **Journal answers:** a question applies only once an answer is chosen.
+  - **Phone width:** the filters fold behind "Filters (n applied)", so the figures come first.
+  - **Behaviour:** the page says patterns are looked for only among the filtered trades.
+
 ## 8. AI assistant (J7)
 
 - **A provider abstraction in Application,** with an OpenAI-compatible HTTP implementation in Infrastructure. Configuration covers base URL, model and key, all optional. With no configuration, every AI control is hidden and the journal works unchanged.
@@ -192,6 +225,6 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 | **J3** ✅ | Templates and immutable versions; default template; create, edit, duplicate, archive, restore, make default; editor with live preview; answers on the trade form and entry page; moving an entry to the latest version; required answers before review | Unit: default template valid, schema rules, answer types, empty answers dropped, versioning, entries keep their version, default and archive rules. Integration: one default per trader, editing leaves old entries on their version, review refused with required questions unanswered, duplicate/archive/restore/default, invalid templates refused (400), owner isolation. Angular: answer carrying, renderer, editor body and ids, version message, form journal body, entry answers and blocked review. |
 | **J4** ✅ | Owned strategies with the backfill; rules (edit in place, retire, restore); checklists that copy the rules and keep every answer; checklist on the trade form and entry page; adherence report on the Strategies pages | Unit: rule editing, retiring and restoring; rule validation; the checklist copy; violations and compliance; appended history; N/A rules; adherence counts, rate and sample flags. Integration: per-trader ownership and names, concurrent first use of a new name, retire and restore, checklist history, rejected answers saving nothing, the adherence report, owner isolation, UTC times. Angular: list and report, editor bodies and messages, form checklist, entry history. The backfill was tested by hand on a throwaway database with shared, unused, duplicate and over-long strategies. |
 | **J5** ✅ | Journal page and calendar; trade log filters, sorting and paging; folded journal answers; attachments; import reconciliation | Unit: type detection, file names and size limits, match and duplicate rules, linking fills only empty fields, calendar totals. Integration: calendar and overview, attachment types, size, count limit and access, files removed with the trade, re-import skipped, link / import separately / dismiss, concurrent decisions create one trade. Angular: month grid, calendar cells and links, journal page, log filters, sorting and paging, attachments, import decisions, folded answers. |
-| J6 | Analytics filters (adherence, emotion, rating), sample sizes | One calculation path; filters only narrow it |
+| **J6** ✅ | One filter for every analytics figure (dates, strategy, session, account, adherence, journal answers), filter options, sample-size flag, filter bar on Performance and Behaviour, adherence comparison on Performance | Unit: filtered summaries equal the same calculation over only the kept trades; each filter; adherence from the current strategy's checklist; answers by shape and field id; options across versions; validation; sample flag. Integration: dates, session and account narrow every endpoint alike; a strategy filter equals its breakdown row; adherence and answer filters (and adherence under a filter); invalid filters 400; options private. Angular: the address round trip, the filter bar (answer only applies with a question), filters sent with every figure, no-match state and clearing, Behaviour filtered. |
 | J7 | AI assistant | Disabled mode; enough versus insufficient context; draft never auto-saved; prompt-injection text treated as data |
 | J8 | Verification and documentation | Full regression; browser walkthrough |

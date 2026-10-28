@@ -1,12 +1,16 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BaseChartDirective, provideCharts, withDefaultRegisterables } from 'ng2-charts';
 import { ChartData } from 'chart.js';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import { TradingApiService } from '../trading-api.service';
 import { AnalyticsSummary, EquityPoint } from '../models/analytics.model';
+import { AdherenceReport } from '../models/strategy.model';
+import { AnalyticsFilter, AnalyticsFilterOptions, filterFromQuery, filterToQuery, isFilterEmpty } from '../models/analytics-filter.model';
+import { AnalyticsFilterBarComponent } from '../analytics/analytics-filter-bar.component';
+import { AdherencePanelComponent } from '../strategies/adherence-panel.component';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
@@ -27,11 +31,15 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
 @Component({
   selector: 'app-trading-performance',
   standalone: true,
-  imports: [DecimalPipe, RouterLink, BaseChartDirective, LoadErrorComponent, PageHeaderComponent],
+  imports: [DecimalPipe, RouterLink, BaseChartDirective, LoadErrorComponent, PageHeaderComponent, AnalyticsFilterBarComponent, AdherencePanelComponent],
   providers: [provideCharts(withDefaultRegisterables())],
   template: `
     <div class="page">
       <app-page-header section="Trading operations" title="Performance" [description]="description()" />
+
+      @if (hasTrades()) {
+        <app-analytics-filter-bar [options]="options()" [filter]="filter()" (filterChange)="applyFilter($event)" />
+      }
 
       @switch (state()) {
         @case ('loading') {
@@ -42,7 +50,13 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
         }
         @case ('ready') {
           @if (summary(); as s) {
-            @if (s.totalTrades === 0) {
+            @if (s.totalTrades === 0 && filtered()) {
+              <div class="card empty-state">
+                <h2>No closed trades match these filters</h2>
+                <p>Widen the date range or remove a filter. Drafts and open trades are never counted.</p>
+                <div class="empty-actions"><button type="button" class="btn" (click)="applyFilter({})">Clear filters</button></div>
+              </div>
+            } @else if (s.totalTrades === 0) {
               <div class="card empty-state">
                 <h2>No trades recorded yet</h2>
                 <p>Performance is calculated from closed trades in the journal. Record a trade, or import your history.</p>
@@ -52,11 +66,17 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
                 </div>
               </div>
             } @else {
+              @if (s.insufficientData) {
+                <p class="notice notice-warning sample" role="status">
+                  {{ s.totalTrades }} {{ filtered() ? (s.totalTrades === 1 ? 'trade matches these filters' : 'trades match these filters') : (s.totalTrades === 1 ? 'trade recorded' : 'trades recorded') }}: fewer than {{ s.minimumSample }},
+                  so these figures are insufficient data for drawing conclusions.
+                </p>
+              }
               <section class="metric-strip" aria-label="Summary">
                 <div class="metric metric-lead">
                   <span class="metric-label">Total P&amp;L</span>
                   <span class="metric-value" [class.text-positive]="s.totalPnL > 0" [class.text-negative]="s.totalPnL < 0">{{ signed(s.totalPnL) }}</span>
-                  <span class="metric-note">{{ s.totalTrades }} trades</span>
+                  <span class="metric-note">{{ s.totalTrades }} {{ s.totalTrades === 1 ? 'trade' : 'trades' }}</span>
                 </div>
                 <div class="metric">
                   <span class="metric-label">Win rate</span>
@@ -135,6 +155,13 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
                   </table>
                 </div>
               </section>
+
+              @if (adherence(); as a) {
+                <section class="adherence" aria-labelledby="adherence-heading">
+                  <h2 id="adherence-heading" class="section-heading">Rule adherence</h2>
+                  <app-adherence-panel [report]="a" />
+                </section>
+              }
             }
           }
         }
@@ -142,7 +169,9 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
     </div>
   `,
   styles: [`
-    .chart-card, .breakdown { margin-top: var(--space-5); }
+    .chart-card, .breakdown, .adherence { margin-top: var(--space-5); }
+    .section-heading { font-size: var(--text-lg); margin-bottom: var(--space-3); }
+    .sample { margin-bottom: var(--space-4); }
     .chart-card { padding: 0; }
     .chart-body { position: relative; height: 300px; padding: var(--space-4) var(--space-5) var(--space-3); }
     .empty-actions { display: flex; gap: var(--space-2); justify-content: center; }
@@ -154,6 +183,8 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
 export class PerformanceComponent {
   private api = inject(TradingApiService);
   private destroyRef = inject(DestroyRef);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   readonly breakdowns = BREAKDOWNS;
   readonly chartOptions = baseChartOptions();
@@ -164,6 +195,14 @@ export class PerformanceComponent {
   readonly equity = signal<EquityPoint[]>([]);
   readonly tables = signal<Record<BreakdownKey, BreakdownRow[]>>({ strategy: [], day: [], session: [] });
   readonly breakdown = signal<BreakdownKey>('strategy');
+  readonly adherence = signal<AdherenceReport | null>(null);
+
+  // The filter lives in the address, so a filtered view survives a reload and can be bookmarked
+  readonly filter = signal<AnalyticsFilter>(filterFromQuery(this.route.snapshot.queryParamMap));
+  readonly options = signal<AnalyticsFilterOptions | null>(null);
+  readonly filtered = computed(() => !isFilterEmpty(this.filter()));
+  // The filter bar shows once there is anything to filter: options list strategies or sessions from closed trades
+  readonly hasTrades = computed(() => this.filtered() || (this.summary()?.totalTrades ?? 0) > 0);
 
   readonly rows = computed(() => this.tables()[this.breakdown()]);
   readonly column = computed(() => BREAKDOWNS.find(b => b.key === this.breakdown())!.column);
@@ -174,7 +213,9 @@ export class PerformanceComponent {
     const points = this.equity();
     if (!s || s.totalTrades === 0) return 'Results calculated from the trading journal.';
     const range = points.length > 0 ? ` from ${formatDay(points[0].date, true)} to ${formatDay(points[points.length - 1].date, true)}` : '';
-    return `${s.totalTrades} closed trades${range}; drafts and open trades are not counted. Figures are in each trade's own currency, which imported trades do not record.`;
+    const noun = s.totalTrades === 1 ? 'closed trade' : 'closed trades';
+    const which = this.filtered() ? `${noun} matching the filters` : noun;
+    return `${s.totalTrades} ${which}${range}; drafts and open trades are not counted. Figures are in each trade's own currency, which imported trades do not record.`;
   });
 
   readonly equityChart = computed<ChartData<'line'> | null>(() => {
@@ -199,23 +240,35 @@ export class PerformanceComponent {
 
   constructor() {
     this.load();
+    // The options only fill the filter lists; without them the dates still work
+    this.api.getFilterOptions().pipe(catchError(() => of(null)), takeUntilDestroyed(this.destroyRef)).subscribe(o => this.options.set(o));
+  }
+
+  applyFilter(filter: AnalyticsFilter): void {
+    this.filter.set(filter);
+    this.router.navigate([], { relativeTo: this.route, queryParams: filterToQuery(filter), replaceUrl: true });
+    this.load();
   }
 
   load(): void {
     this.state.set('loading');
+    const filter = this.filter();
 
     forkJoin({
-      summary: this.api.getSummary(),
-      equity: this.api.getEquityCurve(),
-      strategies: this.api.getStrategyPerformance(),
-      days: this.api.getPerformanceByDay(),
-      sessions: this.api.getPerformanceBySession()
+      summary: this.api.getSummary(filter),
+      equity: this.api.getEquityCurve(filter),
+      strategies: this.api.getStrategyPerformance(filter),
+      days: this.api.getPerformanceByDay(filter),
+      sessions: this.api.getPerformanceBySession(filter),
+      // Adherence is a further view; the figures above still show if it fails
+      adherence: this.api.getAdherence(filter).pipe(catchError(() => of(null)))
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ summary, equity, strategies, days, sessions }) => {
+        next: ({ summary, equity, strategies, days, sessions, adherence }) => {
           this.summary.set(summary);
           this.equity.set(equity);
+          this.adherence.set(adherence);
           this.tables.set({
             strategy: strategies.map(s => ({ ...s, label: s.strategyName })),
             day: days,

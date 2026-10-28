@@ -9,6 +9,9 @@ export interface AnalyticsSummary {
   winCount: number;
   lossCount: number;
   breakevenCount: number;
+  // Below minimumSample trades the figures are labelled as insufficient data
+  minimumSample: number;
+  insufficientData: boolean;
 }
 
 export interface EquityPoint {

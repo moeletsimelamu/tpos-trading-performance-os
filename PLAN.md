@@ -15,7 +15,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - J3 (versioned journal templates) is complete on branch `journal-j3-templates`, cut from `journal-j1-j2`.
 - J4 (owned strategies, rules, checklists with history, adherence) is complete on branch `journal-j4-strategies`, cut from `journal-j3-templates`. It also delivers the `Strategies.UserId` backfill planned in §4.
 - J5 (journal page with calendar, trade log filters, sorting and paging, attachments, CSV import reconciliation) is complete on branch `journal-j5-overview`, cut from `journal-j4-strategies`. It also delivers the "CSV duplicate detection" planned for Phase 8.
-- Next: J6 (analytics filters by strategy, adherence, emotion and rating), or Phase 6, at the owner's choice.
+- J6 (one filter for every analytics figure: dates, strategy, session, account, rule adherence and journal answers such as emotion and rating) is complete on branch `journal-j6-analytics`, cut from `journal-j5-overview`.
+- Next: J7 (optional AI-assisted review), J8 (verification), or Phase 6, at the owner's choice.
 
 ---
 
@@ -389,7 +390,7 @@ CSV import stays, but only as a bulk and migration path.
 | J3 ✅ | Templates: create, duplicate, archive, default, preview, versioned snapshots, field-type validation |
 | J4 ✅ | Strategies and checklists: per-user strategies with rules (mandatory or optional), recorded responses, adherence |
 | J5 ✅ | Journal interface: overview (drafts, awaiting review), trade log with filters and sorting, calendar, journal document page, attachments |
-| J6 | Analytics integration: filters by account, session, strategy, adherence, emotion and rating; compliant versus non-compliant results, with sample sizes shown |
+| J6 ✅ | Analytics integration: filters by account, session, strategy, adherence, emotion and rating; compliant versus non-compliant results, with sample sizes shown |
 | J7 | AI assistant: provider abstraction, bounded context, review drafts, insufficient-data handling, prompt-injection safeguards |
 | J8 | Verification and documentation |
 
