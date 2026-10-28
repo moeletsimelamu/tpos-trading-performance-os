@@ -1,12 +1,12 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   AnalyticsSummary, EquityPoint, StrategyPerformance,
   TimePerformance, BehaviourSummary, UploadResult
 } from './models/analytics.model';
-import { Trade, CreateTrade } from './models/trade.model';
+import { SaveTrade, Trade, TradeStatus } from './models/trade.model';
 
 @Injectable({ providedIn: 'root' })
 export class TradingApiService {
@@ -15,16 +15,26 @@ export class TradingApiService {
   constructor(private http: HttpClient) {}
 
   // Trades
-  getTrades(): Observable<Trade[]> {
-    return this.http.get<Trade[]>(`${this.base}/trades`);
+  getTrades(status?: TradeStatus): Observable<Trade[]> {
+    const params = status ? new HttpParams().set('status', status) : undefined;
+    return this.http.get<Trade[]>(`${this.base}/trades`, { params });
   }
 
-  createTrade(trade: CreateTrade): Observable<Trade> {
-    return this.http.post<Trade>(`${this.base}/trades`, trade);
+  getTrade(id: number): Observable<Trade> {
+    return this.http.get<Trade>(`${this.base}/trades/${id}`);
   }
 
-  updateTrade(id: number, trade: CreateTrade): Observable<void> {
-    return this.http.put<void>(`${this.base}/trades/${id}`, trade);
+  // The key makes a retried save return the trade already created instead of a second copy
+  createTrade(trade: SaveTrade, idempotencyKey: string): Observable<Trade> {
+    return this.http.post<Trade>(`${this.base}/trades`, trade, { headers: new HttpHeaders({ 'Idempotency-Key': idempotencyKey }) });
+  }
+
+  updateTrade(id: number, trade: SaveTrade): Observable<Trade> {
+    return this.http.put<Trade>(`${this.base}/trades/${id}`, trade);
+  }
+
+  reviewTrade(id: number, reviewNotes: string): Observable<Trade> {
+    return this.http.post<Trade>(`${this.base}/trades/${id}/review`, { reviewNotes });
   }
 
   deleteTrade(id: number): Observable<void> {

@@ -16,6 +16,24 @@ export const tradingRoutes: Routes = [
       import('./trades/trades.component').then(m => m.TradesComponent)
   },
   {
+    path: 'trades/new',
+    title: 'New trade',
+    loadComponent: () =>
+      import('./journal/trade-form.component').then(m => m.TradeFormComponent)
+  },
+  {
+    path: 'trades/:id',
+    title: 'Trade journal entry',
+    loadComponent: () =>
+      import('./journal/trade-entry.component').then(m => m.TradeEntryComponent)
+  },
+  {
+    path: 'trades/:id/edit',
+    title: 'Edit trade',
+    loadComponent: () =>
+      import('./journal/trade-form.component').then(m => m.TradeFormComponent)
+  },
+  {
     path: 'import',
     title: 'Import trades',
     loadComponent: () =>

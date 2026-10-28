@@ -8,7 +8,7 @@ import { environment } from '../../../../environments/environment';
 
 function trade(overrides: Partial<Trade>): Trade {
   return {
-    id: 1, tradeDate: '2026-10-05', entryTime: '09:35:00', instrument: 'NQ', direction: 'Long',
+    id: 1, status: 'Closed', isImported: true, tradeDate: '2026-10-05', entryTime: '09:35:00', instrument: 'NQ', direction: 'Long',
     entryPrice: 100, exitPrice: 101, riskAmount: 100, pnL: 100, rr: 1.33, strategyName: 'ORB',
     session: 'New York', dayOfWeek: 'Monday', tradeDuration: 10, isManualOverride: false,
     ...overrides

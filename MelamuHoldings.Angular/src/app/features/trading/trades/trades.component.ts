@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TradingApiService } from '../trading-api.service';
-import { Trade } from '../models/trade.model';
+import { TRADE_STATUS, Trade, TradeStatus } from '../models/trade.model';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
@@ -21,6 +21,7 @@ type LoadState = 'loading' | 'ready' | 'error';
       <app-page-header section="Trading operations" title="Trades"
         [description]="filtered().length + ' of ' + trades().length + ' trades'">
         <a class="btn" routerLink="/trading/import"><app-icon name="import" [size]="16" />Import trades</a>
+        <a class="btn btn-primary" routerLink="/trading/trades/new"><app-icon name="plus" [size]="16" />New trade</a>
       </app-page-header>
 
       @switch (state()) {
@@ -34,6 +35,13 @@ type LoadState = 'loading' | 'ready' | 'error';
           @if (actionError()) { <p class="notice notice-error" role="alert">{{ actionError() }}</p> }
 
           <div class="card table-card">
+            <div class="tabs" role="tablist" aria-label="Filter trades by status">
+              @for (f of statusFilters; track f) {
+                <button type="button" role="tab" class="tab" [attr.aria-selected]="statusFilter() === f" (click)="statusFilter.set(f)">
+                  {{ f === 'All' ? 'All' : statusLabel(f) }} <span class="count">{{ count(f) }}</span>
+                </button>
+              }
+            </div>
             <div class="toolbar" role="search">
               <div class="field grow">
                 <label for="trade-search">Search</label>
@@ -75,6 +83,7 @@ type LoadState = 'loading' | 'ready' | 'error';
                   <th>Session</th>
                   <th class="num">Duration</th>
                   <th>Override</th>
+                  <th>Status</th>
                   <th><span class="visually-hidden">Actions</span></th>
                 </tr>
               </thead>
@@ -82,22 +91,23 @@ type LoadState = 'loading' | 'ready' | 'error';
                 @for (trade of filtered(); track trade.id) {
                   <tr>
                     <td class="nowrap">{{ trade.tradeDate }}</td>
-                    <td class="strong">{{ trade.instrument }}</td>
-                    <td>{{ trade.direction }}</td>
-                    <td class="num">{{ trade.entryPrice | number:'1.2-5' }}</td>
-                    <td class="num">{{ trade.exitPrice | number:'1.2-5' }}</td>
-                    <td class="num">{{ trade.riskAmount | number:'1.2-2' }}</td>
-                    <td class="num" [class.text-positive]="trade.pnL > 0" [class.text-negative]="trade.pnL < 0">
-                      {{ trade.pnL > 0 ? '+' : '' }}{{ trade.pnL | number:'1.2-2' }}
+                    <td><a [routerLink]="['/trading/trades', trade.id]">{{ trade.instrument }}</a></td>
+                    <td>{{ trade.direction ?? '—' }}</td>
+                    <td class="num">{{ trade.entryPrice != null ? (trade.entryPrice | number:'1.2-5') : '—' }}</td>
+                    <td class="num">{{ trade.exitPrice != null ? (trade.exitPrice | number:'1.2-5') : '—' }}</td>
+                    <td class="num">{{ trade.riskAmount != null ? (trade.riskAmount | number:'1.2-2') : '—' }}</td>
+                    <td class="num" [class.text-positive]="(trade.pnL ?? 0) > 0" [class.text-negative]="(trade.pnL ?? 0) < 0">
+                      @if (trade.pnL != null) { {{ trade.pnL > 0 ? '+' : '' }}{{ trade.pnL | number:'1.2-2' }} } @else { — }
                     </td>
-                    <td class="num">{{ trade.rr | number:'1.2-2' }}R</td>
+                    <td class="num">{{ trade.rr != null ? (trade.rr | number:'1.2-2') + 'R' : '—' }}</td>
                     <td>{{ trade.strategyName ?? '—' }}</td>
-                    <td class="nowrap">{{ trade.session }}</td>
-                    <td class="num">{{ trade.tradeDuration }} min</td>
+                    <td class="nowrap">{{ trade.session || '—' }}</td>
+                    <td class="num">{{ trade.tradeDuration != null ? trade.tradeDuration + ' min' : '—' }}</td>
                     <td>
                       @if (trade.isManualOverride) { <span class="tag tag-warning">Override</span> }
                       @else { <span class="muted">—</span> }
                     </td>
+                    <td><span [class]="tradeStatus[trade.status].tag">{{ tradeStatus[trade.status].label }}</span></td>
                     <td class="actions">
                       @if (confirmingDelete() === trade.id) {
                         <button type="button" class="btn btn-sm btn-danger" [disabled]="deletingId() === trade.id" (click)="deleteTrade(trade.id)">Confirm delete</button>
@@ -110,8 +120,8 @@ type LoadState = 'loading' | 'ready' | 'error';
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="13" class="empty-row">
-                      {{ trades().length === 0 ? 'No trades recorded yet. Import your trade history from the Import page.' : 'No trades match these filters.' }}
+                    <td colspan="14" class="empty-row">
+                      {{ trades().length === 0 ? 'No trades recorded yet. Record one with New trade, or import your history.' : 'No trades match these filters.' }}
                     </td>
                   </tr>
                 }
@@ -133,6 +143,7 @@ type LoadState = 'loading' | 'ready' | 'error';
       &:hover { color: var(--negative); background: var(--negative-bg); }
     }
     .empty-row { text-align: center; color: var(--text-muted); padding: var(--space-10) var(--space-4); }
+    .count { color: var(--text-muted); font-weight: 400; margin-left: 2px; }
   `]
 })
 export class TradesComponent {
@@ -149,27 +160,35 @@ export class TradesComponent {
   readonly searchTerm = signal('');
   readonly directionFilter = signal('');
   readonly resultFilter = signal('');
+  readonly statusFilter = signal<'All' | TradeStatus>('All');
+  readonly statusFilters: ('All' | TradeStatus)[] = ['All', 'Draft', 'Open', 'Closed', 'Reviewed'];
+  readonly tradeStatus = TRADE_STATUS;
 
   readonly filtered = computed(() => {
     const term = this.searchTerm().toLowerCase();
     const direction = this.directionFilter();
     const result = this.resultFilter();
+    const status = this.statusFilter();
 
     return this.trades().filter(trade => {
+      const pnl = trade.pnL ?? null;
       const matchesSearch = !term ||
         trade.instrument.toLowerCase().includes(term) ||
         !!trade.strategyName?.toLowerCase().includes(term) ||
-        trade.session.toLowerCase().includes(term) ||
-        trade.dayOfWeek.toLowerCase().includes(term);
+        (trade.session ?? '').toLowerCase().includes(term) ||
+        (trade.dayOfWeek ?? '').toLowerCase().includes(term);
 
       const matchesDirection = !direction || trade.direction === direction;
 
+      // A draft or open trade has no result yet, so a result filter leaves it out
       const matchesResult = !result ||
-        (result === 'win' && trade.pnL > 0) ||
-        (result === 'loss' && trade.pnL < 0) ||
-        (result === 'breakeven' && trade.pnL === 0);
+        (result === 'win' && pnl !== null && pnl > 0) ||
+        (result === 'loss' && pnl !== null && pnl < 0) ||
+        (result === 'breakeven' && pnl === 0);
 
-      return matchesSearch && matchesDirection && matchesResult;
+      const matchesStatus = status === 'All' || trade.status === status;
+
+      return matchesSearch && matchesDirection && matchesResult && matchesStatus;
     });
   });
 
@@ -191,6 +210,14 @@ export class TradesComponent {
           this.state.set('error');
         }
       });
+  }
+
+  count(filter: 'All' | TradeStatus): number {
+    return filter === 'All' ? this.trades().length : this.trades().filter(t => t.status === filter).length;
+  }
+
+  statusLabel(status: TradeStatus): string {
+    return status === 'Draft' ? 'Drafts' : TRADE_STATUS[status].label;
   }
 
   clearFilters(): void {

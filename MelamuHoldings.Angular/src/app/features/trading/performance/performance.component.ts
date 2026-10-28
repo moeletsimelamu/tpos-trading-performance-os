@@ -45,8 +45,11 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
             @if (s.totalTrades === 0) {
               <div class="card empty-state">
                 <h2>No trades recorded yet</h2>
-                <p>Performance is calculated from the trading journal. Import your trade history to see results here.</p>
-                <a class="btn" routerLink="/trading/import">Import trades</a>
+                <p>Performance is calculated from closed trades in the journal. Record a trade, or import your history.</p>
+                <div class="empty-actions">
+                  <a class="btn btn-primary" routerLink="/trading/trades/new">New trade</a>
+                  <a class="btn" routerLink="/trading/import">Import trades</a>
+                </div>
               </div>
             } @else {
               <section class="metric-strip" aria-label="Summary">
@@ -142,6 +145,7 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
     .chart-card, .breakdown { margin-top: var(--space-5); }
     .chart-card { padding: 0; }
     .chart-body { position: relative; height: 300px; padding: var(--space-4) var(--space-5) var(--space-3); }
+    .empty-actions { display: flex; gap: var(--space-2); justify-content: center; }
     .bar-col { width: 28%; min-width: 120px; vertical-align: middle; }
     .centred::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--border); }
     @media (max-width: 599px) { .bar-col { display: none; } .chart-body { height: 240px; padding: var(--space-3); } }
@@ -170,7 +174,7 @@ export class PerformanceComponent {
     const points = this.equity();
     if (!s || s.totalTrades === 0) return 'Results calculated from the trading journal.';
     const range = points.length > 0 ? ` from ${formatDay(points[0].date, true)} to ${formatDay(points[points.length - 1].date, true)}` : '';
-    return `${s.totalTrades} journal trades${range}. Figures are in the trading account's currency, which the journal does not record yet.`;
+    return `${s.totalTrades} closed trades${range}; drafts and open trades are not counted. Figures are in each trade's own currency, which imported trades do not record.`;
   });
 
   readonly equityChart = computed<ChartData<'line'> | null>(() => {
