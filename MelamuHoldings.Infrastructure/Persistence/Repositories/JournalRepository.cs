@@ -29,6 +29,9 @@ public partial class JournalRepository : IJournalRepository
     public Task<TradeJournalEntry?> GetEntryAsync(int tradeId) =>
         _context.TradeJournalEntries.FirstOrDefaultAsync(e => e.TradeId == tradeId);
 
+    public Task<List<TradeJournalEntry>> GetEntriesAsync(IReadOnlyCollection<int> tradeIds) =>
+        _context.TradeJournalEntries.Where(e => tradeIds.Contains(e.TradeId)).ToListAsync();
+
     public Task<Dictionary<int, int>> CountEntriesByVersionAsync(int templateId) =>
         _context.TradeJournalEntries
             .Where(e => _context.JournalTemplateVersions.Any(v => v.Id == e.JournalTemplateVersionId && v.JournalTemplateId == templateId))

@@ -10,19 +10,20 @@ public class AdherenceService
     // Below this many trades a group's results are labelled as insufficient data
     public const int MinimumSample = 20;
 
-    private readonly ITradeRepository _trades;
+    private readonly AnalyticsScope _scope;
     private readonly IStrategyRepository _strategies;
 
-    public AdherenceService(ITradeRepository trades, IStrategyRepository strategies)
+    public AdherenceService(AnalyticsScope scope, IStrategyRepository strategies)
     {
-        _trades = trades;
+        _scope = scope;
         _strategies = strategies;
     }
 
-    public async Task<AdherenceReportDto> GetReportAsync(int userId, int? strategyId = null)
+    // The same trades as every other analytics figure: the filter (which may name one strategy) narrows them
+    public async Task<AdherenceReportDto> GetReportAsync(int userId, AnalyticsFilter? filter = null)
     {
-        var trades = (await _trades.GetByUserIdAsync(userId))
-            .Where(t => t.CountsInAnalytics && t.PnL is not null && (strategyId is null || t.StrategyId == strategyId))
+        var trades = (await _scope.TradesAsync(userId, filter))
+            .Where(t => t.CountsInAnalytics && t.PnL is not null)
             .ToList();
         var checklists = await _strategies.GetChecklistsAsync(trades.Select(t => t.Id).ToList());
 

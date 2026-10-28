@@ -23,21 +23,21 @@ public class BehaviourSummaryDto
 
 public class BehaviourAnalyticsService
 {
-    private readonly ITradeRepository _tradeRepository;
+    private readonly AnalyticsScope _scope;
 
     // Configurable thresholds
     private const int RevengeTradingWindowMinutes = 20;
     private const int OvertradingDailyLimit = 5;
     private const int ConsecutiveLossThreshold = 3;
 
-    public BehaviourAnalyticsService(ITradeRepository tradeRepository)
+    public BehaviourAnalyticsService(AnalyticsScope scope)
     {
-        _tradeRepository = tradeRepository;
+        _scope = scope;
     }
 
-    public async Task<BehaviourSummaryDto> GetBehaviourSummaryAsync(int userId)
+    public async Task<BehaviourSummaryDto> GetBehaviourSummaryAsync(int userId, AnalyticsFilter? filter = null)
     {
-        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId))
+        var trades = CompletedTrade.From(await _scope.TradesAsync(userId, filter))
             .OrderBy(t => t.TradeDate)
             .ThenBy(t => t.EntryTime)
             .ToList();

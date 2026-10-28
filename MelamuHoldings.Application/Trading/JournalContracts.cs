@@ -12,6 +12,7 @@ public interface IJournalRepository
     // The version with its template, so ownership can be checked
     Task<(JournalTemplateVersion Version, JournalTemplate Template)?> GetVersionAsync(int versionId, int userId);
     Task<TradeJournalEntry?> GetEntryAsync(int tradeId);
+    Task<List<TradeJournalEntry>> GetEntriesAsync(IReadOnlyCollection<int> tradeIds);
     Task<Dictionary<int, int>> CountEntriesByVersionAsync(int templateId);
 
     void Add(JournalTemplate template);

@@ -14,6 +14,10 @@ public class AnalyticsSummaryDto
     public int WinCount { get; set; }
     public int LossCount { get; set; }
     public int BreakevenCount { get; set; }
+
+    // Below AdherenceService.MinimumSample trades the figures are labelled as insufficient data
+    public int MinimumSample { get; set; } = AdherenceService.MinimumSample;
+    public bool InsufficientData { get; set; } = true;
 }
 
 public class EquityPointDto
@@ -45,16 +49,20 @@ public class TimePerformanceDto
 
 public class AnalyticsService
 {
-    private readonly ITradeRepository _tradeRepository;
+    private readonly AnalyticsScope _scope;
 
-    public AnalyticsService(ITradeRepository tradeRepository)
+    public AnalyticsService(AnalyticsScope scope)
     {
-        _tradeRepository = tradeRepository;
+        _scope = scope;
     }
 
-    public async Task<AnalyticsSummaryDto> GetSummaryAsync(int userId)
+    // Every figure starts from the same trades: the filter narrows them, CompletedTrade decides which count
+    private async Task<List<CompletedTrade>> CompletedAsync(int userId, AnalyticsFilter? filter) =>
+        CompletedTrade.From(await _scope.TradesAsync(userId, filter));
+
+    public async Task<AnalyticsSummaryDto> GetSummaryAsync(int userId, AnalyticsFilter? filter = null)
     {
-        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId));
+        var trades = (await CompletedAsync(userId, filter));
         if (trades.Count == 0) return new AnalyticsSummaryDto();
 
         var wins = trades.Where(t => t.PnL > 0).ToList();
@@ -84,13 +92,14 @@ public class AnalyticsService
             AverageRR = AverageR(trades),
             ProfitFactor = grossLoss == 0 ? grossProfit : Math.Round(grossProfit / grossLoss, 2),
             TotalPnL = Math.Round(trades.Sum(t => t.PnL), 2),
-            MaxDrawdown = Math.Round(CalculateMaxDrawdown(trades), 2)
+            MaxDrawdown = Math.Round(CalculateMaxDrawdown(trades), 2),
+            InsufficientData = trades.Count < AdherenceService.MinimumSample
         };
     }
 
-    public async Task<IEnumerable<EquityPointDto>> GetEquityCurveAsync(int userId)
+    public async Task<IEnumerable<EquityPointDto>> GetEquityCurveAsync(int userId, AnalyticsFilter? filter = null)
     {
-        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId))
+        var trades = (await CompletedAsync(userId, filter))
             .OrderBy(t => t.TradeDate)
             .ThenBy(t => t.EntryTime)
             .ToList();
@@ -118,9 +127,9 @@ public class AnalyticsService
         return equityCurve;
     }
 
-    public async Task<IEnumerable<StrategyPerformanceDto>> GetStrategyPerformanceAsync(int userId)
+    public async Task<IEnumerable<StrategyPerformanceDto>> GetStrategyPerformanceAsync(int userId, AnalyticsFilter? filter = null)
     {
-        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId));
+        var trades = (await CompletedAsync(userId, filter));
 
         return trades
             .GroupBy(t => t.StrategyName ?? "Untagged")
@@ -145,15 +154,15 @@ public class AnalyticsService
             .ToList();
     }
 
-    public async Task<IEnumerable<TimePerformanceDto>> GetPerformanceByDayAsync(int userId)
+    public async Task<IEnumerable<TimePerformanceDto>> GetPerformanceByDayAsync(int userId, AnalyticsFilter? filter = null)
     {
-        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId));
+        var trades = (await CompletedAsync(userId, filter));
         return GroupByLabel(trades, t => t.DayOfWeek);
     }
 
-    public async Task<IEnumerable<TimePerformanceDto>> GetPerformanceBySessionAsync(int userId)
+    public async Task<IEnumerable<TimePerformanceDto>> GetPerformanceBySessionAsync(int userId, AnalyticsFilter? filter = null)
     {
-        var trades = CompletedTrade.From(await _tradeRepository.GetByUserIdAsync(userId));
+        var trades = (await CompletedAsync(userId, filter));
         return GroupByLabel(trades, t => t.Session);
     }
 

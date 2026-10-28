@@ -124,6 +124,7 @@ builder.Services.AddScoped<JournalTemplateService>();
 builder.Services.AddScoped<TradeService>();
 builder.Services.AddScoped<UploadService>();
 builder.Services.AddScoped<CsvParserService>();
+builder.Services.AddScoped<AnalyticsScope>();
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<BehaviourAnalyticsService>();
 
