@@ -23,9 +23,17 @@ The landing page shows the business as recorded:
   - **Totals:** income, expenses and net cash movement month by month, and the payouts received.
   - **Every figure links** to the ledger list it is summed from, with the same dates and type;
 - fund positions;
-- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, ownership not stated, critical trading-behaviour alerts;
+- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, funds below their minimum, obligations overdue or due within 14 days, ownership not stated, critical trading-behaviour alerts;
 - recent payouts with their status, and recent ledger activity;
 - a trading summary, labelled as not business cash until a payout is recorded.
+
+## What works today: obligations and fund levels
+
+- **Obligations:** rent, subscriptions, insurance and anything else the business has to pay, once or monthly, quarterly or yearly.
+  - **Due dates:** each due date is counted from the first, so the 31st never drifts.
+  - **Paying:** you link an expense already in the ledger; nothing records or moves money for you. Only unlinked, unreversed expenses in the obligation's currency are offered, and the latest payment can be undone.
+  - **Coming due:** the page totals what is due in the next 30 days per currency and counts what is overdue.
+- **Fund minimum and target:** set in one currency. The Funds page shows a fund below its minimum and its progress towards the target, and the overview warns about it.
 
 ## What works today: trading operations
 
@@ -259,7 +267,13 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | Method | Endpoint | Description |
 |---|---|---|
 | GET / POST | `/api/funds` | List funds with per-currency balances / create a fund |
-| PUT | `/api/funds/{id}` | Rename or describe a fund (not the system fund's name) |
+| PUT | `/api/funds/{id}` | Rename or describe a fund (not the system fund's name), and set its minimum and target in one currency |
+| GET / POST | `/api/obligations` | List obligations (`includeClosed` for paid and cancelled ones) / add one |
+| GET / PUT | `/api/obligations/{id}` | One obligation with its payments / change it (the schedule is fixed once paid) |
+| POST | `/api/obligations/{id}/cancel` | Cancel an obligation |
+| GET | `/api/obligations/{id}/payment-candidates` | Recent expenses that could pay it: same currency, not reversed, not linked |
+| POST | `/api/obligations/{id}/payments` | Record a payment by linking an expense (`{ transactionId }`) |
+| POST | `/api/obligations/{id}/payments/undo` | Remove the latest payment link; the expense stays in the ledger |
 | GET / POST | `/api/financial-accounts` | List accounts with balances / create an account |
 | GET / PUT | `/api/financial-accounts/{id}` | One account / update name, ownership, institution, notes |
 | POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |

@@ -166,6 +166,21 @@ public partial class FinanceRepository : IFinanceRepository
     public void Add(AuditEvent auditEvent) => _context.AuditEvents.Add(auditEvent);
     public void Add(Payout payout) => _context.Payouts.Add(payout);
     public void Add(AllocationPolicy policy) => _context.AllocationPolicies.Add(policy);
+    public Task<List<Obligation>> GetObligationsAsync() =>
+        _context.Obligations.Include(o => o.Payments).ToListAsync();
+
+    public Task<Obligation?> GetObligationAsync(int id) =>
+        _context.Obligations.Include(o => o.Payments).FirstOrDefaultAsync(o => o.Id == id);
+
+    public async Task<HashSet<int>> GetLinkedPaymentTransactionIdsAsync(IEnumerable<int> transactionIds)
+    {
+        var ids = transactionIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+        return (await _context.ObligationPayments.Where(p => ids.Contains(p.LedgerTransactionId)).Select(p => p.LedgerTransactionId).ToListAsync()).ToHashSet();
+    }
+
+    public void Add(Obligation obligation) => _context.Obligations.Add(obligation);
+
     public void Add(Allocation allocation) => _context.Allocations.Add(allocation);
 
     public async Task SaveChangesAsync()

@@ -116,6 +116,7 @@ builder.Services.AddScoped<FinanceSetupService>();
 builder.Services.AddScoped<LedgerPosting>();
 builder.Services.AddScoped<LedgerService>();
 builder.Services.AddScoped<OverviewService>();
+builder.Services.AddScoped<ObligationService>();
 builder.Services.AddScoped<PayoutService>();
 builder.Services.AddScoped<AllocationService>();
 builder.Services.AddScoped<AuthService>();

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using MelamuHoldings.Application.Finance;
 using MelamuHoldings.Domain.Finance;
 using MelamuHoldings.Domain.Identity;
 
@@ -136,5 +137,37 @@ public class AllocationSettlementConfiguration : IEntityTypeConfiguration<Alloca
         // One ledger transaction settles one line
         builder.HasIndex(s => s.LedgerTransactionId).IsUnique();
         builder.HasOne<LedgerTransaction>().WithMany().HasForeignKey(s => s.LedgerTransactionId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class ObligationConfiguration : IEntityTypeConfiguration<Obligation>
+{
+    public void Configure(EntityTypeBuilder<Obligation> builder)
+    {
+        builder.ToTable("Obligations", FinanceSchema.Name);
+        builder.Property(o => o.Name).HasMaxLength(Obligation.MaxNameLength).IsRequired();
+        builder.Property(o => o.Currency).IsCurrencyCode();
+        builder.Property(o => o.Amount).HasColumnType("decimal(19,4)");
+        builder.Property(o => o.Category).HasMaxLength(Obligation.MaxCategoryLength);
+        builder.Property(o => o.Notes).HasMaxLength(Obligation.MaxNotesLength);
+        builder.Property(o => o.Recurrence).HasConversion<string>().HasMaxLength(20);
+        builder.Property(o => o.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(o => o.RowVersion).IsRowVersion();
+        // Two active obligations cannot share a name, so a retried create does not add a second one
+        builder.HasIndex(o => o.Name).IsUnique().HasFilter("[Status] = 'Active'").HasDatabaseName(ObligationService.ActiveNameIndex);
+        builder.HasMany(o => o.Payments).WithOne().HasForeignKey(p => p.ObligationId).IsRequired().OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(o => o.Payments).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+public class ObligationPaymentConfiguration : IEntityTypeConfiguration<ObligationPayment>
+{
+    public void Configure(EntityTypeBuilder<ObligationPayment> builder)
+    {
+        builder.ToTable("ObligationPayments", FinanceSchema.Name);
+        builder.Property(p => p.Amount).HasColumnType("decimal(19,4)");
+        // One expense pays one obligation date, once
+        builder.HasIndex(p => p.LedgerTransactionId).IsUnique().HasDatabaseName(ObligationService.PaymentTransactionIndex);
+        builder.HasOne<LedgerTransaction>().WithMany().HasForeignKey(p => p.LedgerTransactionId).OnDelete(DeleteBehavior.Restrict);
     }
 }

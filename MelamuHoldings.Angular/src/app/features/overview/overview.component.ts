@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { FinanceApiService } from '../finance/finance-api.service';
-import { Allocation, Balances, Money, Payout, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID } from '../finance/finance.models';
+import { Allocation, Balances, Money, Obligation, Payout, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, fundStanding } from '../finance/finance.models';
 import { TradingApiService } from '../trading/trading-api.service';
 import { AnalyticsSummary, BehaviourSummary } from '../trading/models/analytics.model';
 import { MoneyPipe } from '../../shared/money.pipe';
@@ -264,7 +264,8 @@ export class OverviewComponent {
   readonly behaviour = signal<BehaviourSummary | null>(null);
 
   readonly activeAccounts = computed(() => this.balances()?.accounts.filter(a => a.status === 'Active').length ?? 0);
-  readonly attention = computed(() => attentionItems(this.balances(), this.behaviour(), this.payouts(), this.allocations()));
+  readonly obligations = signal<Obligation[]>([]);
+  readonly attention = computed(() => attentionItems(this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations()));
   // The latest payouts recorded, whatever their status
   readonly recentPayouts = computed(() => [...this.payouts()].sort((a, b) => b.id - a.id).slice(0, RECENT_PAYOUTS));
 
@@ -279,9 +280,11 @@ export class OverviewComponent {
       balances: this.finance.getBalances(),
       recent: this.finance.getTransactions({ page: 1, pageSize: RECENT_COUNT }),
       payouts: this.finance.getPayouts(),
-      allocations: this.finance.getAllocations()
+      allocations: this.finance.getAllocations(),
+      obligations: this.finance.getObligations()
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: ({ balances, recent, payouts, allocations }) => {
+      next: ({ balances, recent, payouts, allocations, obligations }) => {
+        this.obligations.set(obligations);
         this.balances.set(balances);
         this.recent.set(recent.items);
         this.payouts.set(payouts);
@@ -350,9 +353,33 @@ function formatMoney(m: Money): string {
 // Derives what needs looking at from recorded data only; nothing here is a forecast or a guess
 export function attentionItems(
   balances: Balances | null, behaviour: BehaviourSummary | null,
-  payouts: Payout[] = [], allocations: Allocation[] = []
+  payouts: Payout[] = [], allocations: Allocation[] = [], obligations: Obligation[] = []
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
+
+  // Bills: late ones first, then those due within the warning window, then payments whose expense was reversed
+  for (const o of obligations.filter(x => x.standing === 'Overdue')) {
+    items.push({
+      tone: 'negative', title: `${o.name} is overdue`,
+      detail: `${formatMoney(o.amount)} was due on ${o.dueDate} and no payment is recorded.`,
+      link: '/finance/obligations', action: 'Record the payment'
+    });
+  }
+  const soon = obligations.filter(x => x.standing === 'DueSoon');
+  if (soon.length > 0) {
+    items.push({
+      tone: 'info', title: `${soon.length} ${soon.length === 1 ? 'obligation' : 'obligations'} due within 14 days`,
+      detail: soon.map(o => `${o.name} ${formatMoney(o.amount)} on ${o.dueDate}`).join('; ') + '.',
+      link: '/finance/obligations', action: 'View obligations'
+    });
+  }
+  for (const o of obligations.filter(x => x.payments.some(p => p.reversed))) {
+    items.push({
+      tone: 'warning', title: `A payment of ${o.name} was reversed`,
+      detail: 'The expense linked as its payment has since been reversed in the ledger, so that date may not be paid.',
+      link: '/finance/obligations', action: 'Review the payment'
+    });
+  }
 
   // Money has arrived but nobody has decided where it goes
   for (const payout of payouts.filter(p => p.status === 'Received' && !p.allocationId && p.credited)) {
@@ -403,6 +430,16 @@ export function attentionItems(
       });
     }
 
+    // A fund below the minimum set for it, in the minimum's currency
+    for (const fund of balances.funds) {
+      const standing = fundStanding(fund);
+      if (!standing?.belowMinimum || standing.balance.amount < 0) continue;   // below zero is its own warning
+      items.push({
+        tone: 'warning', title: `${fund.name} is below its minimum`,
+        detail: `${formatMoney(standing.balance)} against a minimum of ${formatMoney(fund.minimum!)}.`,
+        link: '/finance/funds', action: 'Review funds'
+      });
+    }
     // A fund can be spent below zero (the ledger records it rather than blocking it); say so per currency
     for (const fund of balances.funds) {
       const negative = fund.balances.filter(b => b.amount < 0);

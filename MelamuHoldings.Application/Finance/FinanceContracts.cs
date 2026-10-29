@@ -17,7 +17,8 @@ public record AccountDto(
     string? Institution, string? Notes, FinancialAccountStatus Status,
     MoneyDto Balance, IReadOnlyList<FundPositionDto> Funds, DateTime CreatedAt, DateTime? ClosedAt);
 
-public record FundDto(int Id, string Name, string? Description, bool IsSystem, IReadOnlyList<MoneyDto> Balances);
+// Minimum and Target are in one currency, compared with the fund's balance in that currency only
+public record FundDto(int Id, string Name, string? Description, bool IsSystem, IReadOnlyList<MoneyDto> Balances, MoneyDto? Minimum = null, MoneyDto? Target = null);
 
 public record EntryDto(int AccountId, string AccountName, int FundId, string FundName, decimal Amount, string Currency, LedgerEntryRole Role);
 
@@ -40,6 +41,11 @@ public class CreateFundRequest
 {
     [Required, MaxLength(Fund.MaxNameLength)] public string Name { get; set; } = string.Empty;
     [MaxLength(Fund.MaxDescriptionLength)] public string? Description { get; set; }
+
+    // Optional; ThresholdCurrency is required when either is given
+    public string? ThresholdCurrency { get; set; }
+    public decimal? Minimum { get; set; }
+    public decimal? Target { get; set; }
 }
 
 public class UpdateFundRequest : CreateFundRequest { }

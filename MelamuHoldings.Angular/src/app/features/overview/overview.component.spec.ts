@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { OverviewComponent, attentionItems } from './overview.component';
-import { Account, Allocation, Balances, Fund, Payout } from '../finance/finance.models';
+import { Account, Allocation, Balances, Fund, Obligation, Payout } from '../finance/finance.models';
 import { BehaviourSummary } from '../trading/models/analytics.model';
 import { environment } from '../../../environments/environment';
 
@@ -47,6 +47,32 @@ describe('attentionItems', () => {
     const item = items.find(i => i.title === 'Money not assigned to a fund')!;
     expect(item.detail).toContain('USD 350.00 and ZAR 13,250.50');
     expect(item.queryParams).toEqual({ type: 'reallocation' });
+  });
+
+  it('flags overdue obligations, those due within 14 days, and payments whose expense was reversed', () => {
+    const ob = (id: number, name: string, standing: Obligation['standing'], reversed = false): Obligation => ({
+      id, name, amount: { amount: 8500, currency: 'ZAR' }, recurrence: 'Monthly', firstDueDate: '2026-10-01', dueDate: '2026-10-25',
+      status: 'Active', standing, daysUntilDue: -4, createdAt: '',
+      payments: reversed ? [{ id: 1, transactionId: 9, dueDate: '2026-09-25', paidOn: '2026-09-24', amount: { amount: 8500, currency: 'ZAR' }, reversed: true }] : []
+    });
+    const items = attentionItems(null, null, [], [], [ob(1, 'Rent', 'Overdue'), ob(2, 'Insurance', 'DueSoon'), ob(3, 'Fibre', 'DueSoon'), ob(4, 'Software', 'Upcoming', true)]);
+
+    expect(items.map(i => i.title)).toEqual(['Rent is overdue', '2 obligations due within 14 days', 'A payment of Software was reversed']);
+    expect(items[0].tone).toBe('negative');
+    expect(items[1].detail).toContain('Insurance ZAR 8,500.00 on 2026-10-25');
+  });
+
+  it('flags a fund below its minimum, but leaves a fund below zero to its own warning', () => {
+    const withMinimum = (id: number, name: string, amount: number): Fund =>
+      ({ ...fund(id, name, amount === 0 ? [] : [{ amount, currency: 'ZAR' }]), minimum: { amount: 20000, currency: 'ZAR' } });
+    const items = attentionItems({
+      accounts: [account({})], cashTotals: [],
+      funds: [withMinimum(2, 'Operating Capital', 15000), withMinimum(4, 'Wealth Fund', 0), withMinimum(5, 'Owner\'s Distribution', -10), { ...withMinimum(6, 'Healthy', 25000) }]
+    }, null);
+
+    expect(items.filter(i => i.title.endsWith('below its minimum')).map(i => i.title)).toEqual(['Operating Capital is below its minimum', 'Wealth Fund is below its minimum']);
+    expect(items.find(i => i.title === 'Operating Capital is below its minimum')!.detail).toBe('ZAR 15,000.00 against a minimum of ZAR 20,000.00.');
+    expect(items.some(i => i.title === 'Owner\'s Distribution is below zero')).toBe(true);
   });
 
   it('flags a fund below zero in each currency where it is, with a link to its transactions', () => {
@@ -158,6 +184,7 @@ describe('OverviewComponent', () => {
     http.expectOne(r => r.url === `${api}/transactions`).flush({ items: [], page: 1, pageSize: 6, totalCount: 0, totalPages: 0 });
     http.expectOne(`${api}/payouts`).flush([]);
     http.expectOne(`${api}/allocations`).flush([]);
+    http.expectOne(`${api}/obligations`).flush([]);
   }
 
   function flushTrading(totalTrades: number) {
@@ -193,6 +220,7 @@ describe('OverviewComponent', () => {
       ...[3, 4, 5, 6].map(id => payout(id, 'Rejected', { rejectedOn: '2026-10-02' }))
     ]);
     http.expectOne(`${api}/allocations`).flush([]);
+    http.expectOne(`${api}/obligations`).flush([]);
     flushTrading(0);
     await fixture.whenStable();
 
@@ -217,8 +245,8 @@ describe('OverviewComponent', () => {
     const fixture = await render();
     http.expectOne(`${api}/balances`).flush(null, { status: 403, statusText: 'Forbidden' });
     // forkJoin abandons the other finance requests once the balances fail
-    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`].includes(r.url));
-    expect(others.length).toBe(3);
+    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`].includes(r.url));
+    expect(others.length).toBe(4);
     expect(others.every(r => r.cancelled)).toBe(true);
     flushTrading(0);
     await fixture.whenStable();

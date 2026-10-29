@@ -224,9 +224,39 @@ Earmarks move money between funds inside one account, so they net to zero here a
 
 **Warnings.** "Needs attention" on the same page is derived from records as of today, whatever the period:
 - **Payouts and allocations:** received payouts not allocated, allocations not fully settled, and payouts on the way (not cash).
-- **Money:** money left in Unallocated, accounts below zero, and funds below zero in any currency.
+- **Money:** money left in Unallocated, accounts below zero, funds below zero in any currency, and funds below their minimum (Phase 7.1).
+- **Obligations (Phase 7.1):** overdue ones, those due within 14 days, and payments whose expense was reversed.
 - **Setup:** no accounts, and ownership not stated.
 - **Trading:** critical trading-behaviour alerts.
+
+## Fund minimums and targets (Phase 7.1: implemented)
+
+Code: `Domain/Finance/Fund.cs` (`SetThresholds`), set through `PUT /api/funds/{id}`. Tests: `ObligationTests.cs` (unit), `ObligationEndpointTests.cs` (integration).
+
+| Rule | Behaviour |
+|---|---|
+| One currency | A fund's minimum and target are in one stated currency (`ThresholdCurrency`). A fund can hold several currencies; only its balance in that currency is compared, and nothing is converted. |
+| Valid levels | Minimum ≥ 0, target > 0, target ≥ minimum, whole minor units. Giving neither clears both and the currency. |
+| Not on Unallocated | The system fund has none: money there is waiting to be allocated. |
+| Below minimum | Balance in the currency < minimum. Shown on the Funds page and as a warning. A fund below zero gets the below-zero warning instead, not both. |
+| Progress | Balance ÷ target, shown between 0 % and 100 %. |
+| Audited | Thresholds are part of the fund's audit snapshot (before and after). |
+
+## Obligations (Phase 7.1: implemented)
+
+Code: `Domain/Finance/Obligation.cs`, `Application/Finance/ObligationService.cs`, `/api/obligations`.
+
+| Rule | Behaviour |
+|---|---|
+| What it is | A name, an amount in one currency, an optional category and notes, and how often it is due: once, monthly, quarterly or yearly. **It never moves money and never creates a ledger entry.** |
+| Due dates | The n-th due date is the first one plus n periods (months, quarters or years), so a monthly obligation first due on the 31st is due on the 28th in February and the 31st again in March. The next due date is the one after the last recorded payment. |
+| Paying | A payment is a **link** to an Expense transaction already in the ledger: same currency, not reversed, and not linked to another payment (unique index). The amount actually paid is recorded, even if it differs from the obligation's amount. A one-off is Completed by its payment. |
+| Undoing | Only the latest payment can be undone. The link is removed and the due date goes back; the expense stays in the ledger. |
+| A later reversal | If an expense is reversed after it was linked, the payment is marked "expense reversed" and a warning asks for it to be reviewed. Nothing is changed automatically. |
+| Changing | Name, amount, category and notes can change. The currency never changes, and the schedule (how often and the first date) is fixed once a payment is recorded. Cancelled and completed obligations cannot be changed. Two active obligations cannot share a name. |
+| Standing | Against today: **Overdue** (due date passed), **due soon** (within 14 days), **upcoming**, or **completed** or **cancelled**. |
+| Coming due | The Obligations page totals active obligations due within 30 days per currency, overdue ones included, and never across currencies. |
+| Audited | Created, updated, paid, payment undone and cancelled are each an audit event. |
 
 ## Storage
 

@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { FinanceApiService } from '../finance-api.service';
-import { Fund } from '../finance.models';
+import { CurrencyInfo, Fund, fundStanding } from '../finance.models';
 import { MoneyPipe } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
@@ -35,6 +35,23 @@ type LoadState = 'loading' | 'ready' | 'error';
               <input id="fund-desc" formControlName="description" />
             </div>
           </div>
+          @if (!editing()?.isSystem) {
+            <fieldset class="thresholds">
+              <legend>Minimum and target (optional)</legend>
+              <p class="small secondary">The level the fund should stay above, and the level to build it to. They are compared with the fund's balance in this currency only; nothing is converted.</p>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="fund-currency">Currency</label>
+                  <select id="fund-currency" formControlName="thresholdCurrency">
+                    <option value="">Choose…</option>
+                    @for (c of currencies(); track c.code) { <option [value]="c.code">{{ c.code }}</option> }
+                  </select>
+                </div>
+                <div class="field"><label for="fund-min">Minimum</label><input id="fund-min" type="number" min="0" step="0.01" formControlName="minimum" /></div>
+                <div class="field"><label for="fund-target">Target</label><input id="fund-target" type="number" min="0" step="0.01" formControlName="target" /></div>
+              </div>
+            </fieldset>
+          }
           @if (formError()) { <p class="notice notice-error" role="alert">{{ formError() }}</p> }
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" [disabled]="form.invalid || saving()">{{ saving() ? 'Saving…' : 'Save fund' }}</button>
@@ -53,7 +70,7 @@ type LoadState = 'loading' | 'ready' | 'error';
         @case ('ready') {
           <div class="card table-card">
             <table class="data-table">
-              <thead><tr><th>Fund</th><th>Purpose</th><th class="num">Balance</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+              <thead><tr><th>Fund</th><th>Purpose</th><th class="num">Balance</th><th>Minimum and target</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
               <tbody>
                 @for (f of funds(); track f.id) {
                   <tr>
@@ -65,6 +82,20 @@ type LoadState = 'loading' | 'ready' | 'error';
                     <td class="num">
                       @for (b of f.balances; track b.currency) { <div>{{ b.amount | money: b.currency }}</div> }
                       @empty { <span class="muted">Nothing recorded</span> }
+                    </td>
+                    <td class="small">
+                      @if (standing(f); as s) {
+                        <div>
+                          @if (f.minimum) { Minimum {{ f.minimum.amount | money: f.minimum.currency }} }
+                          @if (f.minimum && f.target) { · }
+                          @if (f.target) { Target {{ f.target.amount | money: f.target.currency }} }
+                        </div>
+                        @if (s.belowMinimum) { <span class="tag tag-negative">Below minimum</span> }
+                        @if (s.progress !== null) {
+                          <div class="progress" [attr.aria-label]="s.progress + '% of the target'"><div class="fill" [style.width.%]="s.progress"></div></div>
+                          <span class="muted">{{ s.progress }}% of the target</span>
+                        }
+                      } @else { <span class="muted">—</span> }
                     </td>
                     <td><button type="button" class="btn-link small" (click)="startEdit(f)">Edit</button></td>
                   </tr>
@@ -79,6 +110,10 @@ type LoadState = 'loading' | 'ready' | 'error';
   styles: [`
     .form-card { margin-bottom: 1.25rem; }
     .system { margin-left: 0.5rem; }
+    .thresholds { border: 0; padding: 0; margin: var(--space-4) 0 0; }
+    .thresholds legend { font-weight: 500; margin-bottom: var(--space-1); }
+    .progress { height: 6px; border-radius: 3px; background: var(--surface-sunken); overflow: hidden; margin: var(--space-1) 0; max-width: 160px; }
+    .progress .fill { height: 100%; background: var(--positive); }
   `]
 })
 export class FundsComponent {
@@ -93,14 +128,20 @@ export class FundsComponent {
   readonly editing = signal<Fund | null | undefined>(undefined);
   readonly saving = signal(false);
   readonly formError = signal('');
+  readonly currencies = signal<CurrencyInfo[]>([]);
+  readonly standing = fundStanding;
 
   readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
-    description: ['', Validators.maxLength(300)]
+    description: ['', Validators.maxLength(300)],
+    thresholdCurrency: [''],
+    minimum: [null as number | null],
+    target: [null as number | null]
   });
 
   constructor() {
     this.load();
+    this.api.getCurrencies().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: c => this.currencies.set(c), error: () => {} });
   }
 
   load(): void {
@@ -118,7 +159,11 @@ export class FundsComponent {
   }
 
   startEdit(fund: Fund): void {
-    this.form.setValue({ name: fund.name, description: fund.description ?? '' });
+    this.form.setValue({
+      name: fund.name, description: fund.description ?? '',
+      thresholdCurrency: fund.minimum?.currency ?? fund.target?.currency ?? '',
+      minimum: fund.minimum?.amount ?? null, target: fund.target?.amount ?? null
+    });
     this.formError.set('');
     this.editing.set(fund);
   }
@@ -126,7 +171,11 @@ export class FundsComponent {
   save(): void {
     if (this.form.invalid || this.saving()) return;
     const value = this.form.getRawValue();
-    const body = { name: value.name, description: value.description || undefined };
+    // The minimum and target are always sent: leaving them out clears them
+    const body = {
+      name: value.name, description: value.description || undefined,
+      thresholdCurrency: value.thresholdCurrency || null, minimum: value.minimum ?? null, target: value.target ?? null
+    };
     const editing = this.editing();
     const request: Observable<Fund> = editing ? this.api.updateFund(editing.id, body) : this.api.createFund(body);
 

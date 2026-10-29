@@ -49,6 +49,46 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-29 (branch `phase-7-1-funds-obligations`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 189 passed, 0 failed |
+| `dotnet test` (Release): integration | 103 passed, 0 failed |
+| `ng test --watch=false` | 171 passed, 0 failed (24 files) |
+| `ng build` (production) | Succeeded; initial bundle 310.51 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddFundThresholdsAndObligations` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+**New tests**
+- **Unit (`ObligationTests`):**
+  - **Due dates:** a monthly obligation first due on 31 January is due on 28 February and on 31 March. Quarterly and leap-year yearly dates are also checked.
+  - **Payments:** a payment records what was actually paid. Another currency, a reversed expense and an income are refused, and nothing refused is kept.
+  - **One-offs and undo:** a one-off is completed by its payment, and undoing restores it and the due date. There must be something to undo.
+  - **Standing:** overdue, due soon (today to 14 days), upcoming and cancelled.
+  - **Changes:** the schedule and currency are fixed once paid, and the next date is still counted from the first. Names, amounts and recurrence are validated.
+  - **Fund thresholds:** one currency, valid levels, whole minor units, none on the system fund, and clearing both clears the currency.
+- **Integration (`ObligationEndpointTests`):**
+  - **Candidates:** only unlinked, unreversed expenses in the obligation's currency are offered.
+  - **Paying:** a payment moves the due date on a month and is no longer a candidate. Reusing its expense is 409; a reversed or dollar expense is 422.
+  - **Later reversal and undo:** reversing the expense afterwards marks the payment reversed, and undo restores the date. The audit log holds created, paid and undone.
+  - **Names:** active names are unique (409), and a cancelled obligation frees its name and is listed only with `includeClosed`.
+  - **Refusals:** fractions of a cent, an unknown currency and an unknown recurrence are refused, as are an unknown id (404) and no token (401).
+  - **Fund thresholds:** saved, returned on the list, validated (422 without a currency, target below minimum, or on Unallocated), and cleared.
+- **Angular:**
+  - **Obligations page:** due within 30 days per currency (USD and ZAR apart) and the overdue count. A payment is recorded from a candidate, and the page then offers to record the next expense first. A new obligation's body, and the currency and schedule locked once paid.
+  - **Funds:** standing and progress (capped 0–100, other currencies ignored), the Funds page's below-minimum tag and progress, the save body always carrying the levels, and no levels on the system fund.
+  - **Overview warnings:** overdue, due soon and reversed-payment warnings, and below-minimum without a duplicate below-zero warning. The existing specs answer the new obligations request.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Overdue:** "Office rent", ZAR 8,500 monthly, first due 25 Oct, was added through the form. It showed as overdue, 4 days late, and the 30-day total as ZAR 8,500.00 for one payment.
+- **Paying it:** a scratch ZAR 8,500 rent expense (transaction 12) was recorded through the API. It was the only candidate offered (the scratch ledger's reversed ZAR 3,000 expense was left out). Linking it moved the due date to 25 Nov ("in 27 days") and set the overdue count to 0.
+- **Fund levels:** Operating Capital got a minimum of ZAR 5,000 and a target of ZAR 20,000 through the form. It showed "Below minimum" and "6.4% of the target" (1,282 ÷ 20,000), and the overview warned "Operating Capital is below its minimum".
+- **Later reversal:** reversing transaction 12 brought the overview's "A payment of Office rent was reversed" warning. The below-minimum warning went, because the reversal returned the money to the fund.
+- **Undo:** undoing the payment on the page put the due date back to 25 Oct, overdue, and the overview then warned "Office rent is overdue".
+- **Phone width and console:** the Obligations page has no overflow at phone width. The console had no errors after a fresh load.
+
 ## Results — 2026-10-29 (branch `phase-6-executive-overview`)
 
 | Command | Result |

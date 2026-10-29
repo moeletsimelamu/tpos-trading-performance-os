@@ -22,6 +22,7 @@ const PATHS = {
   allocation: 'M12 4v6M12 10l-6 5v5M12 10l6 5v5M12 10v10',
   transactions: 'M4 8h15l-3.5-3.5M20 16H5l3.5 3.5',
   audit: 'M9 3.5h6v3H9zM7 5H5v15h14V5h-2M9 13l2 2 4-4.5',
+  calendar: 'M5 6h14v14H5zM5 10h14M9 3.5V8M15 3.5V8M8.5 14h2M13.5 14h2M8.5 17h2',
   'sign-out': 'M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10',
   menu: 'M4 7h16M4 12h16M4 17h16',
   close: 'M6 6l12 12M18 6L6 18',

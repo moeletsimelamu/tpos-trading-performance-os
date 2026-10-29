@@ -33,6 +33,8 @@ public class AppDbContext : DbContext
     public DbSet<Payout> Payouts => Set<Payout>();
     public DbSet<AllocationPolicy> AllocationPolicies => Set<AllocationPolicy>();
     public DbSet<Allocation> Allocations => Set<Allocation>();
+    public DbSet<Obligation> Obligations => Set<Obligation>();
+    public DbSet<ObligationPayment> ObligationPayments => Set<ObligationPayment>();
 
     // Every time is written in UTC. SQL Server's datetime2 does not keep that, so values read back are marked
     // UTC again; the API then sends them with a 'Z' and browsers show them in local time.
@@ -75,6 +77,8 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new AllocationConfiguration());
         modelBuilder.ApplyConfiguration(new AllocationLineConfiguration());
         modelBuilder.ApplyConfiguration(new AllocationSettlementConfiguration());
+        modelBuilder.ApplyConfiguration(new ObligationConfiguration());
+        modelBuilder.ApplyConfiguration(new ObligationPaymentConfiguration());
         base.OnModelCreating(modelBuilder);
     }
 }

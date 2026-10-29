@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, CurrencyInfo, Fund, Overview, Ownership, Paged, Payout, PayoutStatus, RecordKind, Transaction, TransactionFilter } from './finance.models';
+import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, CurrencyInfo, Fund, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PayoutStatus, RecordKind, SaveFund, SaveObligation, Transaction, TransactionFilter } from './finance.models';
 
 export interface CreateAccountRequest {
   name: string; type: AccountType; currency: string; ownership: Ownership; institution?: string; notes?: string;
@@ -38,11 +38,11 @@ export class FinanceApiService {
     return this.http.get<Fund[]>(`${this.base}/funds`);
   }
 
-  createFund(request: { name: string; description?: string }): Observable<Fund> {
+  createFund(request: SaveFund): Observable<Fund> {
     return this.http.post<Fund>(`${this.base}/funds`, request);
   }
 
-  updateFund(id: number, request: { name: string; description?: string }): Observable<Fund> {
+  updateFund(id: number, request: SaveFund): Observable<Fund> {
     return this.http.put<Fund>(`${this.base}/funds/${id}`, request);
   }
 
@@ -146,6 +146,32 @@ export class FinanceApiService {
 
   cancelAllocation(id: number, reason: string): Observable<Allocation> {
     return this.http.post<Allocation>(`${this.base}/allocations/${id}/cancel`, { reason });
+  }
+
+  // Obligations: what the business has to pay. Payments link expenses already in the ledger; nothing here moves money.
+  getObligations(includeClosed = false): Observable<Obligation[]> {
+    const params = includeClosed ? new HttpParams().set('includeClosed', true) : undefined;
+    return this.http.get<Obligation[]>(`${this.base}/obligations`, { params });
+  }
+
+  saveObligation(id: number | null, request: SaveObligation): Observable<Obligation> {
+    return id ? this.http.put<Obligation>(`${this.base}/obligations/${id}`, request) : this.http.post<Obligation>(`${this.base}/obligations`, request);
+  }
+
+  cancelObligation(id: number): Observable<Obligation> {
+    return this.http.post<Obligation>(`${this.base}/obligations/${id}/cancel`, {});
+  }
+
+  getPaymentCandidates(id: number): Observable<PaymentCandidate[]> {
+    return this.http.get<PaymentCandidate[]>(`${this.base}/obligations/${id}/payment-candidates`);
+  }
+
+  recordObligationPayment(id: number, transactionId: number): Observable<Obligation> {
+    return this.http.post<Obligation>(`${this.base}/obligations/${id}/payments`, { transactionId });
+  }
+
+  undoObligationPayment(id: number): Observable<Obligation> {
+    return this.http.post<Obligation>(`${this.base}/obligations/${id}/payments/undo`, {});
   }
 
   private keyHeader(key: string): HttpHeaders {

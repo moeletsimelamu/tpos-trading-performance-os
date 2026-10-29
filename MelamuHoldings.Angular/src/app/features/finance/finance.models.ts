@@ -23,7 +23,41 @@ export interface Account {
   closedAt?: string | null;
 }
 
-export interface Fund { id: number; name: string; description?: string | null; isSystem: boolean; balances: Money[]; }
+// Minimum and target are in one currency and compared with the fund's balance in that currency only
+export interface Fund { id: number; name: string; description?: string | null; isSystem: boolean; balances: Money[]; minimum?: Money | null; target?: Money | null; }
+
+export interface SaveFund { name: string; description?: string; thresholdCurrency?: string | null; minimum?: number | null; target?: number | null; }
+
+// Where a fund stands against its minimum and target: its balance in their currency (0 when it holds none),
+// whether it is below the minimum, and how far it is towards the target (0 to 100)
+export function fundStanding(fund: Fund): { balance: Money; belowMinimum: boolean; progress: number | null } | null {
+  const currency = fund.minimum?.currency ?? fund.target?.currency;
+  if (!currency) return null;
+  const amount = fund.balances.find(b => b.currency === currency)?.amount ?? 0;
+  const target = fund.target?.amount;
+  return {
+    balance: { amount, currency },
+    belowMinimum: fund.minimum != null && amount < fund.minimum.amount,
+    progress: target ? Math.max(0, Math.min(100, Math.round(amount / target * 1000) / 10)) : null
+  };
+}
+
+// Obligations (Phase 7.1): what the business has to pay. Payments link expenses already in the ledger.
+export type Recurrence = 'None' | 'Monthly' | 'Quarterly' | 'Yearly';
+export const RECURRENCES: { value: Recurrence; label: string }[] = [
+  { value: 'None', label: 'Once' }, { value: 'Monthly', label: 'Monthly' }, { value: 'Quarterly', label: 'Quarterly' }, { value: 'Yearly', label: 'Yearly' }
+];
+export type ObligationStanding = 'Upcoming' | 'DueSoon' | 'Overdue' | 'Completed' | 'Cancelled';
+export interface ObligationPayment { id: number; transactionId: number; dueDate: string; paidOn: string; amount: Money; reversed: boolean; }
+export interface Obligation {
+  id: number; name: string; amount: Money; category?: string | null; recurrence: Recurrence; firstDueDate: string; dueDate: string;
+  status: 'Active' | 'Completed' | 'Cancelled'; standing: ObligationStanding; daysUntilDue: number; notes?: string | null;
+  payments: ObligationPayment[]; createdAt: string; updatedAt?: string | null;
+}
+export interface SaveObligation {
+  name: string; amount: number; currency: string; category?: string | null; recurrence: Recurrence; firstDueDate: string; notes?: string | null;
+}
+export interface PaymentCandidate { transactionId: number; date: string; description: string; category?: string | null; amount: Money; }
 
 // Principal entries move the money; fee entries record a charge taken along the way (kept visible, never netted)
 export type EntryRole = 'Principal' | 'Fee';

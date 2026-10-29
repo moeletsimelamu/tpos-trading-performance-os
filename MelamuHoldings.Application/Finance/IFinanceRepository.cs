@@ -66,6 +66,13 @@ public interface IFinanceRepository
     Task<Allocation?> GetActiveAllocationForPayoutAsync(int payoutId);
     Task<Allocation?> GetAllocationBySettlementTransactionAsync(int transactionId);
 
+    // Obligations come with their payments
+    Task<List<Obligation>> GetObligationsAsync();
+    Task<Obligation?> GetObligationAsync(int id);
+
+    // Which of the given transactions are already the payment of an obligation
+    Task<HashSet<int>> GetLinkedPaymentTransactionIdsAsync(IEnumerable<int> transactionIds);
+
     void Add(Fund fund);
     void Add(FinancialAccount account);
     void Add(LedgerTransaction transaction);
@@ -73,6 +80,7 @@ public interface IFinanceRepository
     void Add(Payout payout);
     void Add(AllocationPolicy policy);
     void Add(Allocation allocation);
+    void Add(Obligation obligation);
 
     // Saves everything added or changed. Throws UniqueConstraintViolationException when a unique index rejects the write,
     // and ConflictException when another request changed a row (payout, allocation) since it was read.

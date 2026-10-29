@@ -24,7 +24,9 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Richer strategies (journal gap 4) are complete on branch `journal-richer-strategies`, cut from `journal-answer-breakdowns`: rule categories, the instruments and sessions a strategy is for, and a default journal template. Gaps 1–4 of `docs/JOURNAL_REVIEW.md` are closed; the smaller documented limitations remain.
 - PR #3 (Phases 3–5, the trading journal J1–J8 and its four follow-ups) was merged into `main` on 2026-10-29.
 - Phase 6 (Executive Overview) is complete on branch `phase-6-executive-overview`, cut from `main`: period filters, money in and out per currency by type and by month, payouts received, recent payouts, drill-down to the ledger for every figure, and the fund-below-zero warning.
-- Next: Phase 7 (continuity and wealth), or one of the smaller journal limitations, at the owner's choice.
+- PR #4 (Phase 6) was merged into `main` on 2026-10-29.
+- Phase 7 is staged (§7b; decisions D6–D8). P7.1 (fund minimum and target, obligations and their warnings) is complete on branch `phase-7-1-funds-obligations`, cut from `main`.
+- Next: P7.2 (continuity).
 
 ---
 
@@ -356,6 +358,18 @@ Each phase ends with a build, all tests green, a browser check of the touched pa
 | **9 — Planning and reporting** | Objectives and milestones linked to financial targets; monthly cash-flow report; allocation history report. | Reports built only on stored data |
 | **10 — Hardening** | Full regression run; security review; migration replay; UI and accessibility pass; README and screenshots; deployment documentation; `docs/REVIEW.md`. | Definition of Done (prompt §19 plus the supplementary §9) met, with known limitations listed |
 
+### 7b. Phase 7 stages (2026-10-29)
+
+Phase 7 is delivered in stages, each on its own branch cut from the previous one, with the formulas in `docs/FINANCIAL_DOMAIN.md` and unit tests:
+
+| Stage | Scope |
+|---|---|
+| **P7.1** ✅ | Fund minimum and target (one currency per fund); obligations (one-off or recurring, a due date that advances without drift, payments linked to existing expense transactions, never created by the system); warnings for a fund below its minimum, an obligation overdue or due within 14 days, and a payment whose expense was reversed |
+| **P7.2** | Continuity (D6–D8): the Trading Restoration fund; the continuity target (months, default 24, and the monthly essential expense in ZAR) and the restoration target; coverage in months and the shortfall; earmarked versus physically separated continuity money; a warning below target |
+| **P7.3** | Investments: valuation snapshots on brokerage accounts; net contributions from the ledger; unrealised gain or loss, labelled unrealised |
+| **P7.4** | Budgets per month and category with budget versus actual from expense categories; planned purchases (Proposed → Committed → Purchased with a linked expense, or Cancelled) and the "can it be afforded without breaching the operating minimum" check; warnings for an exceeded budget and a purchase that would breach the minimum |
+| **P7.5** | Verification and documentation |
+
 ### 7a. Trading journal and AI-assisted review (owner brief, 2026-10-27)
 
 The trading journal becomes a first-class workflow. It covers:
@@ -476,3 +490,6 @@ Melamu Holdings OS stays fully usable on its own. No integration code is written
 | D3 | Currencies | Payouts can arrive in a different currency from the bank accounts, so recording a `CurrencyExchange` (with its rate) is part of Phase 4, not later. |
 | D4 | Branching | A feature branch per phase off `develop` (`phase-2-stabilise` first); nothing pushed without approval. |
 | D5 | `TraderDashboard` data | Test data only. Development moved to a fresh `MelamuHoldings` database; `TraderDashboard` is untouched and can be dropped by the owner. |
+| D6 | Where trading-restoration capital is held (2026-10-29) | A new **Trading Restoration** fund, separate from Business Continuity, so no money counts towards both targets. |
+| D7 | Continuity currency (2026-10-29) | **ZAR.** The 24-month target and the monthly essential expense are in rand. Continuity money held in another currency is shown beside it, unconverted, and not counted towards coverage. |
+| D8 | Monthly essential expense (2026-10-29) | **Entered by the owner.** It is not derived from flagged expenses (that can be added later without changing the target). |
