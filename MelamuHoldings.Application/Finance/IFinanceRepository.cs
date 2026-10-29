@@ -6,6 +6,7 @@ namespace MelamuHoldings.Application.Finance;
 // One (account, fund, currency) bucket of money, summed from ledger entries
 public record PositionRow(int FinancialAccountId, int FundId, Currency Currency, decimal Amount);
 
+// CashOnly keeps transactions with an entry in a Bank or Cash account, the accounts the overview's figures cover
 public record TransactionQuery(
     DateOnly? From = null,
     DateOnly? To = null,
@@ -13,7 +14,12 @@ public record TransactionQuery(
     int? AccountId = null,
     int? FundId = null,
     int Page = 1,
-    int PageSize = 25);
+    int PageSize = 25,
+    bool CashOnly = false);
+
+// Entries in Bank and Cash accounts summed per day, transaction type, entry role and currency, with how many
+// transactions they came from
+public record CashEntryRow(DateOnly Date, LedgerTransactionType Type, LedgerEntryRole Role, string Currency, decimal Amount, int Transactions);
 
 public interface IFinanceRepository
 {
@@ -36,6 +42,9 @@ public interface IFinanceRepository
     Task<Dictionary<int, int>> GetReversalIdsAsync(IEnumerable<int> transactionIds);
 
     Task<List<PositionRow>> GetPositionsAsync(DateOnly? asOf = null);
+
+    // Every Bank and Cash entry dated on or before the given day, grouped (see CashEntryRow)
+    Task<List<CashEntryRow>> GetCashEntriesAsync(DateOnly to);
     Task<decimal> GetAccountBalanceAsync(int accountId);
 
     Task<PagedResult<AuditEvent>> GetAuditEventsAsync(int page, int pageSize);

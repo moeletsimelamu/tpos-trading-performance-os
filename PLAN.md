@@ -22,7 +22,9 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Questions about the journal (journal gap 2) are complete on branch `journal-ai-questions`, cut from `journal-change-history`: "Ask about these trades" on Performance and Behaviour, bounded to the most recent closed trades in the filter, with the app's figures kept apart. Checked against a stub, not a real model.
 - Results by journal answer and adherence over time (journal gap 3) are complete on branch `journal-answer-breakdowns`, cut from `journal-ai-questions`.
 - Richer strategies (journal gap 4) are complete on branch `journal-richer-strategies`, cut from `journal-answer-breakdowns`: rule categories, the instruments and sessions a strategy is for, and a default journal template. Gaps 1–4 of `docs/JOURNAL_REVIEW.md` are closed; the smaller documented limitations remain.
-- Next: Phase 6, or one of the smaller journal limitations, at the owner's choice.
+- PR #3 (Phases 3–5, the trading journal J1–J8 and its four follow-ups) was merged into `main` on 2026-10-29.
+- Phase 6 (Executive Overview) is complete on branch `phase-6-executive-overview`, cut from `main`: period filters, money in and out per currency by type and by month, payouts received, recent payouts, drill-down to the ledger for every figure, and the fund-below-zero warning.
+- Next: Phase 7 (continuity and wealth), or one of the smaller journal limitations, at the owner's choice.
 
 ---
 
@@ -332,7 +334,7 @@ Done between Phases 4 and 5, so every page from Phase 5 onwards is built on the 
   - recent ledger activity;
   - a trading summary labelled as not business cash.
 
-  Income and expense by period remain Phase 6 work, behind `GET /api/overview`.
+  Income and expense by period were added in Phase 6, behind `GET /api/overview`.
 - **Performance:** a metric strip, a readable equity curve, and one breakdown table (strategy, day, session) instead of three bar charts.
 - **Unchanged:** API contracts, calculations and domain logic. The profit-factor defect is still scheduled for Phase 8.
 
@@ -348,7 +350,7 @@ Each phase ends with a build, all tests green, a browser check of the touched pa
 | **3 — Foundation** ✅ | Module folders (the `MelamuHoldings.*` rename was done in Phase 2). Drop the never-written `BehaviourAlerts` table. New layout and navigation with status labels. Brand identity. `Money`/`Currency` domain types. `finance` schema conventions (the schema itself is created by Phase 4's first migration). Backup procedure documented. | All existing features reachable and working under the new navigation; migrations apply from scratch and to the existing databases |
 | **4 — Accounts and ledger** ✅ | Funds, financial accounts, ledger transactions and entries; income, expense, transfer, reallocation, opening balance, reversal, currency exchange. Balances by account and by fund. Audit events. Transaction list with filters and pagination. | Domain tests for every invariant in §3.2; API integration tests including 401, 400, 409 and idempotent retry; balances reconcile to entries |
 | **5 — Payouts and allocation (first milestone)** ✅ | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. Outstanding allocations added to the Executive overview (cash and fund positions are already there). | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
-| **6 — Executive Overview** | Period filters; income and expenses by period; net cash movement (labelled as cash movement, not profit); recent payouts; drill-down links to records; warnings panel. | Every figure traceable to a record list |
+| **6 — Executive Overview** ✅ | Period filters; income and expenses by period; net cash movement (labelled as cash movement, not profit); recent payouts; drill-down links to records; warnings panel. | Every figure traceable to a record list |
 | **7 — Continuity and wealth** | Obligations, continuity targets (24-month essential cover plus a separate restoration target), coverage months, earmarked versus physically separated view; investment accounts, contributions, valuation snapshots, unrealised gain/loss; budgets and planned purchases with budget-versus-actual. | Formulas documented in `FINANCIAL_DOMAIN.md` and unit-tested |
 | **8 — Trading integration** | Prop firm accounts with configurable rules and status history; trades linked to accounts; fees and resets as expenses; payouts linked to accounts; per-user strategies with CRUD; CSV duplicate detection; analytics fixes (profit factor, drawdown, date filters). | Existing analytics unchanged except the documented definition fixes; tests prove it |
 | **9 — Planning and reporting** | Objectives and milestones linked to financial targets; monthly cash-flow report; allocation history report. | Reports built only on stored data |

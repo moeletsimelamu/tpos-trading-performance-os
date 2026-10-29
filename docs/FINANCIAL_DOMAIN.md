@@ -86,7 +86,7 @@ All balances are summed from entries. None is stored.
 
 Money that is earmarked but has not physically moved shows as a fund balance inside the original account (for example "Operating ZAR · Business Continuity"). Physically separated money shows in its own account. Both are visible side by side on the Accounts page.
 
-Balances may go negative (for example, an expense from a fund that holds less). This is shown as recorded rather than blocked; warnings are Phase 6.
+Balances may go negative (for example, an expense from a fund that holds less). This is shown as recorded rather than blocked; the Executive overview warns about an account or a fund below zero (Phase 6).
 
 ### Safe retries (idempotency)
 
@@ -195,6 +195,38 @@ The settlement amount is in the allocation's currency (the payout's credited cur
 | Duplicate name, reused idempotency key with a different body, already reversed, payout already allocated, a concurrent change to the same payout or allocation | 409 |
 
 All errors are returned as ProblemDetails.
+
+## Executive overview: period figures (Phase 6: implemented)
+
+Code: `Application/Finance/OverviewService.cs`, `GET /api/overview?from&to` (this month to date by default; at most 10 years; `from` after `to` is 422). Tests: `OverviewEndpointTests.cs`.
+
+**Scope.** Every figure is summed from ledger entries in **Bank and Cash** accounts, the same scope as the cash totals, per currency. Brokerage and Other accounts are outside it.
+
+**Lines.** Each entry falls in exactly one line, decided by its transaction's type:
+
+| Line | Entries | Ledger list it matches |
+|---|---|---|
+| Cash at the start | Every entry dated before `from` | (balances as of the day before) |
+| Income received | Income entries in the period; shown with their gross (principal) and the fees deducted (fee entries) | `type=Income` |
+| Expenses | Expense entries | `type=Expense` |
+| Currency exchanges | Exchange entries, conversion fees included | `type=CurrencyExchange` |
+| Transfers | Transfer entries; between two bank or cash accounts they cancel out, so only money moved to or from Brokerage and Other accounts remains | `type=Transfer` |
+| Reversals (corrections) | Reversal entries, on the reversal's own date | `type=Reversal` |
+| **Net cash movement** | The sum of the five lines above: what came in less what went out. **Not profit.** | |
+| Opening balances recorded | Opening-balance entries in the period: money that existed before it was recorded, so not a movement | `type=OpeningBalance` |
+| Cash at the end | Cash at the start + net cash movement + opening balances recorded, which equals the cash totals as of `to` | |
+
+Earmarks move money between funds inside one account, so they net to zero here and have no line. Every ledger list is filtered by the same dates and `cash=true` (transactions with an entry in a Bank or Cash account), so a figure and its list always contain the same transactions.
+
+**By month.** The same income, expenses and net cash movement for each calendar month in the period (clipped at its ends), per currency, with a link per figure; only the most recent 24 months are returned.
+
+**Payouts received.** Payouts with status Received and a receipt date in the period, summed by credited currency. A receipt that was undone returns the payout to Approved, so it no longer counts.
+
+**Warnings.** "Needs attention" on the same page is derived from records as of today, whatever the period:
+- **Payouts and allocations:** received payouts not allocated, allocations not fully settled, and payouts on the way (not cash).
+- **Money:** money left in Unallocated, accounts below zero, and funds below zero in any currency.
+- **Setup:** no accounts, and ownership not stated.
+- **Trading:** critical trading-behaviour alerts.
 
 ## Storage
 

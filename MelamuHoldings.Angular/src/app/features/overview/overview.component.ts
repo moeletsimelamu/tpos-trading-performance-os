@@ -12,6 +12,7 @@ import { LoadErrorComponent } from '../../shared/load-error.component';
 import { describeHttpError } from '../../shared/http-error';
 import { PageHeaderComponent } from '../../shared/ui/page-header.component';
 import { IconComponent, IconName } from '../../shared/ui/icon.component';
+import { OverviewPeriodComponent } from './overview-period.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -26,11 +27,12 @@ export interface AttentionItem {
 }
 
 const RECENT_COUNT = 6;
+const RECENT_PAYOUTS = 5;
 
 @Component({
   selector: 'app-executive-overview',
   standalone: true,
-  imports: [DecimalPipe, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent, IconComponent],
+  imports: [DecimalPipe, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent, IconComponent, OverviewPeriodComponent],
   template: `
     <div class="page">
       <app-page-header section="Overview" title="Executive overview"
@@ -75,6 +77,8 @@ const RECENT_COUNT = 6;
               }
             </section>
 
+            <app-overview-period />
+
             <div class="grid">
               <section class="card table-card" aria-labelledby="funds-heading">
                 <div class="card-header">
@@ -116,7 +120,7 @@ const RECENT_COUNT = 6;
                     <li class="attention-item clear"><app-icon name="check" [size]="18" /><p>Nothing in the recorded data needs attention.</p></li>
                   }
                 </ul>
-                <p class="coverage">Checks cover recorded accounts, funds, payouts, allocations and trades. Obligations, budgets and reserve targets are not tracked yet.</p>
+                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations and trades. Obligations, budgets and reserve targets are not tracked yet.</p>
               </section>
             </div>
 
@@ -151,6 +155,32 @@ const RECENT_COUNT = 6;
                 }
               </section>
 
+              <div class="stack">
+              <section class="card table-card" aria-labelledby="payouts-heading">
+                <div class="card-header">
+                  <h2 id="payouts-heading">Recent payouts</h2>
+                  <a class="small" routerLink="/finance/payouts">All payouts</a>
+                </div>
+                @if (recentPayouts().length > 0) {
+                  <table class="data-table">
+                    <thead><tr><th>Payout</th><th>Status</th><th class="num">Amount</th></tr></thead>
+                    <tbody>
+                      @for (p of recentPayouts(); track p.id) {
+                        <tr>
+                          <td><a [routerLink]="['/finance/payouts', p.id]">#{{ p.id }} {{ p.source }}</a><div class="small muted">{{ payoutDate(p) }}</div></td>
+                          <td><span [class]="'tag ' + payoutTone(p)">{{ p.status }}</span></td>
+                          <td class="num">
+                            {{ payoutAmount(p).amount | money: payoutAmount(p).currency }}
+                            @if (p.status === 'Requested' || p.status === 'Approved') { <div class="small muted">not cash yet</div> }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                } @else {
+                  <p class="empty-state small">No payouts recorded yet. <a routerLink="/finance/payouts">Record a payout</a></p>
+                }
+              </section>
               <section class="card trading" aria-labelledby="trading-heading">
                 <div class="card-header">
                   <h2 id="trading-heading">Trading operations</h2>
@@ -176,6 +206,7 @@ const RECENT_COUNT = 6;
                   }
                 }
               </section>
+              </div>
             </div>
           }
         }
@@ -185,7 +216,9 @@ const RECENT_COUNT = 6;
   styles: [`
     .grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--space-5); margin-top: var(--space-5); }
     @media (max-width: 1099px) { .grid { grid-template-columns: minmax(0, 1fr); } }
-    .grid > .card { align-self: start; }
+    .grid > .card, .grid > .stack { align-self: start; }
+    .stack { display: grid; gap: var(--space-5); }
+    .stack > .card { padding: 0; }
     .tag { margin-left: var(--space-2); }
     .attention, .trading { padding: 0; }
     .attention-list { list-style: none; }
@@ -232,6 +265,8 @@ export class OverviewComponent {
 
   readonly activeAccounts = computed(() => this.balances()?.accounts.filter(a => a.status === 'Active').length ?? 0);
   readonly attention = computed(() => attentionItems(this.balances(), this.behaviour(), this.payouts(), this.allocations()));
+  // The latest payouts recorded, whatever their status
+  readonly recentPayouts = computed(() => [...this.payouts()].sort((a, b) => b.id - a.id).slice(0, RECENT_PAYOUTS));
 
   constructor() {
     this.loadFinance();
@@ -284,6 +319,19 @@ export class OverviewComponent {
     if (net.length > 0) return net;
     const moved = t.entries.find(e => e.amount > 0);
     return moved ? [{ currency: moved.currency, amount: moved.amount }] : [];
+  }
+
+  // What a payout amounts to so far: credited once received, otherwise the approved or requested amount
+  payoutAmount(p: Payout): Money {
+    return p.credited ?? p.approved ?? p.requested;
+  }
+
+  payoutDate(p: Payout): string {
+    return p.status === 'Received' ? `Received ${p.receivedOn}` : p.status === 'Rejected' ? `Rejected ${p.rejectedOn}` : `Requested ${p.requestedOn}`;
+  }
+
+  payoutTone(p: Payout): string {
+    return p.status === 'Received' ? 'tag-positive' : p.status === 'Rejected' ? 'tag-negative' : 'tag-warning';
   }
 
   iconFor(item: AttentionItem): IconName {
@@ -355,6 +403,16 @@ export function attentionItems(
       });
     }
 
+    // A fund can be spent below zero (the ledger records it rather than blocking it); say so per currency
+    for (const fund of balances.funds) {
+      const negative = fund.balances.filter(b => b.amount < 0);
+      if (negative.length === 0) continue;
+      items.push({
+        tone: 'negative', title: `${fund.name} is below zero`,
+        detail: `Recorded fund balance ${negative.map(formatMoney).join(' and ')}: more was spent or moved out of it than it held. Earmark money into it or check its entries.`,
+        link: '/finance/transactions', queryParams: { fundId: fund.id }, action: 'Review its transactions'
+      });
+    }
     for (const account of active.filter(a => a.balance.amount < 0)) {
       items.push({
         tone: 'negative', title: `${account.name} is below zero`,
