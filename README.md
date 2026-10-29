@@ -18,9 +18,13 @@ A unified operating system for managing trading operations, financial performanc
 
 The landing page shows the business as recorded:
 - cash by currency (never added across currencies);
+- **money in and out for a period** (this month, last month, this quarter, year to date, the last 12 months or any dates), per currency, from bank and cash accounts:
+  - **The cash movement:** cash at the start, then income received (gross and fees deducted), expenses, currency exchanges, transfers and reversals. Then the net cash movement (labelled as cash movement, not profit), opening balances recorded and cash at the end.
+  - **Totals:** income, expenses and net cash movement month by month, and the payouts received.
+  - **Every figure links** to the ledger list it is summed from, with the same dates and type;
 - fund positions;
-- what needs attention, derived from records: unallocated money, accounts below zero, ownership not stated, critical trading-behaviour alerts;
-- recent ledger activity;
+- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, ownership not stated, critical trading-behaviour alerts;
+- recent payouts with their status, and recent ledger activity;
 - a trading summary, labelled as not business cash until a payout is recorded.
 
 ## What works today: trading operations
@@ -261,9 +265,10 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |
 | POST | `/api/transactions/{opening-balance\|income\|expense\|transfer\|reallocation\|exchange}` | Record a money movement |
 | POST | `/api/transactions/{id}/reverse` | Reverse a transaction (once, with a reason) |
-| GET | `/api/transactions` | The ledger; filter by `from`, `to`, `type`, `accountId`, `fundId`; paged |
+| GET | `/api/transactions` | The ledger; filter by `from`, `to`, `type`, `accountId`, `fundId` and `cash` (bank and cash accounts only); paged |
 | GET | `/api/transactions/{id}` | One transaction with its entries |
 | GET | `/api/balances?asOf=` | Account, fund and cash balances, optionally as of a date |
+| GET | `/api/overview?from=&to=` | Cash movement in bank and cash accounts for a period (this month to date by default): per currency, per type and per month, and payouts received |
 | GET | `/api/audit-events` | Audit log, newest first, paged |
 | GET | `/api/currencies` | Supported currencies |
 | GET / POST | `/api/payouts` | List payouts (optional `status`) / record a payout request |

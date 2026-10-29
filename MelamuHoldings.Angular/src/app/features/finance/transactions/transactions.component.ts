@@ -49,6 +49,7 @@ const PAGE_SIZE = 25;
             @for (f of funds(); track f.id) { <option [ngValue]="f.id">{{ f.name }}</option> }
           </select>
         </div>
+        <label class="check"><input type="checkbox" name="cash" [(ngModel)]="draft.cash" />Bank and cash accounts only</label>
         <div class="filter-actions">
           <button type="submit" class="btn">Apply</button>
           <button type="button" class="btn-link small" (click)="clearFilters()">Clear</button>
@@ -134,6 +135,8 @@ const PAGE_SIZE = 25;
   styles: [`
     .filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; margin-bottom: 1rem; padding: 1rem; }
     .filter-actions { display: flex; gap: 0.75rem; align-items: center; padding-bottom: 0.3rem; }
+    .check { display: flex; gap: var(--space-2); align-items: center; font-size: var(--text-sm); padding-bottom: 0.55rem; white-space: nowrap; }
+    .check input { height: auto; }
     .row { cursor: pointer; &:hover { background: var(--surface-hover); } }
     .row-toggle { color: var(--text-primary); text-align: left; }
     .entry { display: flex; justify-content: space-between; gap: 1rem; }
@@ -238,7 +241,7 @@ export class TransactionsComponent {
       relativeTo: this.route,
       queryParams: {
         from: filter.from || null, to: filter.to || null, type: filter.type || null,
-        accountId: filter.accountId || null, fundId: filter.fundId || null,
+        accountId: filter.accountId || null, fundId: filter.fundId || null, cash: filter.cash ? 'true' : null,
         page: filter.page > 1 ? filter.page : null
       }
     });
@@ -253,6 +256,7 @@ function filterFrom(params: ParamMap): TransactionFilter {
     type: (params.get('type') as TransactionType | null) ?? '',
     accountId: number('accountId'),
     fundId: number('fundId'),
+    cash: params.get('cash') === 'true',
     page: number('page') ?? 1,
     pageSize: PAGE_SIZE
   };

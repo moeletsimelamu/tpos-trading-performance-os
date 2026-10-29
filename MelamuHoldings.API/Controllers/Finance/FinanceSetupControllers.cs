@@ -62,13 +62,19 @@ public class FinancialAccountsController : FinanceControllerBase
 public class FinanceOverviewController : FinanceControllerBase
 {
     private readonly LedgerService _ledger;
+    private readonly OverviewService _overview;
     private readonly IFinanceRepository _repository;
 
-    public FinanceOverviewController(LedgerService ledger, IFinanceRepository repository)
+    public FinanceOverviewController(LedgerService ledger, OverviewService overview, IFinanceRepository repository)
     {
         _ledger = ledger;
+        _overview = overview;
         _repository = repository;
     }
+
+    // Cash movement in bank and cash accounts over a period (this month to date by default), by type, month and currency
+    [HttpGet("overview")]
+    public async Task<IActionResult> Overview(DateOnly? from, DateOnly? to) => Ok(await _overview.GetAsync(from, to));
 
     // Balances per account (with fund breakdown), per fund (per currency) and cash totals, optionally as of a date
     [HttpGet("balances")]

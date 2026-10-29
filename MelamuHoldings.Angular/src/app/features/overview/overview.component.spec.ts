@@ -49,6 +49,20 @@ describe('attentionItems', () => {
     expect(item.queryParams).toEqual({ type: 'reallocation' });
   });
 
+  it('flags a fund below zero in each currency where it is, with a link to its transactions', () => {
+    const items = attentionItems({
+      accounts: [account({})],
+      funds: [fund(2, 'Operating Capital', [{ amount: -120, currency: 'ZAR' }, { amount: 50, currency: 'USD' }]), fund(3, 'Wealth Fund', [{ amount: 10, currency: 'ZAR' }])],
+      cashTotals: []
+    }, null);
+
+    const below = items.filter(i => i.title.endsWith('is below zero'));
+    expect(below.map(i => i.title)).toEqual(['Operating Capital is below zero']);
+    expect(below[0].detail).toContain('ZAR -120.00');
+    expect(below[0].detail).not.toContain('USD');
+    expect(below[0].queryParams).toEqual({ fundId: 2 });
+  });
+
   it('flags negative balances and unstated ownership on active accounts only', () => {
     const items = attentionItems({
       accounts: [
@@ -126,7 +140,12 @@ describe('OverviewComponent', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  // The period section loads its own figures once the finance position shows; tested in overview-period.spec.ts
+  afterEach(() => {
+    http.match(r => r.url === `${api}/overview`).filter(r => !r.cancelled)
+      .forEach(r => r.flush({ from: '2026-10-01', to: '2026-10-29', currencies: [], months: [], monthsTruncated: false, payoutsReceived: [] }));
+    http.verify();
+  });
 
   async function render() {
     const fixture = TestBed.createComponent(OverviewComponent);
@@ -159,6 +178,28 @@ describe('OverviewComponent', () => {
     expect(strip).toContain('USD 350.00');
     expect(strip).toContain('ZAR 16,250.50');
     expect(strip).not.toContain('16,600.50');
+  });
+
+  it('lists the latest payouts with their status, and says which are not cash yet', async () => {
+    const fixture = await render();
+    const payout = (id: number, status: Payout['status'], extra: Partial<Payout> = {}): Payout => ({
+      id, source: 'Prop firm', status, requested: { amount: 1000, currency: 'USD' }, requestedOn: '2026-10-01', createdAt: '', ...extra
+    });
+    http.expectOne(`${api}/balances`).flush(balances);
+    http.expectOne(r => r.url === `${api}/transactions`).flush({ items: [], page: 1, pageSize: 6, totalCount: 0, totalPages: 0 });
+    http.expectOne(`${api}/payouts`).flush([
+      payout(1, 'Received', { credited: { amount: 950, currency: 'USD' }, receivedOn: '2026-10-05', receivedIntoAccountName: 'Operating', allocationId: 3 }),
+      payout(2, 'Approved', { approved: { amount: 800, currency: 'USD' } }),
+      ...[3, 4, 5, 6].map(id => payout(id, 'Rejected', { rejectedOn: '2026-10-02' }))
+    ]);
+    http.expectOne(`${api}/allocations`).flush([]);
+    flushTrading(0);
+    await fixture.whenStable();
+
+    const rows = [...(fixture.nativeElement as HTMLElement).querySelectorAll('section[aria-labelledby="payouts-heading"] tbody tr')];
+    expect(rows.map(r => r.querySelector('a')!.textContent)).toEqual(['#6 Prop firm', '#5 Prop firm', '#4 Prop firm', '#3 Prop firm', '#2 Prop firm']);   // newest five
+    expect(rows[4].textContent).toContain('USD 800.00');
+    expect(rows[4].textContent).toContain('not cash yet');
   });
 
   it('labels trading P&L as not business cash', async () => {

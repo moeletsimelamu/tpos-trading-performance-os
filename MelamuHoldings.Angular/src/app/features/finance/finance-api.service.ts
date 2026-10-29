@@ -2,11 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import {
-  Account, AuditEvent, Balances, CurrencyInfo, Fund, Ownership, AccountType,
-  Paged, RecordKind, Transaction, TransactionFilter,
-  Allocation, AllocationPolicy, AllocationPreview, Payout, PayoutStatus
-} from './finance.models';
+import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, CurrencyInfo, Fund, Overview, Ownership, Paged, Payout, PayoutStatus, RecordKind, Transaction, TransactionFilter } from './finance.models';
 
 export interface CreateAccountRequest {
   name: string; type: AccountType; currency: string; ownership: Ownership; institution?: string; notes?: string;
@@ -57,7 +53,16 @@ export class FinanceApiService {
     if (filter.type) params = params.set('type', filter.type);
     if (filter.accountId) params = params.set('accountId', filter.accountId);
     if (filter.fundId) params = params.set('fundId', filter.fundId);
+    if (filter.cash) params = params.set('cash', true);
     return this.http.get<Paged<Transaction>>(`${this.base}/transactions`, { params });
+  }
+
+  // This month to date unless a period is given
+  getOverview(from?: string, to?: string): Observable<Overview> {
+    let params = new HttpParams();
+    if (from) params = params.set('from', from);
+    if (to) params = params.set('to', to);
+    return this.http.get<Overview>(`${this.base}/overview`, { params });
   }
 
   // The idempotency key makes a retry after a lost response safe: the server returns the original instead of posting twice

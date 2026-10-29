@@ -26,7 +26,8 @@ MelamuHoldings.Application/     depends on Domain
   Finance/      LedgerPosting (the one path every ledger transaction takes: idempotency, save, audit),
                 LedgerService (direct money movements), PayoutService, AllocationService (policies,
                 preview, confirm, settle), FinanceSetupService (funds, accounts),
-                FinanceReadModel (balances from entries), AuditLog, Idempotency, request/response contracts,
+                FinanceReadModel (balances from entries), OverviewService (period cash movement by type and month),
+                AuditLog, Idempotency, request/response contracts,
                 IFinanceRepository
 MelamuHoldings.Infrastructure/  depends on Application and Domain
   Persistence/  AppDbContext (stored times are read back as UTC), Configurations/<Module>/, Migrations/, Repositories/

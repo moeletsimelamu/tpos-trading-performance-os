@@ -58,7 +58,21 @@ export interface CurrencyInfo { code: string; minorUnits: number; }
 
 export interface TransactionFilter {
   from?: string; to?: string; type?: TransactionType | ''; accountId?: number | null; fundId?: number | null;
+  // Only transactions touching a Bank or Cash account: the scope of the overview's figures
+  cash?: boolean;
   page: number; pageSize: number;
+}
+
+// The Executive Overview's period figures (Phase 6). Summed from bank and cash ledger entries by transaction type;
+// each line is the ledger list for that type and period. Net cash movement is cash movement, not profit.
+export interface CashLine { type: TransactionType; label: string; amount: number; transactions: number; gross?: number | null; fees?: number | null; }
+export interface CurrencyPeriod {
+  currency: string; cashAtStart: number; movements: CashLine[]; netCashMovement: number; openingBalances: CashLine; cashAtEnd: number;
+}
+export interface MonthMovement { start: string; end: string; currency: string; income: number; expenses: number; netCashMovement: number; transactions: number; }
+export interface PayoutsReceived { currency: string; credited: number; payouts: number; }
+export interface Overview {
+  from: string; to: string; currencies: CurrencyPeriod[]; months: MonthMovement[]; monthsTruncated: boolean; payoutsReceived: PayoutsReceived[];
 }
 
 // The kinds of movement a person can record, the endpoint each posts to, and how it reads in the UI

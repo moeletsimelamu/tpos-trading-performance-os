@@ -49,6 +49,9 @@ public partial class FinanceRepository : IFinanceRepository
         if (query.Type is { } type) transactions = transactions.Where(t => t.Type == type);
         if (query.AccountId is { } accountId) transactions = transactions.Where(t => t.Entries.Any(e => e.FinancialAccountId == accountId));
         if (query.FundId is { } fundId) transactions = transactions.Where(t => t.Entries.Any(e => e.FundId == fundId));
+        if (query.CashOnly)
+            transactions = transactions.Where(t => t.Entries.Any(e => _context.FinancialAccounts.Any(a => a.Id == e.FinancialAccountId
+                && (a.Type == FinancialAccountType.Bank || a.Type == FinancialAccountType.Cash))));
 
         var total = await transactions.CountAsync();
         var items = await transactions
@@ -86,6 +89,19 @@ public partial class FinanceRepository : IFinanceRepository
             .ToListAsync();
 
         return rows.Select(r => new PositionRow(r.FinancialAccountId, r.FundId, r.Currency, r.Amount)).ToList();
+    }
+
+    public async Task<List<CashEntryRow>> GetCashEntriesAsync(DateOnly to)
+    {
+        var rows = await (
+            from e in _context.LedgerEntries
+            join t in _context.LedgerTransactions on e.LedgerTransactionId equals t.Id
+            join a in _context.FinancialAccounts on e.FinancialAccountId equals a.Id
+            where t.TransactionDate <= to && (a.Type == FinancialAccountType.Bank || a.Type == FinancialAccountType.Cash)
+            group new { e.Amount, e.LedgerTransactionId } by new { t.TransactionDate, t.Type, e.Role, e.Currency } into g
+            select new { g.Key.TransactionDate, g.Key.Type, g.Key.Role, g.Key.Currency, Amount = g.Sum(x => x.Amount), Transactions = g.Select(x => x.LedgerTransactionId).Distinct().Count() })
+            .ToListAsync();
+        return rows.Select(r => new CashEntryRow(r.TransactionDate, r.Type, r.Role, r.Currency.Code, r.Amount, r.Transactions)).ToList();
     }
 
     public async Task<decimal> GetAccountBalanceAsync(int accountId) =>

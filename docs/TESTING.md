@@ -49,6 +49,49 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-29 (branch `phase-6-executive-overview`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 183 passed, 0 failed |
+| `dotnet test` (Release): integration | 100 passed, 0 failed |
+| `ng test --watch=false` | 164 passed, 0 failed (22 files) |
+| `ng build` (production) | Succeeded; initial bundle 310.31 kB; no budget warnings |
+
+No migration: the overview reads the existing ledger.
+
+**New tests**
+- **Integration (`OverviewEndpointTests`):** two months of ledger activity covering every line, plus activity before and after.
+  - **Before and around the period:** a starting opening balance before it, and a payout received inside it with a $50 fee.
+  - **Inside the period:** an expense, a transfer between two bank accounts and one to a brokerage account, and an exchange to rand with a $2 fee. Also an expense later reversed, an opening balance recorded late, and an expense paid from the brokerage account.
+  - **After the period:** income dated after it.
+  - **USD figures:** start 1,000; income 1,350 (1,400 gross, −50 fees); expenses −340 (not the brokerage one); exchanges −102; transfers −100 (the cash-to-cash one cancels out); reversals +40. That gives a net 848, opening balances 500 and an end of 2,348, which equals the cash total as of the period's end.
+  - **ZAR:** +1,800.
+  - **By month and payouts:** the months come out as 950 and −102 net, and payouts received as USD 1,350 from one payout.
+  - **Drill-down:** each line's ledger list (same dates and type, `cash=true`) has its transaction count, and without `cash` the brokerage expense is listed too.
+- **Integration (period handling):** the default is this month to date. A reversed period or one over 10 years is 422, and without a token the request is 401.
+- **Angular (`overview-period.spec.ts`):**
+  - **Presets:** they are calculated from the date, including the January turn of the year.
+  - **The section:** it asks for the period in the address, lists the lines in order with signs, and shows the income detail. Its ledger links use the line's type, dates and `cash=true`, and each month's link uses that month's own dates.
+  - **Changing the period:** an empty period has its own message, and a preset writes its dates to the address. A new address reloads, while a reversed one is ignored.
+- **Angular (overview spec):** Recent payouts lists the newest five with status and "not cash yet". A fund below zero is flagged only in the currency where it is negative, linking to its transactions.
+
+**Browser check (scratch database, desktop and phone width)**
+- **This month (1–29 Oct 2026):**
+  - **USD:** income +2,690 (2,700 gross less 10 in fees), exchanges −1,541, net +1,149.
+  - **ZAR:** an expense of −3,000 reversed with +3,000, exchanges +28,032.50, and a transfer between cash accounts at 0.
+  - **Matches the strip:** cash at the end equals the "Cash · USD" and "Cash · ZAR" figures at the top of the page.
+- **One drill-down:** "2 transactions" on USD exchanges opened the ledger with the dates, type and "Bank and cash accounts only" filled in, listing transactions 8 and 2. Their USD entries (−536, a −5 fee and −1,000) make the −1,541.
+- **Last 12 months:** 26 month rows (13 months × 2 currencies), with partial months labelled, for example "Oct 2026 (1–29)". The address carries `from` and `to`.
+- **Recent payouts:** payout #1, received, USD 1,340.00.
+- **Phone width:** nothing overflows outside its scroll area.
+- **Console:** the only errors were the dev server failing to serve old code chunks while it rebuilt after my edits ("Failed to fetch dynamically imported module", connection refused). The console was not re-checked on a fresh load before the preview was stopped.
+- **Fixed during the check:**
+  - **Wrapping counts:** the per-currency tables had a separate transaction-count column that wrapped ("2 transacti…") and pushed amounts out of the card. The count now sits under each line's label.
+  - **Row labels:** the shared table style stops header cells wrapping, so the row labels now wrap explicitly.
+  - **Presets:** in October "This month" and "This quarter" cover the same dates and were both highlighted; only the first matching preset is now.
+
 ## Results — 2026-10-29 (branch `journal-richer-strategies`)
 
 | Command | Result |

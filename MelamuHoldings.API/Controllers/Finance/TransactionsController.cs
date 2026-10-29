@@ -21,14 +21,14 @@ public class TransactionsController : FinanceControllerBase
     [HttpGet]
     public async Task<IActionResult> List(
         DateOnly? from, DateOnly? to, LedgerTransactionType? type, int? accountId, int? fundId,
-        int page = 1, int pageSize = 25)
+        int page = 1, int pageSize = 25, bool cash = false)
     {
         if (page < 1) ModelState.AddModelError(nameof(page), "Page must be 1 or more.");
         if (pageSize is < 1 or > LedgerService.MaxPageSize) ModelState.AddModelError(nameof(pageSize), $"Page size must be between 1 and {LedgerService.MaxPageSize}.");
         if (from > to) ModelState.AddModelError(nameof(from), "'from' must not be after 'to'.");
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
-        return Ok(await _ledger.ListAsync(new TransactionQuery(from, to, type, accountId, fundId, page, pageSize)));
+        return Ok(await _ledger.ListAsync(new TransactionQuery(from, to, type, accountId, fundId, page, pageSize, cash)));
     }
 
     [HttpGet("{id:int}", Name = GetRouteName)]
