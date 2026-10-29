@@ -1,5 +1,5 @@
 using System.Text;
-using MelamuHoldings.Application.Services;
+using MelamuHoldings.Application.Trading;
 
 namespace MelamuHoldings.UnitTests;
 

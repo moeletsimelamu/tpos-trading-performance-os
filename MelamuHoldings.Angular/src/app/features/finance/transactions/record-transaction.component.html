@@ -1,0 +1,172 @@
+<div class="page">
+  <app-page-header section="Finance" title="Record transaction"
+        description="Record money that has actually moved. Planned or pending amounts do not belong in the ledger.">
+        <a class="btn" routerLink="/finance/transactions">Back to ledger</a>
+      </app-page-header>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading accounts...</span></div>
+    }
+    @case ('error') {
+      <app-load-error title="Could not load accounts and funds" [message]="loadError()" (retry)="load()" />
+    }
+    @case ('ready') {
+      @if (activeAccounts().length === 0) {
+        <div class="card">There are no active accounts yet. <a routerLink="/finance/accounts">Create an account</a> first.</div>
+      } @else {
+        <div class="kinds" role="group" aria-label="Kind of transaction">
+          @for (k of kinds; track k.kind) {
+            <button type="button" class="btn kind" [attr.aria-pressed]="kind() === k.kind" (click)="selectKind(k.kind)">{{ k.label }}</button>
+          }
+        </div>
+        <p class="kind-help">{{ kindHelp() }}</p>
+
+        @if (recorded(); as r) {
+          <p class="notice notice-success" role="status">
+            Recorded transaction #{{ r.id }}.
+            <a [routerLink]="['/finance/transactions']" [queryParams]="{ accountId: r.entries[0]?.accountId }">View in ledger</a>
+          </p>
+        }
+
+        <form class="card" [formGroup]="form" (ngSubmit)="submit()" aria-label="Transaction details">
+          <div class="form-grid">
+            @if (uses('accountId')) {
+              <div class="field">
+                <label for="tx-account">Account</label>
+                <select id="tx-account" formControlName="accountId">
+                  <option [ngValue]="null" disabled>Choose an account</option>
+                  @for (a of activeAccounts(); track a.id) { <option [ngValue]="a.id">{{ a.name }} ({{ a.currency }})</option> }
+                </select>
+              </div>
+            }
+            @if (uses('fundId')) {
+              <div class="field">
+                <label for="tx-fund">Fund</label>
+                <select id="tx-fund" formControlName="fundId">
+                  @for (f of funds(); track f.id) { <option [ngValue]="f.id">{{ f.name }}</option> }
+                </select>
+              </div>
+            }
+            @if (uses('fromAccountId')) {
+              <div class="field">
+                <label for="tx-from">From account</label>
+                <select id="tx-from" formControlName="fromAccountId">
+                  <option [ngValue]="null" disabled>Choose an account</option>
+                  @for (a of activeAccounts(); track a.id) { <option [ngValue]="a.id">{{ a.name }} ({{ a.currency }})</option> }
+                </select>
+              </div>
+            }
+            @if (uses('fromFundId')) {
+              <div class="field">
+                <label for="tx-from-fund">From fund</label>
+                <select id="tx-from-fund" formControlName="fromFundId">
+                  @for (f of funds(); track f.id) { <option [ngValue]="f.id">{{ f.name }}</option> }
+                </select>
+              </div>
+            }
+            @if (uses('amountSent')) {
+              <div class="field">
+                <label for="tx-sent">Amount sent {{ fromCurrency() }}</label>
+                <input id="tx-sent" type="number" step="0.01" formControlName="amountSent" />
+                @if (form.controls.amountSent.touched && form.controls.amountSent.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+              </div>
+            }
+            @if (uses('toAccountId')) {
+              <div class="field">
+                <label for="tx-to">To account</label>
+                <select id="tx-to" formControlName="toAccountId">
+                  <option [ngValue]="null" disabled>Choose an account</option>
+                  @for (a of toAccountOptions(); track a.id) { <option [ngValue]="a.id">{{ a.name }} ({{ a.currency }})</option> }
+                </select>
+                <span class="hint">{{ kind() === 'transfer' ? 'Same currency only. Use Currency exchange to convert.' : 'A different currency from the source.' }}</span>
+              </div>
+            }
+            @if (uses('toFundId')) {
+              <div class="field">
+                <label for="tx-to-fund">To fund</label>
+                <select id="tx-to-fund" formControlName="toFundId">
+                  @for (f of funds(); track f.id) { <option [ngValue]="f.id">{{ f.name }}</option> }
+                </select>
+              </div>
+            }
+            @if (uses('amountReceived')) {
+              <div class="field">
+                <label for="tx-received">Amount received {{ toCurrency() }}</label>
+                <input id="tx-received" type="number" step="0.01" formControlName="amountReceived" />
+                @if (impliedRate(); as rate) { <span class="hint">Effective rate {{ rate }} {{ toCurrency() }} per {{ fromCurrency() }}, from the two amounts</span> }
+                @if (form.controls.amountReceived.touched && form.controls.amountReceived.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+              </div>
+            }
+            @if (uses('fee')) {
+              <div class="field">
+                <label for="tx-fee">Conversion fee (optional)</label>
+                <input id="tx-fee" type="number" step="0.01" formControlName="fee" />
+                <span class="hint">Only a fee charged on top of the amounts above.</span>
+                @if (form.controls.fee.touched && form.controls.fee.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+              </div>
+              <div class="field">
+                <label for="tx-fee-side">Fee charged to</label>
+                <select id="tx-fee-side" formControlName="feeChargedTo">
+                  <option value="Sending">Sending account ({{ fromCurrency() || 'its currency' }})</option>
+                  <option value="Receiving">Receiving account ({{ toCurrency() || 'its currency' }})</option>
+                </select>
+              </div>
+            }
+            @if (uses('quotedRate')) {
+              <div class="field">
+                <label for="tx-quoted">Quoted rate (optional)</label>
+                <input id="tx-quoted" type="number" step="any" formControlName="quotedRate" />
+                <span class="hint">The rate on the provider's confirmation. Stored for reference; balances use the amounts.</span>
+                @if (form.controls.quotedRate.touched && form.controls.quotedRate.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+              </div>
+            }
+            @if (uses('amount')) {
+              <div class="field">
+                <label for="tx-amount">Amount {{ uses('accountId') ? accountCurrency() : fromCurrency() }}</label>
+                <input id="tx-amount" type="number" step="0.01" formControlName="amount" />
+                @if (kind() === 'opening-balance') { <span class="hint">Negative if the account was overdrawn.</span> }
+                @if (form.controls.amount.touched && form.controls.amount.errors?.['amount']; as e) { <span class="error">{{ e }}</span> }
+              </div>
+            }
+            <div class="field">
+              <label for="tx-date">Date</label>
+              <input id="tx-date" type="date" formControlName="date" />
+            </div>
+            <div class="field">
+              <label for="tx-desc">Description</label>
+              <input id="tx-desc" formControlName="description" placeholder="What this was" />
+            </div>
+            @if (uses('category')) {
+              <div class="field">
+                <label for="tx-cat">Category (optional)</label>
+                <input id="tx-cat" formControlName="category" placeholder="e.g. Trading payout, Software" />
+              </div>
+            }
+            <div class="field">
+              <label for="tx-ref">Reference (optional)</label>
+              <input id="tx-ref" formControlName="reference" placeholder="Bank or payout reference" />
+            </div>
+          </div>
+
+          @if (preview().length) {
+            <section class="preview" aria-label="Entries that will be posted">
+              <h2>Will post</h2>
+              @for (e of preview(); track $index) {
+                <div class="entry">
+                  <span>{{ e.account }} · {{ e.fund }}@if (e.fee) { <span class="tag tag-warning fee-label">Fee</span> }</span>
+                  <span [class.amount-in]="e.amount > 0" [class.amount-out]="e.amount < 0">{{ e.amount | money: e.currency : true }}</span>
+                </div>
+              }
+            </section>
+          }
+
+          @if (submitError()) { <p class="notice notice-error" role="alert">{{ submitError() }}</p> }
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" [disabled]="submitting()">{{ submitting() ? 'Recording…' : 'Record transaction' }}</button>
+          </div>
+        </form>
+      }
+    }
+  }
+</div>

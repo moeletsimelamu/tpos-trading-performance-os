@@ -1,0 +1,90 @@
+import { Routes } from '@angular/router';
+
+// Trading Operations module, mounted at /trading
+export const tradingRoutes: Routes = [
+  { path: '', redirectTo: 'performance', pathMatch: 'full' },
+  {
+    path: 'performance',
+    title: 'Trading performance',
+    loadComponent: () =>
+      import('./performance/performance.component').then(m => m.PerformanceComponent)
+  },
+  {
+    path: 'trades',
+    title: 'Trades',
+    loadComponent: () =>
+      import('./trades/trades.component').then(m => m.TradesComponent)
+  },
+  {
+    path: 'trades/new',
+    title: 'New trade',
+    loadComponent: () =>
+      import('./journal/trade-form.component').then(m => m.TradeFormComponent)
+  },
+  {
+    path: 'trades/:id',
+    title: 'Trade journal entry',
+    loadComponent: () =>
+      import('./journal/trade-entry.component').then(m => m.TradeEntryComponent)
+  },
+  {
+    path: 'trades/:id/edit',
+    title: 'Edit trade',
+    loadComponent: () =>
+      import('./journal/trade-form.component').then(m => m.TradeFormComponent)
+  },
+  {
+    path: 'journal',
+    title: 'Journal',
+    loadComponent: () =>
+      import('./journal/journal-overview.component').then(m => m.JournalOverviewComponent)
+  },
+  {
+    path: 'strategies',
+    title: 'Strategies',
+    loadComponent: () =>
+      import('./strategies/strategies.component').then(m => m.StrategiesComponent)
+  },
+  {
+    path: 'strategies/new',
+    title: 'New strategy',
+    loadComponent: () =>
+      import('./strategies/strategy-editor.component').then(m => m.StrategyEditorComponent)
+  },
+  {
+    path: 'strategies/:id',
+    title: 'Strategy',
+    loadComponent: () =>
+      import('./strategies/strategy-editor.component').then(m => m.StrategyEditorComponent)
+  },
+  {
+    path: 'journal-templates',
+    title: 'Journal templates',
+    loadComponent: () =>
+      import('./journal/templates.component').then(m => m.TemplatesComponent)
+  },
+  {
+    path: 'journal-templates/new',
+    title: 'New journal template',
+    loadComponent: () =>
+      import('./journal/template-editor.component').then(m => m.TemplateEditorComponent)
+  },
+  {
+    path: 'journal-templates/:id',
+    title: 'Edit journal template',
+    loadComponent: () =>
+      import('./journal/template-editor.component').then(m => m.TemplateEditorComponent)
+  },
+  {
+    path: 'import',
+    title: 'Import trades',
+    loadComponent: () =>
+      import('./import/import.component').then(m => m.ImportComponent)
+  },
+  {
+    path: 'behaviour',
+    title: 'Trading behaviour',
+    loadComponent: () =>
+      import('./behaviour/behaviour.component').then(m => m.BehaviourComponent)
+  }
+];

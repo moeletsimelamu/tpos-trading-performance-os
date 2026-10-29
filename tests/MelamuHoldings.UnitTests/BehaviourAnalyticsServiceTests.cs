@@ -1,5 +1,5 @@
-using MelamuHoldings.Application.Services;
-using MelamuHoldings.Domain.Entities;
+using MelamuHoldings.Application.Trading;
+using MelamuHoldings.Domain.Trading;
 using static MelamuHoldings.UnitTests.TradeFactory;
 
 namespace MelamuHoldings.UnitTests;

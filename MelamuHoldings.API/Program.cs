@@ -1,20 +1,28 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using MelamuHoldings.API;
 using MelamuHoldings.API.Cli;
-using MelamuHoldings.Application.Interfaces;
-using MelamuHoldings.Application.Services;
-using MelamuHoldings.Infrastructure.Data;
-using MelamuHoldings.Infrastructure.Repositories;
+using MelamuHoldings.API.Controllers;
+using MelamuHoldings.Application.Finance;
+using MelamuHoldings.Application.Identity;
+using MelamuHoldings.Application.Trading;
+using MelamuHoldings.Infrastructure.Ai;
+using MelamuHoldings.Infrastructure.Attachments;
+using MelamuHoldings.Infrastructure.Persistence;
+using MelamuHoldings.Infrastructure.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Controllers, errors & Swagger
-builder.Services.AddControllers();
+// Controllers, errors & Swagger. Enums travel as their names ("Income", "Bank"), never as numbers.
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -50,12 +58,28 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy(Policies.Owner, policy => policy.RequireAuthenticatedUser().RequireRole(Roles.Owner)));
+
+// Optional AI-assisted review (docs/TRADING_JOURNAL_DESIGN.md §8). Off unless AiReview:BaseUrl and AiReview:Model are set;
+// the key belongs in user-secrets or the AiReview__ApiKey environment variable, never in appsettings.
+builder.Services.AddOptions<AiReviewOptions>().Bind(builder.Configuration.GetSection(AiReviewOptions.SectionName));
+builder.Services.AddHttpClient<IAiReviewProvider, OpenAiCompatibleProvider>();
+builder.Services.AddScoped<AiReviewService>();
+builder.Services.AddScoped<AiJournalQuestionService>();
 
 // Login throttling — the limit is read when the limiter is created, so configuration added late (tests) applies
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // AI drafts can cost money: a few per minute per user is plenty for writing reviews
+    options.AddPolicy("ai-review", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = context.RequestServices.GetRequiredService<IConfiguration>().GetValue("AiReview:DraftsPerMinute", 6),
+            Window = TimeSpan.FromMinutes(1)
+        }));
     options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions
@@ -74,7 +98,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .WithExposedHeaders(FinanceHeaders.IdempotentReplayed, "Location");
     });
 });
 
@@ -83,14 +108,42 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITradeRepository, TradeRepository>();
 builder.Services.AddScoped<IStrategyRepository, StrategyRepository>();
 builder.Services.AddScoped<IUploadLogRepository, UploadLogRepository>();
+builder.Services.AddScoped<IFinanceRepository, FinanceRepository>();
 
 // Services
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<FinanceSetupService>();
+builder.Services.AddScoped<LedgerPosting>();
+builder.Services.AddScoped<LedgerService>();
+builder.Services.AddScoped<PayoutService>();
+builder.Services.AddScoped<AllocationService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<OwnerAccountService>();
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<IJournalRepository, JournalRepository>();
+builder.Services.AddScoped<TradeJournal>();
+builder.Services.AddScoped<TradeHistory>();
+builder.Services.AddScoped<ITradeHistoryRepository, TradeHistoryRepository>();
+builder.Services.AddScoped<JournalOverviewService>();
+builder.Services.AddScoped<ImportReconciliationService>();
+builder.Services.AddScoped<IImportMatchRepository, ImportMatchRepository>();
+builder.Services.AddScoped<AttachmentService>();
+builder.Services.AddScoped<IAttachmentRepository, AttachmentRepository>();
+// Attachment files stay outside the web root: App_Data/attachments under the content root unless configured.
+// Read when first needed, so configuration added by the host (and by tests) applies.
+builder.Services.AddSingleton<IAttachmentStore>(services => new FileSystemAttachmentStore(
+    services.GetRequiredService<IConfiguration>()["Attachments:Path"] is { Length: > 0 } attachmentPath
+        ? attachmentPath
+        : Path.Combine(services.GetRequiredService<IWebHostEnvironment>().ContentRootPath, "App_Data", "attachments")));
+builder.Services.AddScoped<TradeChecklists>();
+builder.Services.AddScoped<StrategyService>();
+builder.Services.AddScoped<AdherenceService>();
+builder.Services.AddScoped<JournalAnswerAnalytics>();
+builder.Services.AddScoped<JournalTemplateService>();
 builder.Services.AddScoped<TradeService>();
 builder.Services.AddScoped<UploadService>();
 builder.Services.AddScoped<CsvParserService>();
+builder.Services.AddScoped<AnalyticsScope>();
 builder.Services.AddScoped<AnalyticsService>();
 builder.Services.AddScoped<BehaviourAnalyticsService>();
 
@@ -112,8 +165,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
-app.UseRateLimiter();
 app.UseAuthentication();
+// After authentication, so a policy can tell users apart (AI drafts); login is limited per IP either way
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 

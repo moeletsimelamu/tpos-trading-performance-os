@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Options;
-using MelamuHoldings.Application.DTOs;
-using MelamuHoldings.Application.Services;
+using MelamuHoldings.Application.Identity;
 
 namespace MelamuHoldings.UnitTests;
 

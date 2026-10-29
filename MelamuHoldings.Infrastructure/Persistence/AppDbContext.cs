@@ -1,0 +1,80 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using MelamuHoldings.Domain.Finance;
+using MelamuHoldings.Domain.Identity;
+using MelamuHoldings.Domain.Trading;
+using MelamuHoldings.Domain.Trading.Journal;
+using MelamuHoldings.Infrastructure.Persistence.Configurations;
+
+namespace MelamuHoldings.Infrastructure.Persistence;
+
+public class AppDbContext : DbContext
+{
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Trade> Trades => Set<Trade>();
+    public DbSet<Strategy> Strategies => Set<Strategy>();
+    public DbSet<UploadLog> UploadLogs => Set<UploadLog>();
+    public DbSet<JournalTemplate> JournalTemplates => Set<JournalTemplate>();
+    public DbSet<JournalTemplateVersion> JournalTemplateVersions => Set<JournalTemplateVersion>();
+    public DbSet<TradeJournalEntry> TradeJournalEntries => Set<TradeJournalEntry>();
+    public DbSet<StrategyRule> StrategyRules => Set<StrategyRule>();
+    public DbSet<TradeChecklist> TradeChecklists => Set<TradeChecklist>();
+    public DbSet<TradeAttachment> TradeAttachments => Set<TradeAttachment>();
+    public DbSet<ImportMatch> ImportMatches => Set<ImportMatch>();
+    public DbSet<TradeRevision> TradeRevisions => Set<TradeRevision>();
+
+    public DbSet<Fund> Funds => Set<Fund>();
+    public DbSet<FinancialAccount> FinancialAccounts => Set<FinancialAccount>();
+    public DbSet<LedgerTransaction> LedgerTransactions => Set<LedgerTransaction>();
+    public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<Payout> Payouts => Set<Payout>();
+    public DbSet<AllocationPolicy> AllocationPolicies => Set<AllocationPolicy>();
+    public DbSet<Allocation> Allocations => Set<Allocation>();
+
+    // Every time is written in UTC. SQL Server's datetime2 does not keep that, so values read back are marked
+    // UTC again; the API then sends them with a 'Z' and browsers show them in local time.
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        configurationBuilder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeConverter>();
+    }
+
+    private sealed class UtcDateTimeConverter() : ValueConverter<DateTime, DateTime>(
+        v => v, v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+    private sealed class NullableUtcDateTimeConverter() : ValueConverter<DateTime?, DateTime?>(
+        v => v, v => v == null ? null : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc));
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.ApplyConfiguration(new UserConfiguration());
+        modelBuilder.ApplyConfiguration(new TradeConfiguration());
+        modelBuilder.ApplyConfiguration(new JournalTemplateConfiguration());
+        modelBuilder.ApplyConfiguration(new JournalTemplateVersionConfiguration());
+        modelBuilder.ApplyConfiguration(new TradeJournalEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new StrategyConfiguration());
+        modelBuilder.ApplyConfiguration(new StrategyRuleConfiguration());
+        modelBuilder.ApplyConfiguration(new TradeChecklistConfiguration());
+        modelBuilder.ApplyConfiguration(new ChecklistItemConfiguration());
+        modelBuilder.ApplyConfiguration(new ChecklistResponseConfiguration());
+        modelBuilder.ApplyConfiguration(new TradeAttachmentConfiguration());
+        modelBuilder.ApplyConfiguration(new ImportMatchConfiguration());
+        modelBuilder.ApplyConfiguration(new TradeRevisionConfiguration());
+
+        modelBuilder.ApplyConfiguration(new FundConfiguration());
+        modelBuilder.ApplyConfiguration(new FinancialAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new LedgerTransactionConfiguration());
+        modelBuilder.ApplyConfiguration(new LedgerEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new AuditEventConfiguration());
+        modelBuilder.ApplyConfiguration(new PayoutConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationPolicyConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationPolicyLineConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationLineConfiguration());
+        modelBuilder.ApplyConfiguration(new AllocationSettlementConfiguration());
+        base.OnModelCreating(modelBuilder);
+    }
+}

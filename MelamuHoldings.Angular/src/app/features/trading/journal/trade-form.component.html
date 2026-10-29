@@ -1,0 +1,195 @@
+<div class="page">
+  <app-page-header section="Trading operations · Trades" [title]="title()"
+    description="Record what you know now and save it as a draft; complete it as the trade unfolds. Only closed trades count in performance.">
+    <a class="btn" [routerLink]="editingId ? ['/trading/trades', editingId] : ['/trading/trades']">Cancel</a>
+  </app-page-header>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading trade...</span></div>
+    }
+    @case ('error') {
+      <app-load-error title="Could not load the trade" [message]="loadError()" (retry)="load()" />
+    }
+    @case ('ready') {
+      <form class="card table-card" [formGroup]="form" (ngSubmit)="save(isReviewed() ? null : 'Draft')" aria-label="Trade journal entry">
+        <section class="section" aria-labelledby="sec-id">
+          <h2 id="sec-id">Trade</h2>
+          <p>What was traded, when, and under which strategy.</p>
+          <div class="form-grid">
+            <div class="field">
+              <label for="t-date">Trade date</label>
+              <input id="t-date" type="date" formControlName="tradeDate" />
+            </div>
+            <div class="field">
+              <label for="t-instrument">Instrument</label>
+              <input id="t-instrument" formControlName="instrument" placeholder="e.g. NQ, EURUSD" />
+            </div>
+            <div class="field">
+              <label for="t-direction">Direction</label>
+              <select id="t-direction" formControlName="direction">
+                <option [ngValue]="null">Not set</option>
+                <option value="Long">Long</option>
+                <option value="Short">Short</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="t-session">Session</label>
+              <input id="t-session" formControlName="session" list="sessions" />
+              <datalist id="sessions">@for (s of sessions; track s) { <option [value]="s"></option> }</datalist>
+            </div>
+            <div class="field">
+              <label for="t-strategy">Strategy</label>
+              <input id="t-strategy" formControlName="strategyName" list="strategy-list" />
+              <datalist id="strategy-list">@for (s of strategies(); track s.id) { <option [value]="s.name"></option> }</datalist>
+              @if (scopeNote()) { <p class="small notice notice-warning scope-note" role="status">{{ scopeNote() }}</p> }
+            </div>
+            <div class="field">
+              <label for="t-account">Trading account (optional)</label>
+              <input id="t-account" formControlName="tradingAccount" placeholder="e.g. the prop firm account" />
+            </div>
+            <div class="field">
+              <label for="t-currency">Currency of P&amp;L</label>
+              <select id="t-currency" formControlName="currency">
+                <option [ngValue]="null">Not stated</option>
+                @for (c of currencies; track c) { <option [value]="c">{{ c }}</option> }
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="sec-entry">
+          <h2 id="sec-entry">Entry and risk</h2>
+          <p>Needed to save the trade as open.</p>
+          <div class="form-grid">
+            <div class="field"><label for="t-entry-time">Entry time</label><input id="t-entry-time" type="time" formControlName="entryTime" /></div>
+            <div class="field">
+              <label for="t-entry">Entry price</label><input id="t-entry" type="number" step="any" formControlName="entryPrice" />
+              @if (form.controls.entryPrice.touched && form.controls.entryPrice.errors?.['positive']; as e) { <span class="error">{{ e }}</span> }
+            </div>
+            <div class="field"><label for="t-stop">Stop loss</label><input id="t-stop" type="number" step="any" formControlName="stopLoss" /></div>
+            <div class="field"><label for="t-target">Target</label><input id="t-target" type="number" step="any" formControlName="takeProfit" /></div>
+            <div class="field"><label for="t-size">Position size</label><input id="t-size" type="number" step="any" formControlName="positionSize" /></div>
+            <div class="field">
+              <label for="t-risk">Risk amount</label><input id="t-risk" type="number" step="0.01" formControlName="riskAmount" />
+              <span class="hint">What you stood to lose at the stop.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="sec-exit">
+          <h2 id="sec-exit">Exit and result</h2>
+          <p>Needed to close the trade. P&amp;L is the net realised figure your platform reports; fees are recorded beside it, not subtracted again.</p>
+          <div class="form-grid">
+            <div class="field"><label for="t-exit-date">Exit date</label><input id="t-exit-date" type="date" formControlName="exitDate" /><span class="hint">Leave empty if the same day.</span></div>
+            <div class="field"><label for="t-exit-time">Exit time</label><input id="t-exit-time" type="time" formControlName="exitTime" /></div>
+            <div class="field"><label for="t-exit">Exit price</label><input id="t-exit" type="number" step="any" formControlName="exitPrice" /></div>
+            <div class="field"><label for="t-pnl">Realised P&amp;L</label><input id="t-pnl" type="number" step="0.01" formControlName="pnL" /></div>
+            <div class="field"><label for="t-fees">Fees</label><input id="t-fees" type="number" step="0.01" formControlName="fees" /></div>
+            <div class="field">
+              <label for="t-rr">R-multiple</label><input id="t-rr" type="number" step="0.01" formControlName="rr" />
+              @if (calculatedR(); as r) { <span class="hint">Will be calculated as {{ r }}R (P&amp;L ÷ risk) if left empty.</span> }
+              @else { <span class="hint">Calculated from P&amp;L ÷ risk when both are known.</span> }
+            </div>
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="sec-notes">
+          <h2 id="sec-notes">Notes</h2>
+          <div class="form-grid">
+            <div class="field wide"><label for="t-notes">Notes</label><textarea id="t-notes" formControlName="notes" placeholder="Context, setup, what you saw"></textarea></div>
+            <div class="field check wide">
+              <input id="t-override" type="checkbox" formControlName="isManualOverride" />
+              <label for="t-override">I overrode my strategy's rules on this trade</label>
+            </div>
+            @if (form.controls.isManualOverride.value) {
+              <div class="field wide"><label for="t-deviation">What was different, and why</label><textarea id="t-deviation" formControlName="deviationNotes"></textarea></div>
+            }
+          </div>
+        </section>
+
+        <section class="section" aria-labelledby="sec-checklist">
+          <h2 id="sec-checklist">Strategy checklist</h2>
+          <p>Only a mandatory rule that was not met counts against adherence. N/A is for optional rules.</p>
+          @if (strategiesError()) {
+            <p class="notice notice-warning" role="alert">Strategies could not be loaded ({{ strategiesError() }}). <button type="button" class="btn-link" (click)="loadStrategies()">Try again</button></p>
+          }
+          @if (leftChecklist(); as previous) {
+            <p class="small secondary">The answers for '{{ previous }}' stay with the trade but no longer count once it is saved under another strategy.</p>
+          }
+          @if (checklistRules().length > 0) {
+            <div class="rules">
+              @for (group of checklistGroups(); track group.category) {
+                @if (group.label) { <h3 class="rule-group">{{ group.label }}</h3> }
+              @for (rule of group.items; track rule.ruleId) {
+                <div class="rule" role="radiogroup" [attr.aria-label]="rule.text">
+                  <span class="rule-text">{{ rule.text }} @if (rule.isMandatory) { <span class="tag">Mandatory</span> }</span>
+                  <div class="answers">
+                    @for (a of ruleAnswers; track a.value) {
+                      @if (a.value !== 'NotApplicable' || !rule.isMandatory) {
+                        <label><input type="radio" [name]="'rule-' + rule.ruleId" [value]="a.value" [checked]="checks()[rule.ruleId] === a.value" (change)="answerRule(rule.ruleId, a.value)" />{{ a.label }}</label>
+                      }
+                    }
+                  </div>
+                </div>
+              }
+              }
+            </div>
+          } @else if (!form.controls.strategyName.value?.trim()) {
+            <p class="muted small">Name the strategy above to answer its checklist.</p>
+          } @else if (strategyKnown()) {
+            <p class="muted small">This strategy has no rules yet. <a routerLink="/trading/strategies">Add rules on the Strategies page.</a></p>
+          } @else {
+            <p class="muted small">A new strategy: it is created with the trade. Add its rules on the Strategies page.</p>
+          }
+        </section>
+
+        <section class="section" aria-labelledby="sec-journal">
+          <h2 id="sec-journal">Journal</h2>
+          <p>Answer what you can now and finish later. Required questions (*) must be answered before the trade can be reviewed.</p>
+          @if (templatesError()) {
+            <p class="notice notice-warning" role="alert">Journal templates could not be loaded ({{ templatesError() }}). The trade can still be saved; its journal is left as it is. <button type="button" class="btn-link" (click)="loadTemplates()">Try again</button></p>
+          } @else {
+            <div class="picker">
+              <div class="field">
+                <label for="t-template">Journal template</label>
+                <select id="t-template" (change)="chooseTemplate(+$any($event.target).value)">
+                  @for (t of templateChoices(); track t.id) { <option [value]="t.id" [selected]="t.id === journalTemplateId()">{{ t.name }}</option> }
+                </select>
+              </div>
+              @if (followedStrategy() && !templateOffer()) {
+                <p class="small secondary">Using the journal template set for {{ followedStrategy() }}.</p>
+              } @else if (templateOffer(); as t) {
+                <p class="small secondary">{{ namedStrategy()!.name }} uses the journal template “{{ t.name }}”. <button type="button" class="btn-link" (click)="chooseTemplate(t.id)">Use it</button></p>
+              }
+              @if (olderVersion(); as j) {
+                <p class="small secondary">Written with version {{ j.version }}; version {{ j.latestVersion }} is the latest. <button type="button" class="btn-link" (click)="useLatest()">Use version {{ j.latestVersion }}</button></p>
+              }
+            </div>
+            @if (dropped().length > 0) {
+              <p class="notice notice-warning" role="status">These answers have no matching question in the new version and will not be saved: {{ dropped().join('; ') }}</p>
+            }
+            <app-journal-fields [sections]="journalSections()" [answers]="answers()" (answersChange)="onAnswers($event)" idPrefix="tj-" />
+          }
+        </section>
+
+        @if (missing().length > 0) {
+          <div class="section"><p class="notice notice-warning" role="alert">Still needed for this status: {{ missing().join(', ') }}.</p></div>
+        }
+        @if (saveError()) { <div class="section"><p class="notice notice-error" role="alert">{{ saveError() }}</p></div> }
+
+        <div class="save-bar">
+          @if (isReviewed()) {
+            <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ savingAs() === 'changes' ? 'Saving…' : 'Save changes' }}</button>
+            <span class="save-help">This trade has been reviewed; it stays reviewed.</span>
+          } @else {
+            <button type="submit" class="btn" [disabled]="saving()">{{ savingAs() === 'Draft' ? 'Saving…' : 'Save draft' }}</button>
+            <button type="button" class="btn" [disabled]="saving()" (click)="save('Open')">{{ savingAs() === 'Open' ? 'Saving…' : 'Save as open' }}</button>
+            <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="save('Closed')">{{ savingAs() === 'Closed' ? 'Saving…' : 'Save as closed' }}</button>
+            <span class="save-help">Draft: date and instrument. Open: plus direction, entry time and price. Closed: plus exit price and P&amp;L.</span>
+          }
+        </div>
+      </form>
+    }
+  }
+</div>

@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using MelamuHoldings.Application.DTOs;
+using MelamuHoldings.Application.Trading;
 
 namespace MelamuHoldings.UnitTests;
 

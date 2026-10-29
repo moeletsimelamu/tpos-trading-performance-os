@@ -13,6 +13,10 @@ describe('describeHttpError', () => {
     expect(describeHttpError(error)).toBe('Only CSV files are accepted. (HTTP 400)');
   });
 
+  it('explains a forbidden response and how to recover', () => {
+    expect(describeHttpError(new HttpErrorResponse({ status: 403 }))).toContain('Sign out and sign in again');
+  });
+
   it('falls back to the status code', () => {
     expect(describeHttpError(new HttpErrorResponse({ status: 503 }))).toBe('Request failed (HTTP 503).');
   });

@@ -1,0 +1,108 @@
+<div class="page narrow">
+  <app-page-header section="Trading operations · Strategies" [title]="strategyId ? (original()?.name ?? 'Strategy') : 'New strategy'"
+    description="Mandatory rules decide adherence: not meeting one is a violation. Optional rules are reminders and never count against you.">
+    <a class="btn" routerLink="/trading/strategies">All strategies</a>
+    <button type="button" class="btn btn-primary" [disabled]="saving() || state() !== 'ready'" (click)="save()">{{ saving() ? 'Saving…' : 'Save strategy' }}</button>
+  </app-page-header>
+
+  @switch (state()) {
+    @case ('loading') { <div class="loading-state"><div class="spinner"></div><span class="loading-text">Loading strategy...</span></div> }
+    @case ('error') { <app-load-error title="Could not load the strategy" [message]="error()" (retry)="load()" /> }
+    @case ('ready') {
+      @if (saveError()) { <p class="notice notice-error" role="alert">{{ saveError() }}</p> }
+      @if (saved()) { <p class="notice notice-success" role="status">{{ saved() }}</p> }
+
+      <div class="card">
+        <div class="form-grid">
+          <div class="field"><label for="s-name">Name</label><input id="s-name" [(ngModel)]="name" (ngModelChange)="edited()" maxlength="100" /></div>
+          <div class="field"><label for="s-desc">Description (optional)</label><input id="s-desc" [(ngModel)]="description" (ngModelChange)="edited()" maxlength="500" /></div>
+        </div>
+        @if (original()?.status === 'Archived') { <p class="notice notice-warning">Archived: it is not offered when choosing a strategy for a trade.</p> }
+      </div>
+
+      <div class="card">
+        <h2>Where it applies</h2>
+        <p>Leave a list empty if the strategy applies to any instrument or session. A trade outside these is still saved; the form points it out.</p>
+        <div class="form-grid">
+          <div class="field">
+            <label for="s-instruments">Instruments</label>
+            <input id="s-instruments" [(ngModel)]="instruments" (ngModelChange)="edited()" placeholder="e.g. NQ, ES" />
+            <p class="hint">Separate them with commas.</p>
+          </div>
+          <div class="field">
+            <label for="s-sessions">Sessions</label>
+            <input id="s-sessions" [(ngModel)]="sessions" (ngModelChange)="edited()" placeholder="e.g. New York" />
+            <p class="hint">Separate them with commas.</p>
+          </div>
+          <div class="field">
+            <label for="s-template">Journal template for new trades</label>
+            <select id="s-template" [(ngModel)]="defaultTemplateId" (ngModelChange)="edited()">
+              <option [ngValue]="null">None: use my default template</option>
+              @for (t of templateChoices; track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
+            </select>
+            @if (templatesError()) { <p class="hint">Templates could not be loaded ({{ templatesError() }}).</p> }
+            @else { <p class="hint">A new trade naming this strategy starts with it, until you answer anything or pick another.</p> }
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Rules</h2>
+        <p>Each trade on this strategy gets a checklist of these rules. Changing a rule never changes a checklist already started; removing one retires it.</p>
+        @for (rule of rules; track $index; let i = $index) {
+          <div class="rule">
+            <div class="field">
+              <label [for]="'r-text-' + i" class="visually-hidden">Rule {{ i + 1 }}</label>
+              <input [id]="'r-text-' + i" [(ngModel)]="rule.text" (ngModelChange)="edited()" maxlength="200" placeholder="e.g. Stop loss placed before entry" />
+            </div>
+            <div class="tools">
+              <label [for]="'r-cat-' + i" class="visually-hidden">Category of rule {{ i + 1 }}</label>
+              <select [id]="'r-cat-' + i" class="category" [(ngModel)]="rule.category" (ngModelChange)="edited()">
+                @for (c of categories; track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+              </select>
+              <label class="req"><input type="checkbox" [(ngModel)]="rule.isMandatory" (ngModelChange)="edited()" />Mandatory</label>
+              <button type="button" class="icon-btn" title="Move rule up" [disabled]="i === 0" (click)="move(i, -1)"><app-icon name="up" [size]="16" /><span class="visually-hidden">Move rule {{ i + 1 }} up</span></button>
+              <button type="button" class="icon-btn" title="Move rule down" [disabled]="i === rules.length - 1" (click)="move(i, 1)"><app-icon name="down" [size]="16" /><span class="visually-hidden">Move rule {{ i + 1 }} down</span></button>
+              <button type="button" class="icon-btn" title="Remove rule" (click)="remove(i)"><app-icon name="trash" [size]="16" /><span class="visually-hidden">Remove rule {{ i + 1 }}</span></button>
+            </div>
+          </div>
+        } @empty {
+          <p class="muted small">No rules. Trades on this strategy will have no checklist.</p>
+        }
+        <div class="actions"><button type="button" class="btn btn-sm" (click)="addRule()"><app-icon name="plus" [size]="14" />Add rule</button></div>
+      </div>
+
+      @if (original(); as s) {
+        @if (s.retiredRules.length > 0) {
+          <div class="card retired">
+            <h2>Retired rules</h2>
+            <p>No longer on new checklists. Trades already checked against them keep them.</p>
+            <ul>
+              @for (r of s.retiredRules; track r.id) {
+                <li>
+                  <span>{{ r.text }} <span class="small muted">· {{ r.category === 'General' ? '' : r.category.toLowerCase() + ', ' }}{{ r.isMandatory ? 'mandatory' : 'optional' }}, retired {{ r.retiredAt | date: 'd MMM yyyy' }}</span></span>
+                  <button type="button" class="btn-link small" [disabled]="saving()" (click)="restoreRule(r.id)">Restore</button>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        @if (report(); as r) {
+          <section class="adherence" aria-label="Adherence on this strategy">
+            <h2 class="adherence-title">Adherence on this strategy</h2>
+            <app-adherence-panel [report]="r" [showStrategy]="false" />
+          </section>
+        }
+
+        <div class="actions">
+          @if (s.status === 'Active') {
+            <button type="button" class="btn" [disabled]="saving()" (click)="archive()">Archive strategy</button>
+          } @else {
+            <button type="button" class="btn" [disabled]="saving()" (click)="restore()">Restore strategy</button>
+          }
+        </div>
+      }
+    }
+  }
+</div>
