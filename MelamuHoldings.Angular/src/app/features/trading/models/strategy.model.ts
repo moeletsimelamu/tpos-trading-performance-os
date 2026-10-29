@@ -65,3 +65,21 @@ export const RULE_ANSWERS: { value: RuleAnswer; label: string }[] = [
 export function answerLabel(answer: RuleAnswer | null | undefined): string {
   return RULE_ANSWERS.find(a => a.value === answer)?.label ?? 'Not answered';
 }
+
+// Results by the answers to one journal question. Each row's value is the filter value for the same trades.
+export interface AnswerOutcome { value?: string | null; label: string; results: AdherenceGroup; }
+export interface AnswerBreakdown {
+  fieldId: string;
+  label: string;
+  type: string;
+  completedTrades: number;
+  answers: AnswerOutcome[];
+  notAnswered: AnswerOutcome;
+  countsTradesMoreThanOnce: boolean;
+  minimumSample: number;
+}
+
+// Adherence period by period; scored = trades with a complete checklist, the rate's denominator
+export type TrendPeriod = 'Month' | 'Week';
+export interface AdherencePeriod { start: string; end: string; completedTrades: number; scored: number; compliant: number; adherenceRate?: number | null; insufficientData: boolean; }
+export interface AdherenceTrend { period: TrendPeriod; minimumSample: number; truncated: boolean; periods: AdherencePeriod[]; }

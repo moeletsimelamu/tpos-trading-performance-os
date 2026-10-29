@@ -47,6 +47,13 @@ public record AdherenceGroupDto(int Trades, int Wins, decimal NetPnL, decimal? W
 
 public record RuleViolationDto(int RuleId, string StrategyName, string Text, int TimesNotMet, int TimesAnswered);
 
+public enum TrendPeriod { Month, Week }
+
+// One period's adherence: Scored = trades with a complete checklist (the denominator of the rate)
+public record AdherencePeriodDto(DateOnly Start, DateOnly End, int CompletedTrades, int Scored, int Compliant, decimal? AdherenceRate, bool InsufficientData);
+
+public record AdherenceTrendDto(TrendPeriod Period, int MinimumSample, bool Truncated, IReadOnlyList<AdherencePeriodDto> Periods);
+
 public record StrategyAdherenceDto(int StrategyId, string StrategyName, int CompletedTrades, int WithChecklist, int Compliant, decimal? AdherenceRate);
 
 // Adherence over closed and reviewed trades. Rate = compliant ÷ trades with a complete checklist (WithChecklist);

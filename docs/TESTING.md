@@ -49,6 +49,39 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-29 (branch `journal-answer-breakdowns`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 181 passed, 0 failed |
+| `dotnet test` (Release): integration | 97 passed, 0 failed |
+| `ng test --watch=false` | 155 passed, 0 failed (21 files) |
+| `ng build` (production) | Succeeded; initial bundle 310.31 kB; no budget warnings |
+
+No migration: both views read existing records.
+
+**New tests**
+- **Unit (`JournalAnswerAnalyticsTests`):**
+  - **Rows:** each answer row's trades and net P&L equal the Performance summary with that answer as the filter. A draft with an answer is never counted, an answer nobody gave shows 0 trades and no win rate, and "Not answered" holds the rest.
+  - **Multi-select and free text:** a multi-select counts a trade under each answer and says so; free text and unknown questions are refused.
+  - **Adherence by month:** an empty November is kept with no rate. Unfinished and missing checklists are not scored, and an open trade is not counted.
+  - **By week:** weeks start on Monday, so 7 October falls in the week of 5 October, and nine weeks are listed. No trades means no periods.
+- **Integration (`JournalAnswerEndpointTests`):**
+  - **Through the API:** rows by a template's question, narrowed by the instrument and date filters, and the monthly trend (no rate for an empty February, not 0%) and the weekly one.
+  - **Refusals:** another trader's question is 404; a missing field, `period=year` and reversed dates are 400.
+- **Angular (Performance spec):**
+  - **The Journal answer tab:** the first question is asked for; small sample, "—" and true minus are shown. Show applies the answer as a filter, and the narrowed page keeps that question.
+  - **The trend:** by month, with "—" for an empty month, and by week on request.
+  - **Existing tests:** they answer the panel's trend request in `afterEach`, skipping requests the page cancelled.
+
+**Browser check (scratch database, desktop and phone width)**
+- **"Before entry" (a template checklist):** "Setup meets the defined criteria (ticked)" has 1 trade (+500.00, trade 22), and "Not answered" has 23, with the note that a trade can count under several answers.
+- **"Emotional state before entry":** Calm has 1 trade, +600.00 at 3.00R (trade 24), and the other five feelings none. Show narrowed the page to that trade (+600.00, 1 trade, `?answerField=emotion-before&answerValue=Calm`).
+- **Over time:** October 2026 has 24 closed, 3 scored and 2 followed (66.7%), matching the adherence report. By week: 9, 11, 0 and 4 closed (the empty week of 19 October kept), adding up to 24 and 3 scored.
+- **Phone width:** nothing overflows outside its scroll area. No console errors.
+- **Found and fixed during the check:** after Show, the rebuilt page went back to the first question ("Before entry") instead of the one just narrowed by. The breakdown now starts on the filter's question, and a test covers it.
+
 ## Results — 2026-10-29 (branch `journal-ai-questions`)
 
 | Command | Result |

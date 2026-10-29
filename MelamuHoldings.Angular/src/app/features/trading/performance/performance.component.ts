@@ -11,6 +11,8 @@ import { AdherenceReport } from '../models/strategy.model';
 import { AnalyticsFilter, AnalyticsFilterOptions, filterFromQuery, filterToQuery, isFilterEmpty } from '../models/analytics-filter.model';
 import { AnalyticsFilterBarComponent } from '../analytics/analytics-filter-bar.component';
 import { AiJournalQuestionComponent } from '../analytics/ai-journal-question.component';
+import { AnswerBreakdownComponent } from '../analytics/answer-breakdown.component';
+import { AdherenceTrendComponent } from '../analytics/adherence-trend.component';
 import { AdherencePanelComponent } from '../strategies/adherence-panel.component';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
@@ -19,20 +21,23 @@ import { CHART, baseChartOptions } from '../../../shared/ui/chart-theme';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type BreakdownKey = 'strategy' | 'day' | 'session';
+// The journal-answer view has its own figures and question, loaded by its component
+type BreakdownTab = BreakdownKey | 'answer';
 
 // One row of any breakdown: the strategy, weekday and session endpoints share these figures
 export interface BreakdownRow { label: string; totalTrades: number; winRate: number; averageRR: number; totalPnL: number; }
 
-const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
+const BREAKDOWNS: { key: BreakdownTab; label: string; column: string }[] = [
   { key: 'strategy', label: 'Strategy', column: 'Strategy' },
   { key: 'day', label: 'Day of week', column: 'Day' },
-  { key: 'session', label: 'Session', column: 'Session' }
+  { key: 'session', label: 'Session', column: 'Session' },
+  { key: 'answer', label: 'Journal answer', column: 'Answer' }
 ];
 
 @Component({
   selector: 'app-trading-performance',
   standalone: true,
-  imports: [DecimalPipe, RouterLink, BaseChartDirective, LoadErrorComponent, PageHeaderComponent, AnalyticsFilterBarComponent, AdherencePanelComponent, AiJournalQuestionComponent],
+  imports: [DecimalPipe, RouterLink, BaseChartDirective, LoadErrorComponent, PageHeaderComponent, AnalyticsFilterBarComponent, AdherencePanelComponent, AiJournalQuestionComponent, AnswerBreakdownComponent, AdherenceTrendComponent],
   providers: [provideCharts(withDefaultRegisterables())],
   template: `
     <div class="page">
@@ -130,6 +135,9 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
                   }
                 </div>
                 <div id="breakdown-panel" role="tabpanel" [attr.aria-labelledby]="'tab-' + breakdown()">
+                  @if (breakdown() === 'answer') {
+                    <app-answer-breakdown [filter]="filter()" [options]="options()" (drill)="applyFilter($event)" />
+                  } @else {
                   <table class="data-table">
                     <thead>
                       <tr><th>{{ column() }}</th><th class="num">Trades</th><th class="num">Win rate</th><th class="num">Average R</th><th class="num">P&amp;L</th><th class="bar-col"><span class="visually-hidden">Comparison</span></th></tr>
@@ -154,6 +162,7 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
                       }
                     </tbody>
                   </table>
+                  }
                 </div>
               </section>
 
@@ -161,6 +170,7 @@ const BREAKDOWNS: { key: BreakdownKey; label: string; column: string }[] = [
                 <section class="adherence" aria-labelledby="adherence-heading">
                   <h2 id="adherence-heading" class="section-heading">Rule adherence</h2>
                   <app-adherence-panel [report]="a" />
+                  <app-adherence-trend [filter]="filter()" />
                 </section>
               }
             }
@@ -196,7 +206,7 @@ export class PerformanceComponent {
   readonly summary = signal<AnalyticsSummary | null>(null);
   readonly equity = signal<EquityPoint[]>([]);
   readonly tables = signal<Record<BreakdownKey, BreakdownRow[]>>({ strategy: [], day: [], session: [] });
-  readonly breakdown = signal<BreakdownKey>('strategy');
+  readonly breakdown = signal<BreakdownTab>('strategy');
   readonly adherence = signal<AdherenceReport | null>(null);
 
   // The filter lives in the address, so a filtered view survives a reload and can be bookmarked
@@ -206,7 +216,7 @@ export class PerformanceComponent {
   // The filter bar shows once there is anything to filter: options list strategies or sessions from closed trades
   readonly hasTrades = computed(() => this.filtered() || (this.summary()?.totalTrades ?? 0) > 0);
 
-  readonly rows = computed(() => this.tables()[this.breakdown()]);
+  readonly rows = computed(() => { const key = this.breakdown(); return key === 'answer' ? [] : this.tables()[key]; });
   readonly column = computed(() => BREAKDOWNS.find(b => b.key === this.breakdown())!.column);
   private readonly maxAbsPnL = computed(() => Math.max(0, ...this.rows().map(r => Math.abs(r.totalPnL))));
 

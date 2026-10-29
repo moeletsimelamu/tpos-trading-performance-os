@@ -56,7 +56,7 @@ The landing page shows the business as recorded:
 - Upload history per user.
 - Strategies are created automatically from the CSV `Strategy` column.
 - View, search and delete trades. Search covers instrument, strategy, session and day; filters cover status, direction, strategy, session, account, result and date. Each row shows the trade's rule adherence. Sort by date, instrument, P&L or R; 25 trades per page.
-- **What the journal does not do yet** is listed in [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): most importantly, outcomes are filtered by one journal answer at a time rather than broken down, there are no adherence trends over time, and the AI has only been checked against a stand-in server, not a real model.
+- **What the journal does not do yet** is listed in [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): most importantly, the AI has only been checked against a stand-in server, not a real model, and strategies have no rule categories, instruments or sessions of their own.
 
 ### Performance analytics
 - **Win rate**: winning trades ÷ total trades.
@@ -65,7 +65,8 @@ The landing page shows the business as recorded:
 - **Average RR**: mean reward-to-risk ratio.
 - **Equity curve**: cumulative P&L by day.
 - **Max drawdown**: the largest peak-to-trough fall in cumulative P&L.
-- **Breakdowns**: by strategy, day of week and trading session.
+- **Breakdowns**: by strategy, day of week, trading session and **journal answer**: pick any question with fixed answers (emotion, a rating, recorded mistakes) to compare results answer by answer, with trades that have no answer shown apart, and Show to narrow the page to one answer.
+- **Rule adherence over time**: month by month or week by week, with empty periods kept and small samples labelled.
 - **Filters** (Performance and Behaviour): date range, strategy, instrument, session, account, rule adherence (followed every mandatory rule, broke one, or not scored), and any journal answer with fixed choices, such as your emotion before entry or a quality rating. Filters only narrow the trades; every figure is calculated exactly as without them. Fewer than 20 matching trades is labelled insufficient data, and the filtered view is kept in the address so it can be bookmarked.
 - **Rule adherence** for the same filters: trades that followed the mandatory rules compared with those that did not, with sample sizes.
 
@@ -242,6 +243,8 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/analytics/by-session` | Performance by session |
 | GET | `/api/analytics/behaviour` | Behavioural alerts and metrics |
 | GET | `/api/analytics/adherence` | Rule adherence over closed trades, with results compared and sample sizes |
+| GET | `/api/analytics/adherence-trend` | Rule adherence by `period` (`month` or `week`), empty periods included |
+| GET | `/api/analytics/by-answer` | Results grouped by the answers to one journal question (`field`), with a not-answered row |
 | GET | `/api/ai-review/status` | Whether AI-drafted reviews are on, and the model name (never the key) |
 | POST | `/api/trades/{id}/ai-review` | Draft a review of a closed trade (not saved; 503 when off, 502 if the provider fails) |
 | POST | `/api/ai-review/ask` | Ask about the closed trades matching the analytics filter in the query string (`{ question }`; not saved) |

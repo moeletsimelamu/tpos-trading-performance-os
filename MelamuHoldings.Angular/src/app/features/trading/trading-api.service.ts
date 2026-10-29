@@ -8,7 +8,7 @@ import {
 } from './models/analytics.model';
 import { SaveTrade, Trade, TradeRevision, TradeStatus } from './models/trade.model';
 import { JournalSection, JournalTemplate } from './models/journal.model';
-import { AdherenceReport, SaveStrategy, Strategy } from './models/strategy.model';
+import { AdherenceReport, AdherenceTrend, AnswerBreakdown, SaveStrategy, Strategy, TrendPeriod } from './models/strategy.model';
 import { AnalyticsFilter, AnalyticsFilterOptions, filterParams } from './models/analytics-filter.model';
 import { AiJournalAnswer, AiReviewDraft, AiReviewStatus } from './models/ai-review.model';
 import { CalendarMonth, ImportMatch, JournalOverview, LinkResult, MatchDecision, TradeAttachment } from './models/journal-view.model';
@@ -92,6 +92,15 @@ export class TradingApiService {
   // Adherence takes the same filter as every other figure (a strategy page passes its strategyId)
   getAdherence(filter: AnalyticsFilter = {}): Observable<AdherenceReport> {
     return this.http.get<AdherenceReport>(`${this.base}/analytics/adherence`, { params: filterParams(filter) });
+  }
+
+  getAdherenceTrend(filter: AnalyticsFilter = {}, period: TrendPeriod = 'Month'): Observable<AdherenceTrend> {
+    return this.http.get<AdherenceTrend>(`${this.base}/analytics/adherence-trend`, { params: filterParams(filter).set('period', period) });
+  }
+
+  // Results grouped by the answers to one journal question with fixed answers
+  getAnswerBreakdown(field: string, filter: AnalyticsFilter = {}): Observable<AnswerBreakdown> {
+    return this.http.get<AnswerBreakdown>(`${this.base}/analytics/by-answer`, { params: filterParams(filter).set('field', field) });
   }
 
   getFilterOptions(): Observable<AnalyticsFilterOptions> {

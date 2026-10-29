@@ -78,7 +78,7 @@ Verification is recorded in [`TESTING.md`](TESTING.md). Each stage has automated
 | Mandatory versus optional; unchecked is not a violation | Built | N/A only for optional rules | J4 tests |
 | Violation context preserved | Built | Checklist items copy the rule wording; history kept | J4 tests |
 | Adherence: counts, rate with denominator, compliant vs non-compliant, most missed | Built | Adherence report; Performance and Strategies pages | J4 and J6 tests |
-| Repeated execution errors over time / adherence trends | Not built | — | Gap 3 |
+| Repeated execution errors over time / adherence trends | Partly | Adherence by month or week on Performance; most-missed rules for any period through the date filter; recorded mistakes by the journal-answer breakdown (after J8). No line per rule over time. | Breakdown unit, integration and Angular tests |
 
 ### 7. AI assistant
 
@@ -102,7 +102,7 @@ Verification is recorded in [`TESTING.md`](TESTING.md). Each stage has automated
 |---|---|---|---|
 | One calculation path; manual and imported trades counted once | Built | `CompletedTrade` and `AnalyticsScope` | J6 "filters only narrow" tests |
 | Filters: date, account, instrument, session, strategy, adherence, emotion, rating, mistakes | Built | J6, with instrument added in J8; emotion, rating and mistakes as journal-answer filters | J6 and J8 tests |
-| Outcomes by emotion, rating vs outcome, most frequent mistakes, adherence trends | Partly | One answer at a time as a filter; no breakdown table or trend | Gap 3 |
+| Outcomes by emotion, rating vs outcome, most frequent mistakes, adherence trends | Built | "Journal answer" breakdown on Performance (any question with fixed answers, with a not-answered row and a Show drill-down) and adherence by month or week (after J8) | Breakdown unit, integration and Angular tests |
 | Sample sizes and missing data communicated | Built | Under-20 labels; "not scored" counts | J4 and J6 |
 | CSV import optional; reconciliation without duplicates or overwritten notes | Built | Skip duplicates; match → link / import / dismiss | J5 tests; J8 flow |
 
@@ -120,7 +120,7 @@ Verification is recorded in [`TESTING.md`](TESTING.md). Each stage has automated
 
 1. **Change history for trade edits and journal answers.** *Closed after J8 (2026-10-29).* Every save that changes a trade records an append-only revision with each value before and after, shown in a History section on the trade page (`TRADING_JOURNAL_DESIGN.md` §8a). Changes made before then were not recorded.
 2. **Journal-wide AI questions.** *Closed after J8 (2026-10-29).* Performance and Behaviour have "Ask about these trades": a question about the most recent closed trades matching the page's filter, answered from their notes, journal answers and checklists, with the app's figures (including the previous period and same-day trades after a loss) shown apart (`TRADING_JOURNAL_DESIGN.md` §8b). Like the draft, it was checked against a stub, not a real model.
-3. **Outcome analysis by journal answer, and trends.** Filters answer "how did Calm trades do?" one value at a time. A breakdown table (outcomes per emotion, per rating, per recorded mistake) and adherence over time would cover the rest of brief §6 and §8.
+3. **Outcome analysis by journal answer, and trends.** *Closed after J8 (2026-10-29).* Performance breaks results down by any journal question with fixed answers (emotion, rating, mistakes, checklist items), with a "Not answered" row and Show to narrow the page to an answer, and shows rule adherence by month or week with empty periods kept (`TRADING_JOURNAL_DESIGN.md` §7b). Not built: a line per rule over time.
 4. **Richer strategies:** rule categories (setup, entry, exit, risk), the instruments and sessions a strategy applies to, and a default journal template per strategy.
 5. **Smaller limitations, documented and not planned yet:**
    - **Not supported:** partial exits and multiple executions per trade; free-form tags; archiving trades.

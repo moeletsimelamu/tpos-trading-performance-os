@@ -39,7 +39,11 @@ describe('PerformanceComponent', () => {
     http = TestBed.inject(HttpTestingController);
   }
 
-  afterEach(() => http.verify());
+  // The adherence-over-time panel loads its own figures once the page shows; answered here as "no trades yet"
+  afterEach(() => {
+    http.match(r => r.url === `${api}/analytics/adherence-trend`).filter(r => !r.cancelled).forEach(r => r.flush({ period: 'Month', minimumSample: 20, truncated: false, periods: [] }));
+    http.verify();
+  });
 
   async function render(query: Record<string, string> = {}) {
     configure(query);
@@ -165,5 +169,66 @@ describe('PerformanceComponent', () => {
     summary.flush(emptySummary);
     for (const path of FIGURES) http.expectOne(r => r.url === `${api}/analytics/${path}`).flush([]);
     http.expectOne(r => r.url === `${api}/analytics/adherence`).flush(emptyAdherence);
+  });
+
+  it('breaks results down by journal answer, and Show narrows the page to that answer', async () => {
+    const fixture = await render();
+    flushAll({ ...emptySummary, totalTrades: 3, totalPnL: 60 });
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+    (el.querySelector('#tab-answer') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    const req = http.expectOne(r => r.url === `${api}/analytics/by-answer`);
+    expect(req.request.params.get('field')).toBe('mood');   // the first question until another is chosen
+    req.flush({
+      fieldId: 'mood', label: 'Mood', type: 'SingleSelect', completedTrades: 3, countsTradesMoreThanOnce: false, minimumSample: 20,
+      answers: [
+        { value: 'Calm', label: 'Calm', results: { trades: 2, wins: 2, netPnL: 90, winRate: 100, averageR: 1.5, insufficientData: true } },
+        { value: 'Rushed', label: 'Rushed', results: { trades: 0, wins: 0, netPnL: 0, winRate: null, averageR: null, insufficientData: true } }
+      ],
+      notAnswered: { value: null, label: 'Not answered', results: { trades: 1, wins: 0, netPnL: -30, winRate: 0, averageR: -1, insufficientData: true } }
+    });
+    await fixture.whenStable();
+
+    const rows = [...el.querySelectorAll('#breakdown-panel tbody tr')].map(r => [...r.querySelectorAll('td')].slice(0, 5).map(c => c.textContent!.trim()));
+    expect(rows).toEqual([
+      ['Calm small sample', '2', '100.0%', '1.50R', '+90.00'],
+      ['Rushed', '0', '—', '—', '—'],
+      ['Not answered', '1', '0.0%', '-1.00R', '−30.00']
+    ]);
+    expect(el.textContent).toContain('This shows what happened with each answer, not why.');
+
+    // Show applies the answer as a filter, which reloads every figure
+    (el.querySelector('#breakdown-panel tbody tr button') as HTMLButtonElement).click();
+    expect(navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: { answerField: 'mood', answerValue: 'Calm' } }));
+    flushAll({ ...emptySummary, totalTrades: 2, totalPnL: 90 });
+    await fixture.whenStable();
+    // The narrowed page keeps the journal-answer view on the question it was narrowed by
+    const again = http.expectOne(r => r.url === `${api}/analytics/by-answer`);
+    expect(again.request.params.get('field')).toBe('mood');
+    expect(again.request.params.get('answerValue')).toBe('Calm');
+  });
+
+  it('shows rule adherence month by month, and by week when asked', async () => {
+    const fixture = await render();
+    flushAll({ ...emptySummary, totalTrades: 3, totalPnL: 60 });
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+
+    const month = http.expectOne(r => r.url === `${api}/analytics/adherence-trend`);
+    expect(month.request.params.get('period')).toBe('Month');
+    month.flush({ period: 'Month', minimumSample: 20, truncated: false, periods: [
+      { start: '2026-09-01', end: '2026-09-30', completedTrades: 4, scored: 2, compliant: 1, adherenceRate: 50, insufficientData: true },
+      { start: '2026-10-01', end: '2026-10-31', completedTrades: 0, scored: 0, compliant: 0, adherenceRate: null, insufficientData: true }
+    ] });
+    await fixture.whenStable();
+    const rows = [...el.querySelectorAll('app-adherence-trend tbody tr')].map(r => [...r.querySelectorAll('th, td')].slice(0, 5).map(c => c.textContent!.trim()));
+    expect(rows).toEqual([['Sept 2026', '4', '2', '1', '50%'], ['Oct 2026', '0', '0', '0', '—']]);   // an empty month shows no rate, not 0%
+
+    (el.querySelectorAll('app-adherence-trend .segmented button')[1] as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(http.expectOne(r => r.url === `${api}/analytics/adherence-trend`).request.params.get('period')).toBe('Week');
   });
 });

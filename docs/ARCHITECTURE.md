@@ -19,7 +19,7 @@ MelamuHoldings.Application/     depends on Domain
   Identity/     AuthService, OwnerAccountService, JwtService, JwtOptions, Roles/Policies, auth DTOs, IUserRepository
   Trading/      TradeService (journal entries: draft, open, closed, review), AnalyticsScope (the one place
                 analytics read trades; filters only narrow), CompletedTrade (which of them count),
-                AnalyticsService, BehaviourAnalyticsService, AdherenceService, JournalOverviewService,
+                AnalyticsService, BehaviourAnalyticsService, AdherenceService, JournalAnswerAnalytics, JournalOverviewService,
                 JournalTemplateService + TradeJournal, StrategyService + TradeChecklists,
                 TradeHistory + TradeValues (change history), AttachmentService (+ IAttachmentStore), UploadService + ImportReconciliationService,
                 AiReviewService and AiJournalQuestionService (+ IAiReviewProvider, optional), CsvParserService, DTOs, repository interfaces

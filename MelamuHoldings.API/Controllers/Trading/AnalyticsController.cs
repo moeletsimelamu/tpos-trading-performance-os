@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MelamuHoldings.Application.Identity;
@@ -13,6 +14,7 @@ public class AnalyticsController : ControllerBase
     private readonly AnalyticsService _analyticsService;
     private readonly BehaviourAnalyticsService _behaviourService;
     private readonly AdherenceService _adherenceService;
+    private readonly JournalAnswerAnalytics _answers;
     private readonly AnalyticsScope _scope;
     private readonly JwtService _jwtService;
 
@@ -20,12 +22,14 @@ public class AnalyticsController : ControllerBase
         AnalyticsService analyticsService,
         BehaviourAnalyticsService behaviourService,
         AdherenceService adherenceService,
+        JournalAnswerAnalytics answers,
         AnalyticsScope scope,
         JwtService jwtService)
     {
         _analyticsService = analyticsService;
         _behaviourService = behaviourService;
         _adherenceService = adherenceService;
+        _answers = answers;
         _scope = scope;
         _jwtService = jwtService;
     }
@@ -45,6 +49,16 @@ public class AnalyticsController : ControllerBase
         Ok(await _analyticsService.GetStrategyPerformanceAsync(GetUserId(), filter));
 
     // Rule adherence over closed and reviewed trades, narrowed like every other figure (strategyId included)
+    // Adherence month by month (or week by week), for the same trades
+    [HttpGet("adherence-trend")]
+    public async Task<IActionResult> GetAdherenceTrend([FromQuery] AnalyticsFilter filter, [FromQuery] TrendPeriod period = TrendPeriod.Month) =>
+        Ok(await _adherenceService.GetTrendAsync(GetUserId(), period, filter));
+
+    // Results grouped by the answers to one journal question with fixed answers (emotion, rating, mistakes…)
+    [HttpGet("by-answer")]
+    public async Task<IActionResult> GetByAnswer([FromQuery, Required, MaxLength(40)] string field, [FromQuery] AnalyticsFilter filter) =>
+        Ok(await _answers.ByAnswerAsync(GetUserId(), field, filter));
+
     [HttpGet("adherence")]
     public async Task<IActionResult> GetAdherence([FromQuery] AnalyticsFilter filter) =>
         Ok(await _adherenceService.GetReportAsync(GetUserId(), filter));
