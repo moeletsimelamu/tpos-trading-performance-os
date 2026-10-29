@@ -81,6 +81,8 @@ public class ChecklistItem
     public int StrategyRuleId { get; private set; }
     public string Text { get; private set; } = string.Empty;
     public bool IsMandatory { get; private set; }
+    // Copied with the wording, so a later change of category never regroups a past checklist
+    public RuleCategory Category { get; private set; }
     public int SortOrder { get; private set; }
 
     public IReadOnlyList<ChecklistResponse> Responses => _responses.OrderBy(r => r.Sequence).ToList();
@@ -93,6 +95,7 @@ public class ChecklistItem
         StrategyRuleId = rule.Id;
         Text = rule.Text;
         IsMandatory = rule.IsMandatory;
+        Category = rule.Category;
         SortOrder = rule.SortOrder;
     }
 

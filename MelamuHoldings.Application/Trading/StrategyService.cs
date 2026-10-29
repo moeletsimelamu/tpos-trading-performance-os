@@ -1,6 +1,7 @@
 using MelamuHoldings.Application.Common;
 using MelamuHoldings.Domain.Common;
 using MelamuHoldings.Domain.Trading;
+using MelamuHoldings.Domain.Trading.Journal;
 
 namespace MelamuHoldings.Application.Trading;
 
@@ -10,11 +11,13 @@ public class StrategyService
     public const string NameIndex = "IX_Strategies_UserId_Name";
 
     private readonly IStrategyRepository _repository;
+    private readonly IJournalRepository _journal;
     private readonly TimeProvider _clock;
 
-    public StrategyService(IStrategyRepository repository, TimeProvider clock)
+    public StrategyService(IStrategyRepository repository, IJournalRepository journal, TimeProvider clock)
     {
         _repository = repository;
+        _journal = journal;
         _clock = clock;
     }
 
@@ -36,8 +39,11 @@ public class StrategyService
     public async Task<StrategyDto> CreateAsync(SaveStrategyRequest request, int userId)
     {
         await EnsureNameFreeAsync(userId, request.Name, null);
+        await EnsureTemplateAsync(userId, request.DefaultTemplateId, null);
         var strategy = new Strategy(userId, request.Name, request.Description, Now);
         strategy.SetRules(Drafts(request), Now);
+        strategy.SetScope(request.Instruments, request.Sessions, Now);
+        strategy.SetDefaultTemplate(request.DefaultTemplateId, Now);
         await _repository.AddAsync(strategy);
         await SaveAsync(request.Name);
         return ToDto(strategy, 0);
@@ -47,8 +53,11 @@ public class StrategyService
     {
         var strategy = await StrategyAsync(id, userId);
         await EnsureNameFreeAsync(userId, request.Name, id);
+        await EnsureTemplateAsync(userId, request.DefaultTemplateId, strategy.DefaultTemplateId);
         strategy.Update(request.Name, request.Description, Now);
         strategy.SetRules(Drafts(request), Now);
+        strategy.SetScope(request.Instruments, request.Sessions, Now);
+        strategy.SetDefaultTemplate(request.DefaultTemplateId, Now);
         await SaveAsync(request.Name);
         return await DtoAsync(strategy, userId);
     }
@@ -74,6 +83,15 @@ public class StrategyService
             throw new ConflictException($"You already have a strategy named '{other.Name}'.");
     }
 
+    // A default template must be one of the trader's own active templates. One archived since it was chosen may be kept.
+    private async Task EnsureTemplateAsync(int userId, int? templateId, int? current)
+    {
+        if (templateId is not { } id || id == current) return;
+        var template = await _journal.GetTemplateAsync(id, userId);
+        if (template is null || template.Status != JournalTemplateStatus.Active)
+            throw new DomainException("Choose one of your active journal templates as the strategy's default.");
+    }
+
     private async Task SaveAsync(string name)
     {
         try
@@ -87,7 +105,7 @@ public class StrategyService
     }
 
     private static List<RuleDraft> Drafts(SaveStrategyRequest request) =>
-        request.Rules.Select(r => new RuleDraft(r.Id, r.Text, r.IsMandatory)).ToList();
+        request.Rules.Select(r => new RuleDraft(r.Id, r.Text, r.IsMandatory, r.Category)).ToList();
 
     private async Task<StrategyDto> DtoAsync(Strategy strategy, int userId) =>
         ToDto(strategy, (await _repository.CountTradesAsync(userId)).GetValueOrDefault(strategy.Id));
@@ -96,9 +114,10 @@ public class StrategyService
         s.Id, s.Name, s.Description, s.Status,
         s.ActiveRules.Select(Rule).ToList(),
         s.Rules.Where(r => !r.IsActive).OrderByDescending(r => r.RetiredAt).Select(Rule).ToList(),
+        s.Instruments, s.Sessions, s.DefaultTemplateId,
         tradeCount, s.CreatedAt, s.UpdatedAt);
 
-    private static StrategyRuleDto Rule(StrategyRule r) => new(r.Id, r.Text, r.IsMandatory, r.SortOrder, r.RetiredAt);
+    private static StrategyRuleDto Rule(StrategyRule r) => new(r.Id, r.Text, r.IsMandatory, r.Category, r.SortOrder, r.RetiredAt);
 }
 
 // A trade's checklist: read with its history, checked before a new trade is saved, recorded after
@@ -177,7 +196,7 @@ public class TradeChecklists
         var items = c.Items;
         return new TradeChecklistDto(
             c.StrategyId, strategyName, c.CreatedAt,
-            items.Select(i => new ChecklistItemDto(i.StrategyRuleId, i.Text, i.IsMandatory, i.Current?.Answer, i.Current?.AnsweredAt)).ToList(),
+            items.Select(i => new ChecklistItemDto(i.StrategyRuleId, i.Text, i.IsMandatory, i.Category, i.Current?.Answer, i.Current?.AnsweredAt)).ToList(),
             c.IsComplete, c.IsCompliant, c.Violations.Select(v => v.Text).ToList(),
             items.SelectMany(i => i.Responses.Select(r => new ChecklistChangeDto(i.StrategyRuleId, i.Text, r.Sequence, r.Answer, r.AnsweredAt)))
                 .OrderBy(h => h.AnsweredAt).ThenBy(h => h.Sequence).ToList());

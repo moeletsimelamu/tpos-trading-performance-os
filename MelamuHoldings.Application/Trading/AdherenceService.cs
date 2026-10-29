@@ -39,7 +39,7 @@ public class AdherenceService
             .Select(g =>
             {
                 var latest = g.OrderByDescending(x => x.Trade.TradeDate).First();
-                return new RuleViolationDto(g.Key, latest.Trade.Strategy?.Name ?? string.Empty, latest.Item.Text,
+                return new RuleViolationDto(g.Key, latest.Trade.Strategy?.Name ?? string.Empty, latest.Item.Text, latest.Item.Category,
                     g.Count(x => x.Item.Current!.Answer == RuleAnswer.NotMet), g.Count());
             })
             .Where(v => v.TimesNotMet > 0)

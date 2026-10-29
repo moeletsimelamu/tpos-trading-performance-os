@@ -3,7 +3,23 @@
 
 export type RuleAnswer = 'Met' | 'NotMet' | 'NotApplicable';
 
-export interface StrategyRule { id: number; text: string; isMandatory: boolean; sortOrder: number; retiredAt?: string | null; }
+// What part of the trade a rule is about; General for a rule that is not about one stage
+export type RuleCategory = 'Setup' | 'Entry' | 'Exit' | 'Risk' | 'General';
+export const RULE_CATEGORIES: { value: RuleCategory; label: string }[] = [
+  { value: 'Setup', label: 'Setup' }, { value: 'Entry', label: 'Entry' }, { value: 'Exit', label: 'Exit' },
+  { value: 'Risk', label: 'Risk' }, { value: 'General', label: 'General' }
+];
+
+// Rules grouped by category in the order of a trade (setup, entry, exit, risk, then general), keeping each group's
+// own order. One group of general rules needs no heading, so its label is empty.
+export function groupByCategory<T extends { category?: RuleCategory | null }>(items: T[]): { category: RuleCategory; label: string; items: T[] }[] {
+  const groups = RULE_CATEGORIES
+    .map(c => ({ category: c.value, label: c.label, items: items.filter(i => (i.category ?? 'General') === c.value) }))
+    .filter(g => g.items.length > 0);
+  return groups.length === 1 && groups[0].category === 'General' ? [{ ...groups[0], label: '' }] : groups;
+}
+
+export interface StrategyRule { id: number; text: string; isMandatory: boolean; category: RuleCategory; sortOrder: number; retiredAt?: string | null; }
 
 export interface Strategy {
   id: number;
@@ -12,6 +28,10 @@ export interface Strategy {
   status: 'Active' | 'Archived';
   rules: StrategyRule[];
   retiredRules: StrategyRule[];
+  // Where the strategy is meant to be traded; empty = anywhere
+  instruments: string[];
+  sessions: string[];
+  defaultTemplateId?: number | null;
   tradeCount: number;
   createdAt: string;
   updatedAt?: string | null;
@@ -20,10 +40,13 @@ export interface Strategy {
 export interface SaveStrategy {
   name: string;
   description?: string | null;
-  rules: { id?: number | null; text: string; isMandatory: boolean }[];
+  rules: { id?: number | null; text: string; isMandatory: boolean; category: RuleCategory }[];
+  instruments: string[];
+  sessions: string[];
+  defaultTemplateId?: number | null;
 }
 
-export interface ChecklistItem { ruleId: number; text: string; isMandatory: boolean; answer?: RuleAnswer | null; answeredAt?: string | null; }
+export interface ChecklistItem { ruleId: number; text: string; isMandatory: boolean; category: RuleCategory; answer?: RuleAnswer | null; answeredAt?: string | null; }
 export interface ChecklistChange { ruleId: number; text: string; sequence: number; answer: RuleAnswer; answeredAt: string; }
 
 export interface TradeChecklist {
@@ -38,7 +61,7 @@ export interface TradeChecklist {
 }
 
 export interface AdherenceGroup { trades: number; wins: number; netPnL: number; winRate?: number | null; averageR?: number | null; insufficientData: boolean; }
-export interface RuleViolation { ruleId: number; strategyName: string; text: string; timesNotMet: number; timesAnswered: number; }
+export interface RuleViolation { ruleId: number; strategyName: string; text: string; category: RuleCategory; timesNotMet: number; timesAnswered: number; }
 export interface StrategyAdherence { strategyId: number; strategyName: string; completedTrades: number; withChecklist: number; compliant: number; adherenceRate?: number | null; }
 
 export interface AdherenceReport {

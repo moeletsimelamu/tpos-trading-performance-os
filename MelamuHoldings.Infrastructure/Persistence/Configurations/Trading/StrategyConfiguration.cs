@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MelamuHoldings.Domain.Identity;
 using MelamuHoldings.Domain.Trading;
+using MelamuHoldings.Domain.Trading.Journal;
 
 namespace MelamuHoldings.Infrastructure.Persistence.Configurations;
 
@@ -13,6 +14,11 @@ public class StrategyConfiguration : IEntityTypeConfiguration<Strategy>
         builder.Property(s => s.Description).HasMaxLength(Strategy.MaxDescriptionLength);
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(20);
         builder.Ignore(s => s.ActiveRules);
+        // Stored as JSON arrays (the migration gives existing strategies [], meaning anywhere)
+        builder.PrimitiveCollection(s => s.Instruments);
+        builder.PrimitiveCollection(s => s.Sessions);
+        // Templates are archived, never deleted, so a strategy's default never points nowhere
+        builder.HasOne<JournalTemplate>().WithMany().HasForeignKey(s => s.DefaultTemplateId).OnDelete(DeleteBehavior.Restrict);
 
         // Restrict, not cascade: users already cascade to trades, which point at strategies
         builder.HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Restrict);
@@ -30,6 +36,7 @@ public class StrategyRuleConfiguration : IEntityTypeConfiguration<StrategyRule>
     public void Configure(EntityTypeBuilder<StrategyRule> builder)
     {
         builder.Property(r => r.Text).HasMaxLength(StrategyRule.MaxTextLength).IsRequired();
+        builder.Property(r => r.Category).HasConversion<string>().HasMaxLength(20);
         builder.Ignore(r => r.IsActive);
     }
 }
@@ -60,6 +67,7 @@ public class ChecklistItemConfiguration : IEntityTypeConfiguration<ChecklistItem
         builder.ToTable("ChecklistItems");
         // The rule's wording and weight as they were when the checklist started
         builder.Property(i => i.Text).HasMaxLength(StrategyRule.MaxTextLength).IsRequired();
+        builder.Property(i => i.Category).HasConversion<string>().HasMaxLength(20);
         builder.Ignore(i => i.Current);
         builder.HasOne<StrategyRule>().WithMany().HasForeignKey(i => i.StrategyRuleId).OnDelete(DeleteBehavior.Restrict);
 

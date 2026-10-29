@@ -7,7 +7,7 @@ How the code is organised today (after Phase 5 and trading journal J1–J8). Pla
 ```
 MelamuHoldings.Domain/          no dependencies
   Identity/     User
-  Trading/      Trade (Draft → Open → Closed → Reviewed), Strategy (+ StrategyRule), TradeChecklist (+ items,
+  Trading/      Trade (Draft → Open → Closed → Reviewed), Strategy (+ StrategyRule with a category; instruments, sessions, default template), TradeChecklist (+ items,
                 append-only responses), TradeAttachment (+ AttachmentType), ImportMatch,
                 TradeRevision (append-only change history), UploadLog
     Journal/    JournalTemplate (+ immutable versions), JournalSchema, TradeJournalEntry, DefaultJournalTemplate

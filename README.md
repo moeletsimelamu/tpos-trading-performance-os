@@ -39,7 +39,7 @@ The landing page shows the business as recorded:
 
 ![Rule adherence on the Strategies page](docs/images/strategy-adherence.jpg)
 
-- **Strategies and checklists:** each strategy has your own rules, mandatory or optional. A trade's checklist records whether each rule was met, keeps every change, and is never rewritten when a rule is reworded later. **Rule adherence** is shown with its denominator: of the closed trades with a complete checklist, how many followed every mandatory rule. Results of trades that did and did not follow the rules are compared side by side, labelled when the sample is small, and never presented as cause and effect.
+- **Strategies and checklists:** each strategy has your own rules, mandatory or optional, each about the setup, entry, exit or risk (or general), and the checklist is grouped that way. A strategy can list the instruments and sessions it is for (the trade form points out a trade outside them) and name a journal template that new trades on it start with. A trade's checklist records whether each rule was met, keeps every change, and is never rewritten when a rule is reworded later. **Rule adherence** is shown with its denominator: of the closed trades with a complete checklist, how many followed every mandatory rule. Results of trades that did and did not follow the rules are compared side by side, labelled when the sample is small, and never presented as cause and effect.
 - **Journal templates:** the questions answered for each trade (context, a pre-trade checklist, psychology, post-trade review and lessons), from a standard template you can edit, duplicate, archive or replace as the default. The editor shows a live preview. Changing the questions creates a new version, and trades already journaled keep the version they were written with. Required questions must be answered before a trade can be marked reviewed. Any active template can start a new trade directly.
 
 ![Journal page with the calendar](docs/images/journal-calendar.jpg)
@@ -56,7 +56,7 @@ The landing page shows the business as recorded:
 - Upload history per user.
 - Strategies are created automatically from the CSV `Strategy` column.
 - View, search and delete trades. Search covers instrument, strategy, session and day; filters cover status, direction, strategy, session, account, result and date. Each row shows the trade's rule adherence. Sort by date, instrument, P&L or R; 25 trades per page.
-- **What the journal does not do yet** is listed in [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): most importantly, the AI has only been checked against a stand-in server, not a real model, and strategies have no rule categories, instruments or sessions of their own.
+- **What the journal does not do yet** is listed in [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): most importantly, the AI has only been checked against a stand-in server, not a real model; a trade has one entry and one exit (no partial exits); and there are no free-form tags.
 
 ### Performance analytics
 - **Win rate**: winning trades ÷ total trades.

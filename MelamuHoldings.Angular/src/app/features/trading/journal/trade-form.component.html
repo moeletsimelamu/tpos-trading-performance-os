@@ -42,6 +42,7 @@
               <label for="t-strategy">Strategy</label>
               <input id="t-strategy" formControlName="strategyName" list="strategy-list" />
               <datalist id="strategy-list">@for (s of strategies(); track s.id) { <option [value]="s.name"></option> }</datalist>
+              @if (scopeNote()) { <p class="small notice notice-warning scope-note" role="status">{{ scopeNote() }}</p> }
             </div>
             <div class="field">
               <label for="t-account">Trading account (optional)</label>
@@ -118,7 +119,9 @@
           }
           @if (checklistRules().length > 0) {
             <div class="rules">
-              @for (rule of checklistRules(); track rule.ruleId) {
+              @for (group of checklistGroups(); track group.category) {
+                @if (group.label) { <h3 class="rule-group">{{ group.label }}</h3> }
+              @for (rule of group.items; track rule.ruleId) {
                 <div class="rule" role="radiogroup" [attr.aria-label]="rule.text">
                   <span class="rule-text">{{ rule.text }} @if (rule.isMandatory) { <span class="tag">Mandatory</span> }</span>
                   <div class="answers">
@@ -129,6 +132,7 @@
                     }
                   </div>
                 </div>
+              }
               }
             </div>
           } @else if (!form.controls.strategyName.value?.trim()) {
@@ -153,6 +157,11 @@
                   @for (t of templateChoices(); track t.id) { <option [value]="t.id" [selected]="t.id === journalTemplateId()">{{ t.name }}</option> }
                 </select>
               </div>
+              @if (followedStrategy() && !templateOffer()) {
+                <p class="small secondary">Using the journal template set for {{ followedStrategy() }}.</p>
+              } @else if (templateOffer(); as t) {
+                <p class="small secondary">{{ namedStrategy()!.name }} uses the journal template “{{ t.name }}”. <button type="button" class="btn-link" (click)="chooseTemplate(t.id)">Use it</button></p>
+              }
               @if (olderVersion(); as j) {
                 <p class="small secondary">Written with version {{ j.version }}; version {{ j.latestVersion }} is the latest. <button type="button" class="btn-link" (click)="useLatest()">Use version {{ j.latestVersion }}</button></p>
               }

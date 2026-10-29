@@ -21,6 +21,32 @@
       </div>
 
       <div class="card">
+        <h2>Where it applies</h2>
+        <p>Leave a list empty if the strategy applies to any instrument or session. A trade outside these is still saved; the form points it out.</p>
+        <div class="form-grid">
+          <div class="field">
+            <label for="s-instruments">Instruments</label>
+            <input id="s-instruments" [(ngModel)]="instruments" (ngModelChange)="edited()" placeholder="e.g. NQ, ES" />
+            <p class="hint">Separate them with commas.</p>
+          </div>
+          <div class="field">
+            <label for="s-sessions">Sessions</label>
+            <input id="s-sessions" [(ngModel)]="sessions" (ngModelChange)="edited()" placeholder="e.g. New York" />
+            <p class="hint">Separate them with commas.</p>
+          </div>
+          <div class="field">
+            <label for="s-template">Journal template for new trades</label>
+            <select id="s-template" [(ngModel)]="defaultTemplateId" (ngModelChange)="edited()">
+              <option [ngValue]="null">None: use my default template</option>
+              @for (t of templateChoices; track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
+            </select>
+            @if (templatesError()) { <p class="hint">Templates could not be loaded ({{ templatesError() }}).</p> }
+            @else { <p class="hint">A new trade naming this strategy starts with it, until you answer anything or pick another.</p> }
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <h2>Rules</h2>
         <p>Each trade on this strategy gets a checklist of these rules. Changing a rule never changes a checklist already started; removing one retires it.</p>
         @for (rule of rules; track $index; let i = $index) {
@@ -30,6 +56,10 @@
               <input [id]="'r-text-' + i" [(ngModel)]="rule.text" (ngModelChange)="edited()" maxlength="200" placeholder="e.g. Stop loss placed before entry" />
             </div>
             <div class="tools">
+              <label [for]="'r-cat-' + i" class="visually-hidden">Category of rule {{ i + 1 }}</label>
+              <select [id]="'r-cat-' + i" class="category" [(ngModel)]="rule.category" (ngModelChange)="edited()">
+                @for (c of categories; track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+              </select>
               <label class="req"><input type="checkbox" [(ngModel)]="rule.isMandatory" (ngModelChange)="edited()" />Mandatory</label>
               <button type="button" class="icon-btn" title="Move rule up" [disabled]="i === 0" (click)="move(i, -1)"><app-icon name="up" [size]="16" /><span class="visually-hidden">Move rule {{ i + 1 }} up</span></button>
               <button type="button" class="icon-btn" title="Move rule down" [disabled]="i === rules.length - 1" (click)="move(i, 1)"><app-icon name="down" [size]="16" /><span class="visually-hidden">Move rule {{ i + 1 }} down</span></button>
@@ -50,7 +80,7 @@
             <ul>
               @for (r of s.retiredRules; track r.id) {
                 <li>
-                  <span>{{ r.text }} <span class="small muted">· {{ r.isMandatory ? 'mandatory' : 'optional' }}, retired {{ r.retiredAt | date: 'd MMM yyyy' }}</span></span>
+                  <span>{{ r.text }} <span class="small muted">· {{ r.category === 'General' ? '' : r.category.toLowerCase() + ', ' }}{{ r.isMandatory ? 'mandatory' : 'optional' }}, retired {{ r.retiredAt | date: 'd MMM yyyy' }}</span></span>
                   <button type="button" class="btn-link small" [disabled]="saving()" (click)="restoreRule(r.id)">Restore</button>
                 </li>
               }

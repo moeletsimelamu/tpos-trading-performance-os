@@ -1,13 +1,13 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { startWith } from 'rxjs';
 import { TradingApiService } from '../trading-api.service';
 import { REQUIRED_FOR, SaveStatus, SaveTrade, Trade } from '../models/trade.model';
-import { JournalAnswers, JournalSection, JournalTemplate, carryAnswers } from '../models/journal.model';
+import { JournalAnswers, JournalSection, JournalTemplate, carryAnswers, isAnswered } from '../models/journal.model';
 import { JournalFieldsComponent } from './journal-fields.component';
-import { RULE_ANSWERS, RuleAnswer, Strategy } from '../models/strategy.model';
+import { RULE_ANSWERS, RuleAnswer, RuleCategory, Strategy, groupByCategory } from '../models/strategy.model';
 import { newIdempotencyKey, todayIso } from '../../finance/finance-api.service';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
@@ -52,6 +52,8 @@ function notNegative(control: AbstractControl): ValidationErrors | null {
     .picker { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; margin-bottom: var(--space-5); }
     .picker .field { min-width: 240px; }
     .rules { display: grid; gap: var(--space-2); }
+    .rule-group { font-size: var(--text-sm); color: var(--text-secondary); margin: var(--space-3) 0 0; }
+    .scope-note { margin: var(--space-2) 0 0; }
     .rule { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2) var(--space-4); align-items: center; padding: var(--space-2) 0; border-top: 1px solid var(--border-subtle); }
     .rule-text { display: flex; gap: var(--space-2); align-items: baseline; flex: 1 1 240px; }
     .answers { display: flex; gap: 2px; border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }
@@ -100,14 +102,51 @@ export class TradeFormComponent {
   private checklistChanged = false;
 
   // A checklist already started keeps its own copy of the rules; otherwise the strategy's active rules
-  readonly checklistRules = computed<{ ruleId: number; text: string; isMandatory: boolean }[]>(() => {
+  readonly checklistRules = computed<{ ruleId: number; text: string; isMandatory: boolean; category: RuleCategory }[]>(() => {
     const name = (this.value().strategyName ?? '').trim().toLowerCase();
     if (!name) return [];
     const existing = this.original()?.checklist;
     if (existing && existing.strategyName.toLowerCase() === name) return existing.items;
     const strategy = this.strategies().find(s => s.name.toLowerCase() === name);
-    return strategy?.rules.map(r => ({ ruleId: r.id, text: r.text, isMandatory: r.isMandatory })) ?? [];
+    return strategy?.rules.map(r => ({ ruleId: r.id, text: r.text, isMandatory: r.isMandatory, category: r.category })) ?? [];
   });
+
+  // Setup, entry, exit and risk rules under their own headings
+  readonly checklistGroups = computed(() => groupByCategory(this.checklistRules()));
+
+  // The trader's strategy named on the form, if it is one of theirs
+  readonly namedStrategy = computed(() => {
+    const name = (this.value().strategyName ?? '').trim().toLowerCase();
+    return name ? this.strategies().find(s => s.name.toLowerCase() === name) ?? null : null;
+  });
+
+  // A trade outside the strategy's instruments or sessions is allowed; the form only says so
+  readonly scopeNote = computed(() => {
+    const s = this.namedStrategy();
+    if (!s) return '';
+    const v = this.value();
+    const instrument = (v.instrument ?? '').trim();
+    const session = (v.session ?? '').trim();
+    const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+    const outside: string[] = [];
+    if (instrument && s.instruments.length > 0 && !s.instruments.some(i => same(i, instrument))) outside.push(`it is set for ${s.instruments.join(', ')}, not ${instrument}`);
+    if (session && s.sessions.length > 0 && !s.sessions.some(x => same(x, session))) outside.push(`for the ${s.sessions.join(', ')} ${s.sessions.length === 1 ? 'session' : 'sessions'}, not ${session}`);
+    return outside.length ? `${s.name}: ${outside.join('; ')}. Check this is the strategy you meant.` : '';
+  });
+
+  // The named strategy's journal template, when it has one that is still active
+  readonly strategyTemplate = computed(() => {
+    const id = this.namedStrategy()?.defaultTemplateId;
+    return id ? this.templates().find(t => t.id === id && t.status === 'Active') ?? null : null;
+  });
+  readonly templateOffer = computed(() => {
+    const t = this.strategyTemplate();
+    return t && t.id !== this.journalTemplateId() ? t : null;
+  });
+  // Set when the form moved to the strategy's template by itself, so it can say so
+  readonly followedStrategy = signal('');
+  // The trader chose a template (on the form or from the templates page): the strategy no longer decides
+  private templatePicked = false;
 
   readonly strategyKnown = computed(() => {
     const name = (this.value().strategyName ?? '').trim().toLowerCase();
@@ -179,6 +218,17 @@ export class TradeFormComponent {
     });
     if (this.editingId) this.load();
     this.loadTemplates();
+    // A new trade naming a strategy starts with that strategy's journal template, as long as nothing has been
+    // answered yet and no template was chosen; after that the form only offers it
+    effect(() => {
+      const t = this.strategyTemplate();
+      untracked(() => {
+        const blank = !Object.values(this.answers()).some(isAnswered);
+        if (!t || this.editingId || this.templatePicked || this.journalVersionId() === null || t.id === this.journalTemplateId() || !blank) return;
+        this.switchTo(t.id, t.currentVersionId, t.sections);
+        this.followedStrategy.set(this.namedStrategy()!.name);
+      });
+    });
     this.loadStrategies();
   }
 
@@ -214,11 +264,14 @@ export class TradeFormComponent {
     }
     // A new trade started from the templates page uses that template; otherwise the default
     const chosen = Number(this.route.snapshot.queryParamMap?.get('template'));
+    this.templatePicked ||= this.templates().some(x => x.id === chosen);
     const t = this.templates().find(x => x.id === chosen) ?? this.templates().find(x => x.isDefault) ?? this.templates()[0];
     if (t) this.useVersion(t.id, t.currentVersionId, t.sections, {});
   }
 
   chooseTemplate(id: number): void {
+    this.templatePicked = true;
+    this.followedStrategy.set('');
     const j = this.original()?.journal;
     const t = this.templates().find(x => x.id === id);
     if (j && j.templateId === id) this.switchTo(j.templateId, j.templateVersionId, j.sections);

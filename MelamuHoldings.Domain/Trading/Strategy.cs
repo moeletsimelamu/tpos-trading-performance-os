@@ -4,6 +4,9 @@ namespace MelamuHoldings.Domain.Trading;
 
 public enum StrategyStatus { Active, Archived }
 
+// What part of the trade a rule is about; General for a rule that is not about one stage
+public enum RuleCategory { General, Setup, Entry, Exit, Risk }
+
 // A trader's own strategy and its rules. A rule is mandatory (breaking it is a violation) or optional
 // (informational). Rules leave the list by being retired, never deleted, so checklists keep their meaning.
 public class Strategy
@@ -11,6 +14,8 @@ public class Strategy
     public const int MaxNameLength = 100;
     public const int MaxDescriptionLength = 500;
     public const int MaxActiveRules = 30;
+    public const int MaxScopeItems = 20;
+    public const int MaxScopeItemLength = 50;
 
     private readonly List<StrategyRule> _rules = new();
 
@@ -21,6 +26,13 @@ public class Strategy
     public StrategyStatus Status { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
+
+    // Where the strategy is meant to be traded. Empty means anywhere; a trade outside them is noted, never refused.
+    public List<string> Instruments { get; private set; } = [];
+    public List<string> Sessions { get; private set; } = [];
+
+    // The journal template a new trade under this strategy starts with (the trader's own; checked by the service)
+    public int? DefaultTemplateId { get; private set; }
 
     public IReadOnlyList<StrategyRule> Rules => _rules;
     public IReadOnlyList<StrategyRule> ActiveRules => _rules.Where(r => r.IsActive).OrderBy(r => r.SortOrder).ToList();
@@ -63,12 +75,12 @@ public class Strategy
             if (draft.Id is { } id)
             {
                 rule = _rules.FirstOrDefault(r => r.Id == id && id != 0) ?? throw new DomainException($"Rule {id} is not part of this strategy.");
-                rule.Edit(text, draft.IsMandatory, ++order);
+                rule.Edit(text, draft.IsMandatory, draft.Category, ++order);
                 rule.Reactivate();
             }
             else
             {
-                rule = new StrategyRule(text, draft.IsMandatory, ++order, now);
+                rule = new StrategyRule(text, draft.IsMandatory, draft.Category, ++order, now);
                 _rules.Add(rule);
             }
             kept.Add(rule);
@@ -88,10 +100,31 @@ public class Strategy
         if (active.Count >= MaxActiveRules) throw new DomainException($"A strategy can have at most {MaxActiveRules} active rules.");
         if (active.Any(r => string.Equals(r.Text, rule.Text, StringComparison.OrdinalIgnoreCase)))
             throw new DomainException($"An active rule already reads '{rule.Text}'.");
-        rule.Edit(rule.Text, rule.IsMandatory, active.Count == 0 ? 1 : active.Max(r => r.SortOrder) + 1);
+        rule.Edit(rule.Text, rule.IsMandatory, rule.Category, active.Count == 0 ? 1 : active.Max(r => r.SortOrder) + 1);
         rule.Reactivate();
         UpdatedAt = now;
     }
+
+    // Instruments and sessions are kept as entered, trimmed, once each (ignoring case)
+    public void SetScope(IEnumerable<string>? instruments, IEnumerable<string>? sessions, DateTime now)
+    {
+        Instruments = Scope(instruments, "instrument");
+        Sessions = Scope(sessions, "session");
+        UpdatedAt = now;
+    }
+
+    public void SetDefaultTemplate(int? templateId, DateTime now)
+    {
+        DefaultTemplateId = templateId;
+        UpdatedAt = now;
+    }
+
+    // Whether a trade's instrument and session are within the strategy's scope; an empty list allows anything
+    public bool CoversInstrument(string? instrument) =>
+        Instruments.Count == 0 || Instruments.Any(i => string.Equals(i, instrument?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    public bool CoversSession(string? session) =>
+        Sessions.Count == 0 || Sessions.Any(s => string.Equals(s, session?.Trim(), StringComparison.OrdinalIgnoreCase));
 
     public void Archive(DateTime now)
     {
@@ -110,9 +143,23 @@ public class Strategy
         Name = Text.Required(name, MaxNameLength, "Strategy name");
         Description = Text.Optional(description, MaxDescriptionLength, "Strategy description");
     }
+
+    private static List<string> Scope(IEnumerable<string>? values, string what)
+    {
+        var kept = new List<string>();
+        foreach (var value in values ?? [])
+        {
+            var text = value?.Trim();
+            if (string.IsNullOrEmpty(text)) continue;
+            if (text.Length > MaxScopeItemLength) throw new DomainException($"A {what} can be at most {MaxScopeItemLength} characters.");
+            if (!kept.Contains(text, StringComparer.OrdinalIgnoreCase)) kept.Add(text);
+        }
+        if (kept.Count > MaxScopeItems) throw new DomainException($"A strategy can list at most {MaxScopeItems} {what}s.");
+        return kept;
+    }
 }
 
-public record RuleDraft(int? Id, string Text, bool IsMandatory);
+public record RuleDraft(int? Id, string Text, bool IsMandatory, RuleCategory Category = RuleCategory.General);
 
 public class StrategyRule
 {
@@ -122,6 +169,7 @@ public class StrategyRule
     public int StrategyId { get; private set; }
     public string Text { get; private set; } = string.Empty;
     public bool IsMandatory { get; private set; }
+    public RuleCategory Category { get; private set; }
     public int SortOrder { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime? RetiredAt { get; private set; }
@@ -130,20 +178,25 @@ public class StrategyRule
 
     private StrategyRule() { }
 
-    internal StrategyRule(string text, bool isMandatory, int sortOrder, DateTime now)
+    internal StrategyRule(string text, bool isMandatory, RuleCategory category, int sortOrder, DateTime now)
     {
         Text = text;
         IsMandatory = isMandatory;
+        Category = Defined(category);
         SortOrder = sortOrder;
         CreatedAt = now;
     }
 
-    internal void Edit(string text, bool isMandatory, int sortOrder)
+    internal void Edit(string text, bool isMandatory, RuleCategory category, int sortOrder)
     {
         Text = text;
         IsMandatory = isMandatory;
+        Category = Defined(category);
         SortOrder = sortOrder;
     }
+
+    private static RuleCategory Defined(RuleCategory category) =>
+        Enum.IsDefined(category) ? category : throw new DomainException("Choose a rule category: setup, entry, exit, risk or general.");
 
     internal void Retire(DateTime now) => RetiredAt ??= now;
     internal void Reactivate() => RetiredAt = null;

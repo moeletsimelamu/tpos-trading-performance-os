@@ -98,7 +98,7 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
 - **`StrategyRule`:** text (200), mandatory flag, order, created and retired times. A rule left out when the strategy is saved is retired, never deleted, and can be restored.
 - **`TradeChecklist`:** one per trade and strategy. It is created on the first answer and copies the strategy's active rules as **`ChecklistItem`** rows (rule id, text and mandatory flag as they were). Later rule edits never change it.
 - **`ChecklistResponse`:** item, sequence, answer (Met / NotMet / NotApplicable), answered at. Answers are appended, never overwritten: the latest per item counts, and every earlier one is history. A unique (item, sequence) index stops two requests writing the same change.
-- **Not built:** a strategy's default journal template (deferred; it does not affect adherence). Change history for template answers was added after J8 (§8a).
+- **Added after J8:** a strategy's default journal template, rule categories and the instruments and sessions a strategy is for (§6); change history for template answers (§8a).
 
 ## 5. Template architecture (J3, built)
 
@@ -128,6 +128,16 @@ Analytics read completed trades through one projection (`CompletedTrade`). That 
   - **Changing a trade's strategy:** the trade gets a new checklist; the earlier one is kept but no longer counts.
   - **The report (`GET /api/analytics/adherence?strategyId=`)** gives the rate with its denominator, and for each group its count, win rate, net P&L and average R. It also lists the five mandatory rules most often not met, with how many times each was answered, and a per-strategy breakdown.
   - **Where to find it:** the Strategies page shows the overall report; each strategy's page shows its own.
+- **Added after J8 (2026-10-29), journal gap 4:**
+  - **Rule categories:** each rule is Setup, Entry, Exit, Risk or General (existing rules became General).
+    - **Kept with the checklist:** a checklist item copies the category with the wording, so changing a rule's category later never regroups a past checklist.
+    - **Where they show:** the trade form and trade page group the checklist in that order, and the most-missed rules show their category.
+  - **Where a strategy applies:** optional lists of instruments and sessions (up to 20 each, trimmed, kept once ignoring case; empty means anywhere).
+    - **On the trade form:** naming the strategy on a trade outside them shows a note. It never refuses the trade, which the trader may have taken deliberately.
+    - **In storage:** JSON arrays in `Strategies.Instruments` and `Strategies.Sessions`.
+  - **Default journal template:** one of the trader's own active templates (otherwise 422). One archived after it was chosen may be kept; templates are never deleted, so the reference cannot dangle.
+    - **New trade, nothing answered:** naming the strategy switches the journal to its template and says so.
+    - **After that:** once anything is answered, or a template was chosen on the form or from the templates page, the form only offers the switch. An existing trade's journal is never switched.
 
 ## 7. Journal interface (J5, built)
 
@@ -315,3 +325,4 @@ The brief asks for questions across entries ("Which rules have I struggled to fo
 | **History** ✅ | Change history for trades, journal answers, checklists, import links and files (§8a) | Unit: values compared at any stored precision, invariant formatting, empty as null, journal answers as text. Integration: an edit records each changed field, answer and rule with before and after; an unchanged save records nothing; review and a corrected review; files added and removed; history private (404) and deleted with the trade; an import link records only what it filled. Angular: loaded only when opened, newest first with before and after, the no-creation-record note, reload while open, plain-word titles. |
 | **Questions** ✅ | Questions about the trades in view (§8b): endpoint, bounded context, app figures, panel on Performance and Behaviour | Integration: only the most recent closed trades in view are sent (not drafts, other instruments, other traders, or older trades); the app's figures (win rate, net P&L, adherence overall and for wins and losses, most-missed rule, busiest day, trades after a same-day loss, previous period); a fact citing an unsent trade dropped; interpretations and prompts whole; injected text escaped; nothing saved; no call with no closed trades; bad question or filter 400; 503 when off; both prompts share the safety rules. Unit: checklist answers as text. Angular: hidden when off, scope sentence, suggested question, filter sent, parts kept apart, cleared on a new filter. |
 | **Breakdowns** ✅ | Results by journal answer and adherence over time (§7b) | Unit: each answer row equals the same answer as a filter; drafts excluded; answers nobody gave shown as none; multi-select counted under each; free text refused; months and weeks with empty periods, complete checklists only, open trades excluded. Integration: rows and the trend through the API, narrowed by the filter, no rate for an empty month, week period, other traders' questions 404, missing field, bad period or bad dates 400. Angular: the Journal answer tab, its rows and Show drill-down (keeping the question), and the trend by month and week. |
+| **Strategies** ✅ | Rule categories, the instruments and sessions a strategy is for, and its default journal template (§6) | Unit: categories on rules and copied to checklists (a later change does not regroup them); unknown categories refused; scope trimmed, kept once, limited, empty meaning anywhere. Integration: categories, scope and template saved and returned; checklist items and the most-missed list carry categories; a trade outside the scope is saved; another trader's or an archived template refused, an already-chosen archived one kept; unknown categories 400; over-long scope entries 422. Angular: the editor body and its template choices; the trade form's grouped checklist, scope note, and automatic or offered template; the trade page's grouped checklist. |

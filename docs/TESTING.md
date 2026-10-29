@@ -49,6 +49,40 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-29 (branch `journal-richer-strategies`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 183 passed, 0 failed |
+| `dotnet test` (Release): integration | 98 passed, 0 failed |
+| `ng test --watch=false` | 159 passed, 0 failed (21 files) |
+| `ng build` (production) | Succeeded; initial bundle 310.31 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddStrategyScopeAndRuleCategories` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY`. Scratch afterwards: 3 rules and 7 checklist items `General`, 3 strategies `[]`. |
+
+**New tests**
+- **Unit (`StrategyScopeTests`):**
+  - **Categories:** a checklist keeps the category its rule had when it started, even after the rule changes category. An undefined category is refused.
+  - **Scope:** instruments and sessions are trimmed, kept once ignoring case, and limited in length and number; a refused change leaves the scope as it was. An empty list covers anything.
+- **Integration (`StrategyScopeEndpointTests`):**
+  - **Saved and returned:** categories, scope (" NQ ", "ES", "nq" saved as NQ, ES) and the default template.
+  - **Carried along:** a trade's checklist items and the most-missed list carry the category. A GC trade in London under an NQ/ES, New York strategy is still saved.
+  - **Default template:** another trader's template or an archived one is 422, while one archived after it was chosen is kept. Saving without it clears it.
+  - **Refusals:** an unknown category is 400 and an over-long instrument 422.
+- **Angular (strategies spec):**
+  - **Editor:** the save body carries categories, instruments, sessions and template. Only active templates are offered, plus the current one if it has been archived since.
+  - **Trade form:** the checklist is grouped Setup then Risk. The scope note appears and goes. ORB's template is used on a new trade, and once something is answered another strategy's template is only offered.
+  - **Trade page:** the checklist is grouped by category. The existing specs answer the editor's template request and expect the new body fields.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Setting up:** a test template "ORB journal" was created through the API. In the editor, ORB got its rules as Entry and Risk, instruments "NQ, ES", session "New York" and ORB journal as its template; the save was confirmed and the values came back.
+- **A new trade (GC, London, ORB):**
+  - **The note:** "ORB: it is set for NQ, ES, not GC; for the New York session, not London. Check this is the strategy you meant."
+  - **The rest:** the checklist was grouped Entry then Risk, and the journal switched to ORB journal with "Using the journal template set for ORB."
+  - **Fitting the strategy:** changing to "nq" and New York removed the note. Nothing was saved.
+- **Phone width:** the editor's rule rows (text, then category, mandatory and buttons) fit with no overflow. No console errors.
+
 ## Results — 2026-10-29 (branch `journal-answer-breakdowns`)
 
 | Command | Result |

@@ -57,7 +57,7 @@ import { AdherenceGroup, AdherenceReport } from '../models/strategy.model';
         <ul>
           @for (v of r.mostViolated; track v.ruleId) {
             <li>
-              <span>{{ v.text }} @if (showStrategy()) { <span class="muted">· {{ v.strategyName }}</span> }</span>
+              <span>{{ v.text }} @if (v.category && v.category !== 'General') { <span class="tag">{{ v.category }}</span> } @if (showStrategy()) { <span class="muted">· {{ v.strategyName }}</span> }</span>
               <span class="small secondary nowrap">not met {{ v.timesNotMet }} of {{ v.timesAnswered }}</span>
             </li>
           }

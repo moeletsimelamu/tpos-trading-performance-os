@@ -6,7 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TradingApiService } from '../trading-api.service';
 import { TRADE_STATUS, Trade } from '../models/trade.model';
 import { isAnswered } from '../models/journal.model';
-import { answerLabel } from '../models/strategy.model';
+import { answerLabel, groupByCategory } from '../models/strategy.model';
 import { JournalAnswersComponent } from './journal-fields.component';
 import { TradeAttachmentsComponent } from './trade-attachments.component';
 import { AiReviewDraftComponent } from './ai-review-draft.component';
@@ -84,14 +84,17 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
               </div>
               <div class="prose">
                 @if (t.checklist; as c) {
-                  <ul class="checks">
-                    @for (item of c.items; track item.ruleId) {
-                      <li>
-                        <span>{{ item.text }} @if (item.isMandatory) { <span class="tag">Mandatory</span> }</span>
-                        <span class="answer" [class.text-negative]="item.isMandatory && item.answer === 'NotMet'" [class.muted]="!item.answer">{{ label(item.answer) }}</span>
-                      </li>
-                    }
-                  </ul>
+                  @for (group of groups(c.items); track group.category) {
+                    @if (group.label) { <h3 class="changes-title">{{ group.label }}</h3> }
+                    <ul class="checks">
+                      @for (item of group.items; track item.ruleId) {
+                        <li>
+                          <span>{{ item.text }} @if (item.isMandatory) { <span class="tag">Mandatory</span> }</span>
+                          <span class="answer" [class.text-negative]="item.isMandatory && item.answer === 'NotMet'" [class.muted]="!item.answer">{{ label(item.answer) }}</span>
+                        </li>
+                      }
+                    </ul>
+                  }
                   @if (changes().length > 0) {
                     <h3 class="changes-title">Changed after first answer</h3>
                     <ul class="changes">
@@ -261,6 +264,7 @@ export class TradeEntryComponent {
   });
 
   readonly label = answerLabel;
+  readonly groups = groupByCategory;
 
   // Required journal questions still empty: the server refuses the review until they are answered
   readonly unanswered = computed(() => {

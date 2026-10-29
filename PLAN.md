@@ -21,7 +21,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Change history (journal gap 1) is complete on branch `journal-change-history`, cut from `develop`: every saved change to a trade, its journal answers, checklist, review, import links and files is kept with before and after values and shown on the trade page.
 - Questions about the journal (journal gap 2) are complete on branch `journal-ai-questions`, cut from `journal-change-history`: "Ask about these trades" on Performance and Behaviour, bounded to the most recent closed trades in the filter, with the app's figures kept apart. Checked against a stub, not a real model.
 - Results by journal answer and adherence over time (journal gap 3) are complete on branch `journal-answer-breakdowns`, cut from `journal-ai-questions`.
-- Next: the last journal gap in `docs/JOURNAL_REVIEW.md` (richer strategies: rule categories, instruments and sessions, a default template), or Phase 6, at the owner's choice.
+- Richer strategies (journal gap 4) are complete on branch `journal-richer-strategies`, cut from `journal-answer-breakdowns`: rule categories, the instruments and sessions a strategy is for, and a default journal template. Gaps 1–4 of `docs/JOURNAL_REVIEW.md` are closed; the smaller documented limitations remain.
+- Next: Phase 6, or one of the smaller journal limitations, at the owner's choice.
 
 ---
 

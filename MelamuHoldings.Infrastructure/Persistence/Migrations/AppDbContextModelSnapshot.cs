@@ -727,6 +727,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<bool>("IsMandatory")
                         .HasColumnType("bit");
 
@@ -957,14 +962,25 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DefaultTemplateId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.PrimitiveCollection<string>("Instruments")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.PrimitiveCollection<string>("Sessions")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -978,6 +994,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DefaultTemplateId");
 
                     b.HasIndex("UserId", "Name")
                         .IsUnique()
@@ -993,6 +1011,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1526,6 +1549,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Strategy", b =>
                 {
+                    b.HasOne("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("DefaultTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("MelamuHoldings.Domain.Identity.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")

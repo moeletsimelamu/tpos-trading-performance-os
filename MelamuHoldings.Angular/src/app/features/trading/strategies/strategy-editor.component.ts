@@ -4,14 +4,18 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { TradingApiService } from '../trading-api.service';
-import { AdherenceReport, SaveStrategy, Strategy } from '../models/strategy.model';
+import { AdherenceReport, RULE_CATEGORIES, RuleCategory, SaveStrategy, Strategy } from '../models/strategy.model';
+import { JournalTemplate } from '../models/journal.model';
 import { AdherencePanelComponent } from './adherence-panel.component';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 import { IconComponent } from '../../../shared/ui/icon.component';
 
-interface DraftRule { id: number | null; text: string; isMandatory: boolean; }
+interface DraftRule { id: number | null; text: string; isMandatory: boolean; category: RuleCategory; }
+
+// "NQ, ES" → ["NQ", "ES"]; the server trims and removes repeats too
+const list = (text: string) => text.split(',').map(s => s.trim()).filter(Boolean);
 
 @Component({
   selector: 'app-strategy-editor',
@@ -23,6 +27,8 @@ interface DraftRule { id: number | null; text: string; isMandatory: boolean; }
     .card h2 { font-size: var(--text-md); margin-bottom: var(--space-1); }
     .card > p { color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: var(--space-4); }
     .rule { display: grid; grid-template-columns: 1fr auto; gap: var(--space-3); align-items: center; padding: var(--space-2) 0; border-top: 1px solid var(--border-subtle); }
+    .category { width: auto; margin-right: var(--space-2); }
+    .hint { font-size: var(--text-sm); color: var(--text-secondary); margin-top: var(--space-1); }
     .tools { display: flex; gap: 2px; align-items: center; }
     .req { display: flex; gap: var(--space-2); align-items: center; font-size: 13px; margin-right: var(--space-2); white-space: nowrap; }
     .req input { height: auto; }
@@ -54,12 +60,31 @@ export class StrategyEditorComponent {
   readonly saveError = signal('');
   readonly saved = signal('');
 
+  readonly categories = RULE_CATEGORIES;
+  // Active templates to choose a default from; the strategy's own default stays listed if it was archived since
+  readonly templates = signal<JournalTemplate[]>([]);
+  readonly templatesError = signal('');
+
   name = '';
   description = '';
-  rules: DraftRule[] = [{ id: null, text: '', isMandatory: true }];
+  instruments = '';
+  sessions = '';
+  defaultTemplateId: number | null = null;
+  rules: DraftRule[] = [{ id: null, text: '', isMandatory: true, category: 'General' }];
 
   constructor() {
     if (this.strategyId) this.load();
+    this.api.getTemplates().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: t => this.templates.set(t),
+      error: err => this.templatesError.set(describeHttpError(err))
+    });
+  }
+
+  // The default template is kept even when it has been archived since it was chosen
+  get templateChoices(): { id: number; name: string }[] {
+    const active = this.templates().filter(t => t.status === 'Active');
+    const current = this.original()?.defaultTemplateId;
+    return current && !active.some(t => t.id === current) ? [...active, { id: current, name: 'The current default (archived)' }] : active;
   }
 
   load(): void {
@@ -83,7 +108,7 @@ export class StrategyEditorComponent {
   }
 
   addRule(): void {
-    this.rules.push({ id: null, text: '', isMandatory: true });
+    this.rules.push({ id: null, text: '', isMandatory: true, category: 'General' });
     this.edited();
   }
 
@@ -107,7 +132,10 @@ export class StrategyEditorComponent {
     const body: SaveStrategy = {
       name: this.name.trim(),
       description: this.description.trim() || null,
-      rules: this.rules.map(r => ({ id: r.id, text: r.text.trim(), isMandatory: r.isMandatory }))
+      rules: this.rules.map(r => ({ id: r.id, text: r.text.trim(), isMandatory: r.isMandatory, category: r.category })),
+      instruments: list(this.instruments),
+      sessions: list(this.sessions),
+      defaultTemplateId: this.defaultTemplateId
     };
     const retiring = this.original()?.rules.filter(r => !this.rules.some(d => d.id === r.id)).length ?? 0;
     this.saving.set(true);
@@ -159,6 +187,9 @@ export class StrategyEditorComponent {
     this.original.set(s);
     this.name = s.name;
     this.description = s.description ?? '';
-    this.rules = s.rules.map(r => ({ id: r.id, text: r.text, isMandatory: r.isMandatory }));
+    this.rules = s.rules.map(r => ({ id: r.id, text: r.text, isMandatory: r.isMandatory, category: r.category }));
+    this.instruments = s.instruments.join(', ');
+    this.sessions = s.sessions.join(', ');
+    this.defaultTemplateId = s.defaultTemplateId ?? null;
   }
 }
