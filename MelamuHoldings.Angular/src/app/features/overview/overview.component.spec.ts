@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { OverviewComponent, attentionItems } from './overview.component';
-import { Account, Allocation, Balances, Fund, Obligation, Payout } from '../finance/finance.models';
+import { Account, Allocation, Balances, ContinuityReport, Fund, Obligation, Payout } from '../finance/finance.models';
 import { BehaviourSummary } from '../trading/models/analytics.model';
 import { environment } from '../../../environments/environment';
 
@@ -31,7 +31,28 @@ const balances: Balances = {
   cashTotals: [{ amount: 350, currency: 'USD' }, { amount: 16250.5, currency: 'ZAR' }]
 };
 
+const zar = (amount: number) => ({ amount, currency: 'ZAR' });
+const continuity: ContinuityReport = {
+  settings: { continuityFundId: 3, continuityFundName: 'Business Continuity', months: 24, currency: 'ZAR', monthlyEssentialExpense: 10000 },
+  cash: zar(70000), target: zar(240000), coverageMonths: 7, shortfall: zar(170000), belowTarget: true,
+  earmarked: zar(30000), separated: zar(40000), holdings: [], notCounted: []
+};
+
 describe('attentionItems', () => {
+  it('warns when continuity is below its target, and asks for the essential expense when it cannot be measured', () => {
+    const below = attentionItems(null, null, [], [], [], continuity);
+    expect(below.map(i => [i.tone, i.title])).toEqual([['warning', 'Continuity covers 7.0 of 24 months']]);
+    expect(below[0].detail).toBe('ZAR 70,000.00 counted against a target of ZAR 240,000.00; ZAR 170,000.00 short.');
+
+    const met = { ...continuity, cash: zar(250000), coverageMonths: 25, shortfall: zar(0), belowTarget: false };
+    expect(attentionItems(null, null, [], [], [], met)).toEqual([]);
+
+    const unmeasured: ContinuityReport = {
+      ...continuity, settings: { ...continuity.settings, monthlyEssentialExpense: null }, target: null, coverageMonths: null, shortfall: null, belowTarget: false
+    };
+    expect(attentionItems(null, null, [], [], [], unmeasured).map(i => [i.tone, i.title])).toEqual([['info', 'Continuity is not measured']]);
+  });
+
   it('asks for accounts when none are set up', () => {
     const items = attentionItems({ accounts: [], funds: [fund(1, 'Unallocated')], cashTotals: [] }, null);
 
@@ -185,6 +206,7 @@ describe('OverviewComponent', () => {
     http.expectOne(`${api}/payouts`).flush([]);
     http.expectOne(`${api}/allocations`).flush([]);
     http.expectOne(`${api}/obligations`).flush([]);
+    http.expectOne(`${api}/continuity`).flush(continuity);
   }
 
   function flushTrading(totalTrades: number) {
@@ -205,6 +227,8 @@ describe('OverviewComponent', () => {
     expect(strip).toContain('USD 350.00');
     expect(strip).toContain('ZAR 16,250.50');
     expect(strip).not.toContain('16,600.50');
+    const metrics = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.metric-strip .metric')].map(m => [...m.children].map(c => c.textContent!.trim()));
+    expect(metrics).toContainEqual(['Continuity', '7.0 months', 'of 24 months covered']);
   });
 
   it('lists the latest payouts with their status, and says which are not cash yet', async () => {
@@ -221,6 +245,7 @@ describe('OverviewComponent', () => {
     ]);
     http.expectOne(`${api}/allocations`).flush([]);
     http.expectOne(`${api}/obligations`).flush([]);
+    http.expectOne(`${api}/continuity`).flush(continuity);
     flushTrading(0);
     await fixture.whenStable();
 
@@ -245,8 +270,8 @@ describe('OverviewComponent', () => {
     const fixture = await render();
     http.expectOne(`${api}/balances`).flush(null, { status: 403, statusText: 'Forbidden' });
     // forkJoin abandons the other finance requests once the balances fail
-    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`].includes(r.url));
-    expect(others.length).toBe(4);
+    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`, `${api}/continuity`].includes(r.url));
+    expect(others.length).toBe(5);
     expect(others.every(r => r.cancelled)).toBe(true);
     flushTrading(0);
     await fixture.whenStable();

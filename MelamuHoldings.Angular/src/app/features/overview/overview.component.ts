@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { FinanceApiService } from '../finance/finance-api.service';
-import { Allocation, Balances, Money, Obligation, Payout, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, fundStanding } from '../finance/finance.models';
+import { Allocation, Balances, ContinuityReport, Money, Obligation, Payout, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, fundStanding } from '../finance/finance.models';
 import { TradingApiService } from '../trading/trading-api.service';
 import { AnalyticsSummary, BehaviourSummary } from '../trading/models/analytics.model';
 import { MoneyPipe } from '../../shared/money.pipe';
@@ -67,6 +67,13 @@ const RECENT_PAYOUTS = 5;
                     <span class="metric-value">{{ activeAccounts() }}</span>
                     <span class="metric-note"><a routerLink="/finance/accounts">View accounts</a></span>
                   </div>
+                  @if (continuity(); as c) {
+                    <div class="metric">
+                      <span class="metric-label">Continuity</span>
+                      <span class="metric-value" [class.text-negative]="c.belowTarget">{{ c.coverageMonths != null ? (c.coverageMonths | number: '1.1-1') + ' months' : 'Not measured' }}</span>
+                      <span class="metric-note"><a routerLink="/finance/continuity">{{ c.coverageMonths != null ? 'of ' + c.settings.months + ' months covered' : 'Enter essential expenses' }}</a></span>
+                    </div>
+                  }
                 </div>
               } @else {
                 <div class="card empty-state">
@@ -120,7 +127,7 @@ const RECENT_PAYOUTS = 5;
                     <li class="attention-item clear"><app-icon name="check" [size]="18" /><p>Nothing in the recorded data needs attention.</p></li>
                   }
                 </ul>
-                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations and trades. Obligations, budgets and reserve targets are not tracked yet.</p>
+                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations, obligations, continuity and trades. Budgets and investments are not tracked yet.</p>
               </section>
             </div>
 
@@ -265,7 +272,8 @@ export class OverviewComponent {
 
   readonly activeAccounts = computed(() => this.balances()?.accounts.filter(a => a.status === 'Active').length ?? 0);
   readonly obligations = signal<Obligation[]>([]);
-  readonly attention = computed(() => attentionItems(this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations()));
+  readonly continuity = signal<ContinuityReport | null>(null);
+  readonly attention = computed(() => attentionItems(this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations(), this.continuity()));
   // The latest payouts recorded, whatever their status
   readonly recentPayouts = computed(() => [...this.payouts()].sort((a, b) => b.id - a.id).slice(0, RECENT_PAYOUTS));
 
@@ -281,10 +289,12 @@ export class OverviewComponent {
       recent: this.finance.getTransactions({ page: 1, pageSize: RECENT_COUNT }),
       payouts: this.finance.getPayouts(),
       allocations: this.finance.getAllocations(),
-      obligations: this.finance.getObligations()
+      obligations: this.finance.getObligations(),
+      continuity: this.finance.getContinuity()
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: ({ balances, recent, payouts, allocations, obligations }) => {
+      next: ({ balances, recent, payouts, allocations, obligations, continuity }) => {
         this.obligations.set(obligations);
+        this.continuity.set(continuity);
         this.balances.set(balances);
         this.recent.set(recent.items);
         this.payouts.set(payouts);
@@ -353,7 +363,7 @@ function formatMoney(m: Money): string {
 // Derives what needs looking at from recorded data only; nothing here is a forecast or a guess
 export function attentionItems(
   balances: Balances | null, behaviour: BehaviourSummary | null,
-  payouts: Payout[] = [], allocations: Allocation[] = [], obligations: Obligation[] = []
+  payouts: Payout[] = [], allocations: Allocation[] = [], obligations: Obligation[] = [], continuity: ContinuityReport | null = null
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
 
@@ -378,6 +388,21 @@ export function attentionItems(
       tone: 'warning', title: `A payment of ${o.name} was reversed`,
       detail: 'The expense linked as its payment has since been reversed in the ledger, so that date may not be paid.',
       link: '/finance/obligations', action: 'Review the payment'
+    });
+  }
+
+  // The reserve for setbacks, in months of essential expenses; only what is counted (see the Continuity page)
+  if (continuity?.belowTarget && continuity.target && continuity.shortfall) {
+    items.push({
+      tone: 'warning', title: `Continuity covers ${continuity.coverageMonths!.toFixed(1)} of ${continuity.settings.months} months`,
+      detail: `${formatMoney(continuity.cash)} counted against a target of ${formatMoney(continuity.target)}; ${formatMoney(continuity.shortfall)} short.`,
+      link: '/finance/continuity', action: 'View continuity'
+    });
+  } else if (continuity && continuity.settings.monthlyEssentialExpense == null) {
+    items.push({
+      tone: 'info', title: 'Continuity is not measured',
+      detail: 'Enter the monthly essential expense so the reserve can be measured in months.',
+      link: '/finance/continuity', action: 'Enter it'
     });
   }
 

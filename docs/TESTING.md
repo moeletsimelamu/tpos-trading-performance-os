@@ -49,6 +49,43 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-30 (branch `phase-7-2-continuity`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 191 passed, 0 failed |
+| `dotnet test` (Release): integration | 105 passed, 0 failed |
+| `ng test --watch=false` | 175 passed, 0 failed (25 files), twice in a row |
+| `ng build` (production) | Succeeded; initial bundle 310.65 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddContinuitySettings` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+**New tests**
+- **Unit (`ContinuitySettingsTests`):** the target is months × the entered expense, and none without it. Continuity and restoration must differ, neither can be the system fund, months stay within 1–120, and the expense is positive in whole cents. Nothing refused is kept.
+- **Integration (`ContinuityEndpointTests`):**
+  - **Seeded settings:** Business Continuity, 24 months, ZAR, and the Trading Restoration fund; nothing measured before the expense is entered.
+  - **Counting:** ZAR 30,000 earmarked in a shared account and ZAR 40,000 in an account of its own count (70,000). Coverage against 24 × 10,000 is 7.0 months, with a shortfall of 170,000.
+  - **Not counted:** ZAR 5,000 at a broker, USD 100, and the USD 405 a confirmed allocation still owes the fund are listed apart with their reasons.
+  - **Restoration:** USD 1,000 against a USD 5,000 target is 20.0%, with a shortfall of 4,000.
+  - **Settings:** the change is audited, and the same fund twice, Unallocated, a negative or fractional-cent expense and an unknown fund are refused (422). Months outside 1–120 are 400, and with no token the request is 401.
+- **Angular:**
+  - **Continuity page:** coverage, counted, target and shortfall; holdings tagged earmarked or separated; the not-counted list; and restoration progress. With no expense entered it shows "Not measured" rather than a zero. The settings form offers no system fund, refuses the same fund twice and sends the body.
+  - **Overview:** a below-target warning with the figures, an "is not measured" item, and nothing when the target is met. The cash strip shows the coverage.
+- **Existing tests changed:**
+  - **Seeded funds:** the expected list now includes Trading Restoration, which the migration adds.
+  - **Overview specs:** they answer the new continuity request.
+  - **Route tests:** they allow 20 s. They load the real lazy pages, and with a 25th spec file running alongside, the first navigation went past the default 5 s. The full suite passed on P7.1, and passed again without the new spec, so the cause was load, not a fault.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Before the expense:** the page counted ZAR 5,000, as ZAR 3,000 earmarked in "Operating ZAR" and ZAR 2,000 separated in "Reserve ZAR". It showed USD 402 as not counted and said "Not measured". These figures match a direct query of the scratch ledger's fund positions. The overview showed "Continuity is not measured".
+- **After the expense:** a monthly essential expense of ZAR 4,000 was entered through the form. Coverage became 1.2 months (5,000 ÷ 4,000 = 1.25, rounded down), the target ZAR 96,000 and the shortfall ZAR 91,000.
+  - **Overview:** it then warned "Continuity covers 1.2 of 24 months", after the overdue obligation.
+  - **Audit:** the `continuity.updated` event was recorded.
+- **Restoration:** Trading Restoration was given a USD 2,000 target on the Funds page, and the page then showed USD 0.00 held, 0% of the target.
+- **Phone width and console:** the Continuity page, its settings form and the overview have no horizontal overflow at 375 px. The console had no errors after a fresh load of the Continuity page.
+- **Known limit:** audit summaries format amounts with the server's culture (`ZAR 4000,00` on this machine), as the payout and obligation summaries already do. The structured before/after data is unaffected.
+
 ## Results — 2026-10-29 (branch `phase-7-1-funds-obligations`)
 
 | Command | Result |

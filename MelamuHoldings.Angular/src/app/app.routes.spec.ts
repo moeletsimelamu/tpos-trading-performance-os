@@ -40,7 +40,7 @@ describe('app routes', () => {
     await harness.navigateByUrl(from);
 
     expect(TestBed.inject(Router).url).toBe(to);
-  });
+  }, 20_000);   // the first navigation loads the real lazy pages, which can pass 5 s while the other spec files run alongside
 
   it('sends signed-out visitors to the login page', async () => {
     const harness = await RouterTestingHarness.create();

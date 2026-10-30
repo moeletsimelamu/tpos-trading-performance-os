@@ -57,6 +57,23 @@ export interface Obligation {
 export interface SaveObligation {
   name: string; amount: number; currency: string; category?: string | null; recurrence: Recurrence; firstDueDate: string; notes?: string | null;
 }
+// Continuity (Phase 7.2): months of essential expenses the reserve covers, from recorded balances only.
+// Counted: the continuity fund's money in the settings currency in bank and cash accounts. Everything else is listed apart.
+export interface ContinuitySettings {
+  continuityFundId: number; continuityFundName: string; months: number; currency: string; monthlyEssentialExpense?: number | null;
+  restorationFundId?: number | null; restorationFundName?: string | null; updatedAt?: string | null;
+}
+export interface SaveContinuitySettings { continuityFundId: number; months: number; monthlyEssentialExpense: number | null; restorationFundId: number | null; }
+export interface ContinuityHolding { accountId: number; accountName: string; amount: Money; separated: boolean; }
+export interface NotCounted { reason: string; amount: Money; accountName?: string | null; }
+export interface Restoration {
+  fundId: number; fundName: string; target?: Money | null; cash?: Money | null; shortfall?: Money | null; progress?: number | null; notCounted: NotCounted[];
+}
+export interface ContinuityReport {
+  settings: ContinuitySettings; cash: Money; target?: Money | null; coverageMonths?: number | null; shortfall?: Money | null; belowTarget: boolean;
+  earmarked: Money; separated: Money; holdings: ContinuityHolding[]; notCounted: NotCounted[]; restoration?: Restoration | null;
+}
+
 export interface PaymentCandidate { transactionId: number; date: string; description: string; category?: string | null; amount: Money; }
 
 // Principal entries move the money; fee entries record a charge taken along the way (kept visible, never netted)

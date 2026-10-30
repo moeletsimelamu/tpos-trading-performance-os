@@ -39,6 +39,11 @@ export const financeRoutes: Routes = [
     loadComponent: () => import('./obligations/obligations.component').then(m => m.ObligationsComponent)
   },
   {
+    path: 'continuity',
+    title: 'Continuity',
+    loadComponent: () => import('./continuity/continuity.component').then(m => m.ContinuityComponent)
+  },
+  {
     path: 'allocations',
     title: 'Capital allocation',
     loadComponent: () => import('./allocations/allocations.component').then(m => m.AllocationsComponent)

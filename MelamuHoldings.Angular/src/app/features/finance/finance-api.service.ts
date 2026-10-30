@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, CurrencyInfo, Fund, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PayoutStatus, RecordKind, SaveFund, SaveObligation, Transaction, TransactionFilter } from './finance.models';
+import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, ContinuityReport, ContinuitySettings, CurrencyInfo, Fund, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PayoutStatus, RecordKind, SaveContinuitySettings, SaveFund, SaveObligation, Transaction, TransactionFilter } from './finance.models';
 
 export interface CreateAccountRequest {
   name: string; type: AccountType; currency: string; ownership: Ownership; institution?: string; notes?: string;
@@ -172,6 +172,15 @@ export class FinanceApiService {
 
   undoObligationPayment(id: number): Observable<Obligation> {
     return this.http.post<Obligation>(`${this.base}/obligations/${id}/payments/undo`, {});
+  }
+
+  // Continuity: coverage measured from recorded balances, and the settings it is measured by
+  getContinuity(): Observable<ContinuityReport> {
+    return this.http.get<ContinuityReport>(`${this.base}/continuity`);
+  }
+
+  saveContinuitySettings(request: SaveContinuitySettings): Observable<ContinuitySettings> {
+    return this.http.put<ContinuitySettings>(`${this.base}/continuity/settings`, request);
   }
 
   private keyHeader(key: string): HttpHeaders {

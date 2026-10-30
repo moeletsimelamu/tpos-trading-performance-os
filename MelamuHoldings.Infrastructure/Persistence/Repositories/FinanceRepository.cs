@@ -166,6 +166,9 @@ public partial class FinanceRepository : IFinanceRepository
     public void Add(AuditEvent auditEvent) => _context.AuditEvents.Add(auditEvent);
     public void Add(Payout payout) => _context.Payouts.Add(payout);
     public void Add(AllocationPolicy policy) => _context.AllocationPolicies.Add(policy);
+    public Task<ContinuitySettings?> GetContinuitySettingsAsync() =>
+        _context.ContinuitySettings.FirstOrDefaultAsync(s => s.Id == ContinuitySettings.SingletonId);
+
     public Task<List<Obligation>> GetObligationsAsync() =>
         _context.Obligations.Include(o => o.Payments).ToListAsync();
 

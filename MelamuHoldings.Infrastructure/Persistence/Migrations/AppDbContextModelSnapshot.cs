@@ -336,6 +336,51 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditEvents", "finance");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.ContinuitySettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ContinuityFundId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("char(3)");
+
+                    b.Property<decimal?>("MonthlyEssentialExpense")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<int>("Months")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RestorationFundId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContinuityFundId");
+
+                    b.HasIndex("RestorationFundId");
+
+                    b.ToTable("ContinuitySettings", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_ContinuitySettings_Singleton", "[Id] = 1");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            ContinuityFundId = 3,
+                            Currency = "ZAR",
+                            Months = 24
+                        });
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.FinancialAccount", b =>
                 {
                     b.Property<int>("Id")
@@ -1526,6 +1571,20 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.ContinuitySettings", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Finance.Fund", null)
+                        .WithMany()
+                        .HasForeignKey("ContinuityFundId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MelamuHoldings.Domain.Finance.Fund", null)
+                        .WithMany()
+                        .HasForeignKey("RestorationFundId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.LedgerEntry", b =>

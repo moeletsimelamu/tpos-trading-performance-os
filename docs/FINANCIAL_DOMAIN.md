@@ -226,6 +226,7 @@ Earmarks move money between funds inside one account, so they net to zero here a
 - **Payouts and allocations:** received payouts not allocated, allocations not fully settled, and payouts on the way (not cash).
 - **Money:** money left in Unallocated, accounts below zero, funds below zero in any currency, and funds below their minimum (Phase 7.1).
 - **Obligations (Phase 7.1):** overdue ones, those due within 14 days, and payments whose expense was reversed.
+- **Continuity (Phase 7.2):** below its target, or not measured because no monthly essential expense is entered. The cash strip also shows the coverage in months.
 - **Setup:** no accounts, and ownership not stated.
 - **Trading:** critical trading-behaviour alerts.
 
@@ -258,9 +259,26 @@ Code: `Domain/Finance/Obligation.cs`, `Application/Finance/ObligationService.cs`
 | Coming due | The Obligations page totals active obligations due within 30 days per currency, overdue ones included, and never across currencies. |
 | Audited | Created, updated, paid, payment undone and cancelled are each an audit event. |
 
+## Continuity (Phase 7.2: implemented)
+
+Code: `Domain/Finance/ContinuitySettings.cs`, `Application/Finance/ContinuityService.cs`, `/api/continuity`. Decisions: PLAN.md D6–D8.
+Tests: `ContinuitySettingsTests.cs` (unit), `ContinuityEndpointTests.cs` (integration).
+
+| Rule | Behaviour |
+|---|---|
+| Settings | One record: the continuity fund (Business Continuity by default), the months to cover (default 24, 1 to 120), the currency (ZAR, D7), the monthly essential expense (entered by the owner, D8; none until it is), and the restoration fund. |
+| Target | Months × monthly essential expense. Without the expense there is no target, coverage or shortfall: the page says "Not measured" rather than showing a zero. |
+| Counted | The continuity fund's balance in ZAR in **bank and cash** accounts, from the ledger. |
+| Shown, not counted | The fund's money in another currency (never converted), in brokerage or other accounts, and what confirmed allocations still owe it but have not earmarked or transferred. Each is listed with its reason. |
+| Coverage | Counted ÷ monthly expense, rounded **down** to one decimal, so it never overstates. Shortfall: target − counted, never below zero. |
+| Earmarked or separated | A counted amount is **separated** when its account holds no other fund's money, and **earmarked** when the account is shared with other funds. Both count; the page shows the split. |
+| Restoration (D6) | A separate fund, Trading Restoration, added by the migration. It is measured against that fund's own target (set on the Funds page, in the target's currency), in bank and cash accounts, with the same not-counted rules. Continuity and restoration must be different funds, and neither can be Unallocated, so no money counts twice. |
+| Nothing moves | The settings and the report never create a ledger entry. Money reaches the funds through allocations, earmarks and transfers. |
+| Audited | Each change of settings is a `continuity.updated` event with before and after. |
+
 ## Storage
 
-- Finance tables are in the SQL schema `finance`: `Funds`, `FinancialAccounts`, `LedgerTransactions`, `LedgerEntries`, `AuditEvents`, `Payouts`, `AllocationPolicies`, `AllocationPolicyLines`, `Allocations`, `AllocationLines`, `AllocationSettlements`.
+- Finance tables are in the SQL schema `finance`: `Funds`, `FinancialAccounts`, `LedgerTransactions`, `LedgerEntries`, `AuditEvents`, `Payouts`, `AllocationPolicies`, `AllocationPolicyLines`, `Allocations`, `AllocationLines`, `AllocationSettlements`, `Obligations`, `ObligationPayments`, `ContinuitySettings`.
 - Trading tables stay in `dbo`.
 - Amounts: `decimal(19,4)`. Exchange rates: `decimal(18,8)`. Percentages: `decimal(9,6)`. Currency codes: `char(3)`. Enums are stored as their names.
 - `Payouts` and `Allocations` carry a `rowversion` for optimistic concurrency.

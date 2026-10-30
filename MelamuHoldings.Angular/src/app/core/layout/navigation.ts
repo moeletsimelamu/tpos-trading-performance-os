@@ -40,6 +40,7 @@ export const NAVIGATION: NavSection[] = [
       { label: 'Accounts', route: '/finance/accounts', icon: 'accounts' },
       { label: 'Funds', route: '/finance/funds', icon: 'funds' },
       { label: 'Obligations', route: '/finance/obligations', icon: 'calendar' },
+      { label: 'Continuity', route: '/finance/continuity', icon: 'shield' },
       { label: 'Transactions', route: '/finance/transactions', icon: 'transactions' },
       { label: 'Audit log', route: '/finance/audit', icon: 'audit' }
     ]

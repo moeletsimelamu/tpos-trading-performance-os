@@ -171,3 +171,19 @@ public class ObligationPaymentConfiguration : IEntityTypeConfiguration<Obligatio
         builder.HasOne<LedgerTransaction>().WithMany().HasForeignKey(p => p.LedgerTransactionId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+public class ContinuitySettingsConfiguration : IEntityTypeConfiguration<ContinuitySettings>
+{
+    public void Configure(EntityTypeBuilder<ContinuitySettings> builder)
+    {
+        builder.ToTable("ContinuitySettings", FinanceSchema.Name, t => t.HasCheckConstraint("CK_ContinuitySettings_Singleton", "[Id] = 1"));
+        builder.Property(s => s.Id).ValueGeneratedNever();
+        builder.Property(s => s.Currency).IsCurrencyCode();
+        builder.Property(s => s.MonthlyEssentialExpense).HasColumnType("decimal(19,4)");
+        builder.Ignore(s => s.Target);
+        builder.HasOne<Fund>().WithMany().HasForeignKey(s => s.ContinuityFundId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Fund>().WithMany().HasForeignKey(s => s.RestorationFundId).OnDelete(DeleteBehavior.Restrict);
+        // Business Continuity (fund 3) and 24 months; the migration adds the Trading Restoration fund and points here (D6)
+        builder.HasData(new { Id = ContinuitySettings.SingletonId, ContinuityFundId = 3, Months = ContinuitySettings.DefaultMonths, Currency = Currency.ZAR });
+    }
+}

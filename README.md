@@ -23,9 +23,17 @@ The landing page shows the business as recorded:
   - **Totals:** income, expenses and net cash movement month by month, and the payouts received.
   - **Every figure links** to the ledger list it is summed from, with the same dates and type;
 - fund positions;
-- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, funds below their minimum, obligations overdue or due within 14 days, ownership not stated, critical trading-behaviour alerts;
+- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, funds below their minimum, obligations overdue or due within 14 days, continuity below its target or not measured, ownership not stated, critical trading-behaviour alerts;
 - recent payouts with their status, and recent ledger activity;
 - a trading summary, labelled as not business cash until a payout is recorded.
+
+## What works today: continuity
+
+- **Coverage:** how many months of essential expenses the Business Continuity fund covers, against a target of 24 months (you choose the months and enter the monthly expense yourself), with the shortfall.
+- **Only what is really there:** rand in bank and cash accounts counts. Dollars, money at a broker, and allocations not yet earmarked are listed with the reason they do not count; nothing is converted.
+- **Earmarked or separated:** the page shows how much sits in an account of its own and how much shares an account with other funds.
+- **Trading restoration:** a separate Trading Restoration fund, measured against its own target, so no money counts twice.
+- **Warnings:** the overview shows the coverage and warns when continuity is below its target or cannot be measured yet.
 
 ## What works today: obligations and fund levels
 
@@ -274,6 +282,8 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/obligations/{id}/payment-candidates` | Recent expenses that could pay it: same currency, not reversed, not linked |
 | POST | `/api/obligations/{id}/payments` | Record a payment by linking an expense (`{ transactionId }`) |
 | POST | `/api/obligations/{id}/payments/undo` | Remove the latest payment link; the expense stays in the ledger |
+| GET | `/api/continuity` | Continuity coverage, shortfall, where the counted money is, what is not counted and why, and restoration progress |
+| PUT | `/api/continuity/settings` | Continuity fund, months to cover, monthly essential expense and restoration fund |
 | GET / POST | `/api/financial-accounts` | List accounts with balances / create an account |
 | GET / PUT | `/api/financial-accounts/{id}` | One account / update name, ownership, institution, notes |
 | POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |

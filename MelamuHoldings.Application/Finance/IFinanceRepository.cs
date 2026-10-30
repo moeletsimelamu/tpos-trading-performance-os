@@ -66,6 +66,9 @@ public interface IFinanceRepository
     Task<Allocation?> GetActiveAllocationForPayoutAsync(int payoutId);
     Task<Allocation?> GetAllocationBySettlementTransactionAsync(int transactionId);
 
+    // The one continuity settings record (seeded by the migration)
+    Task<ContinuitySettings?> GetContinuitySettingsAsync();
+
     // Obligations come with their payments
     Task<List<Obligation>> GetObligationsAsync();
     Task<Obligation?> GetObligationAsync(int id);

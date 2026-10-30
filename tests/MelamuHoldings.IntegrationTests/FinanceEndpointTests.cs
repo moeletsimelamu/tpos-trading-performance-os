@@ -67,7 +67,8 @@ public class LedgerRuleTests : IClassFixture<ApiFactory>
         var funds = await (await (await Owner()).GetAsync("/api/funds")).JsonAsync();
 
         var names = funds.EnumerateArray().Select(f => f.GetProperty("name").GetString()).ToList();
-        Assert.Equal(["Unallocated", "Operating Capital", "Business Continuity", "Wealth Fund", "Owner's Distribution"], names);
+        // Trading Restoration is added by the AddContinuitySettings migration (PLAN.md D6)
+        Assert.Equal(["Unallocated", "Operating Capital", "Business Continuity", "Wealth Fund", "Owner's Distribution", "Trading Restoration"], names);
         Assert.True(funds[0].GetProperty("isSystem").GetBoolean());
     }
 
