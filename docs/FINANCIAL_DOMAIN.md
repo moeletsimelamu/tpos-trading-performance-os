@@ -227,6 +227,7 @@ Earmarks move money between funds inside one account, so they net to zero here a
 - **Money:** money left in Unallocated, accounts below zero, funds below zero in any currency, and funds below their minimum (Phase 7.1).
 - **Obligations (Phase 7.1):** overdue ones, those due within 14 days, and payments whose expense was reversed.
 - **Continuity (Phase 7.2):** below its target, or not measured because no monthly essential expense is entered. The cash strip also shows the coverage in months.
+- **Investments (Phase 7.3):** an active brokerage account holding a recorded balance with no valuation, or with transactions dated after its latest valuation.
 - **Setup:** no accounts, and ownership not stated.
 - **Trading:** critical trading-behaviour alerts.
 
@@ -276,9 +277,29 @@ Tests: `ContinuitySettingsTests.cs` (unit), `ContinuityEndpointTests.cs` (integr
 | Nothing moves | The settings and the report never create a ledger entry. Money reaches the funds through allocations, earmarks and transfers. |
 | Audited | Each change of settings is a `continuity.updated` event with before and after. |
 
+## Investments (Phase 7.3: implemented)
+
+Code: `Domain/Finance/InvestmentValuation.cs`, `Application/Finance/InvestmentService.cs`, `/api/investments`.
+Tests: `InvestmentValuationTests.cs` (unit), `InvestmentEndpointTests.cs` (integration).
+
+An investment account is a financial account of type **Brokerage**. Money reaches it through the ledger's own transactions; the owner records what the broker says it is worth.
+
+| Rule | Behaviour |
+|---|---|
+| Valuation | The observed value of one brokerage account on a date, in the account's currency, ≥ 0, in whole minor units, with an optional note. Never in the future (one day of slack, as in the ledger), not on a closed account, and one per account per day (unique index; a second is 409). **It is not a ledger movement, not income and not cash**: it never changes a balance. |
+| Correcting | A valuation is an observation, not a ledger record, so a wrong one is deleted and recorded again. Recording and deleting are both audited (`valuation.recorded`, `valuation.deleted`). |
+| Net contributions | From the ledger: the principal of opening balances, transfers and currency exchanges into the account, less those out. A reversal counts as the type it reverses, so a reversed contribution cancels. |
+| Recorded income and costs | Income recorded in the account (for example dividends), and expenses and fees (for example platform fees). |
+| Recorded balance | Net contributions + recorded income + recorded costs: the ledger balance of the account. |
+| As of the valuation | Every ledger figure is taken **up to the latest valuation's date**. Transactions dated after it are counted apart ("N transactions since this valuation") and are in neither the gain nor the loss. |
+| Unrealised gain or loss | Latest valuation − recorded balance on its date: the change in market value the ledger does not hold. Always labelled **unrealised**; it is not cash until sold and withdrawn. |
+| Gain on contributions | Latest valuation − net contributions: the unrealised gain plus recorded income and costs. |
+| Totals | Per currency, over accounts that have a valuation; never across currencies and never converted. Valuations in a total may be of different dates. |
+| Not cash | Brokerage balances were never in the cash totals (Phase 4), and valuations do not change that. |
+
 ## Storage
 
-- Finance tables are in the SQL schema `finance`: `Funds`, `FinancialAccounts`, `LedgerTransactions`, `LedgerEntries`, `AuditEvents`, `Payouts`, `AllocationPolicies`, `AllocationPolicyLines`, `Allocations`, `AllocationLines`, `AllocationSettlements`, `Obligations`, `ObligationPayments`, `ContinuitySettings`.
+- Finance tables are in the SQL schema `finance`: `Funds`, `FinancialAccounts`, `LedgerTransactions`, `LedgerEntries`, `AuditEvents`, `Payouts`, `AllocationPolicies`, `AllocationPolicyLines`, `Allocations`, `AllocationLines`, `AllocationSettlements`, `Obligations`, `ObligationPayments`, `ContinuitySettings`, `InvestmentValuations`.
 - Trading tables stay in `dbo`.
 - Amounts: `decimal(19,4)`. Exchange rates: `decimal(18,8)`. Percentages: `decimal(9,6)`. Currency codes: `char(3)`. Enums are stored as their names.
 - `Payouts` and `Allocations` carry a `rowversion` for optimistic concurrency.

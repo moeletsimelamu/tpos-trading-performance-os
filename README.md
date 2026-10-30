@@ -23,9 +23,16 @@ The landing page shows the business as recorded:
   - **Totals:** income, expenses and net cash movement month by month, and the payouts received.
   - **Every figure links** to the ledger list it is summed from, with the same dates and type;
 - fund positions;
-- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, funds below their minimum, obligations overdue or due within 14 days, continuity below its target or not measured, ownership not stated, critical trading-behaviour alerts;
+- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, funds below their minimum, obligations overdue or due within 14 days, continuity below its target or not measured, brokerage accounts not valued or moved since their valuation, ownership not stated, critical trading-behaviour alerts;
 - recent payouts with their status, and recent ledger activity;
 - a trading summary, labelled as not business cash until a payout is recorded.
+
+## What works today: investments
+
+- **Brokerage accounts:** what you put in comes from the ledger: transfers, currency exchanges and opening balances, less withdrawals. Dividends and fees recorded in the account are shown separately.
+- **Valuations:** you record what the broker reports the account is worth, on a date. A valuation never moves money and never counts as cash.
+- **Unrealised gain or loss:** the valuation less what the ledger recorded up to that date, always labelled unrealised. Money moved after the valuation is flagged rather than counted as a gain or loss.
+- **Totals:** per currency, never converted. The overview asks for a valuation when an account has none, or has moved since its last one.
 
 ## What works today: continuity
 
@@ -284,6 +291,9 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/obligations/{id}/payments/undo` | Remove the latest payment link; the expense stays in the ledger |
 | GET | `/api/continuity` | Continuity coverage, shortfall, where the counted money is, what is not counted and why, and restoration progress |
 | PUT | `/api/continuity/settings` | Continuity fund, months to cover, monthly essential expense and restoration fund |
+| GET | `/api/investments` | Brokerage accounts with net contributions, recorded income and costs, the latest valuation and the unrealised gain or loss, and totals per currency |
+| GET / POST | `/api/investments/{accountId}/valuations` | An account's valuations, each against the ledger on its date / record one (`{ valuedOn, value, note }`) |
+| DELETE | `/api/investments/{accountId}/valuations/{id}` | Delete a wrong valuation (audited) |
 | GET / POST | `/api/financial-accounts` | List accounts with balances / create an account |
 | GET / PUT | `/api/financial-accounts/{id}` | One account / update name, ownership, institution, notes |
 | POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |

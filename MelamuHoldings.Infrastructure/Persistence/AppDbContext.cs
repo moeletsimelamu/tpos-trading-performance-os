@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<Allocation> Allocations => Set<Allocation>();
     public DbSet<Obligation> Obligations => Set<Obligation>();
     public DbSet<ContinuitySettings> ContinuitySettings => Set<ContinuitySettings>();
+    public DbSet<InvestmentValuation> InvestmentValuations => Set<InvestmentValuation>();
     public DbSet<ObligationPayment> ObligationPayments => Set<ObligationPayment>();
 
     // Every time is written in UTC. SQL Server's datetime2 does not keep that, so values read back are marked
@@ -81,6 +82,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new ObligationConfiguration());
         modelBuilder.ApplyConfiguration(new ObligationPaymentConfiguration());
         modelBuilder.ApplyConfiguration(new ContinuitySettingsConfiguration());
+        modelBuilder.ApplyConfiguration(new InvestmentValuationConfiguration());
         base.OnModelCreating(modelBuilder);
     }
 }

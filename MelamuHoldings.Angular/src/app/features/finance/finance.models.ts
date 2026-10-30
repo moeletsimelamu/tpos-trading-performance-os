@@ -74,6 +74,20 @@ export interface ContinuityReport {
   earmarked: Money; separated: Money; holdings: ContinuityHolding[]; notCounted: NotCounted[]; restoration?: Restoration | null;
 }
 
+// Investments (Phase 7.3): valuations of brokerage accounts against what the ledger recorded. A valuation never moves money;
+// unrealised is value − recorded balance on the valuation date, and is not cash or income.
+export interface Valuation {
+  id: number; accountId: number; valuedOn: string; value: Money; note?: string | null; recordedAt: string; recordedBalance: Money; unrealised: Money;
+}
+export interface InvestmentAccount {
+  accountId: number; accountName: string; currency: string; institution?: string | null; ownership: Ownership; status: 'Active' | 'Closed';
+  asOf: string; latest?: Valuation | null; netContributions: Money; recordedIncome: Money; recordedCosts: Money; recordedBalance: Money;
+  unrealised?: Money | null; gainOnContributions?: Money | null; transactionsSinceValuation: number; movedSinceValuation: Money; currentRecordedBalance: Money;
+}
+export interface InvestmentTotal { currency: string; value: number; netContributions: number; unrealised: number; accounts: number; }
+export interface Investments { accounts: InvestmentAccount[]; totals: InvestmentTotal[]; }
+export interface RecordValuation { valuedOn: string; value: number; note?: string | null; }
+
 export interface PaymentCandidate { transactionId: number; date: string; description: string; category?: string | null; amount: Money; }
 
 // Principal entries move the money; fee entries record a charge taken along the way (kept visible, never netted)

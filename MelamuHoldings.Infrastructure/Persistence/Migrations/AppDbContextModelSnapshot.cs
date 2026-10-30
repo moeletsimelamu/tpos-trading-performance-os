@@ -517,6 +517,46 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.InvestmentValuation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("char(3)");
+
+                    b.Property<int>("FinancialAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RecordedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<DateOnly>("ValuedOn")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FinancialAccountId", "ValuedOn")
+                        .IsUnique()
+                        .HasDatabaseName("IX_InvestmentValuations_FinancialAccountId_ValuedOn");
+
+                    b.ToTable("InvestmentValuations", "finance");
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.LedgerEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -1585,6 +1625,15 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("RestorationFundId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.InvestmentValuation", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Finance.FinancialAccount", null)
+                        .WithMany()
+                        .HasForeignKey("FinancialAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.LedgerEntry", b =>

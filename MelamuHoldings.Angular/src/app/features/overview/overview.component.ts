@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { FinanceApiService } from '../finance/finance-api.service';
-import { Allocation, Balances, ContinuityReport, Money, Obligation, Payout, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, fundStanding } from '../finance/finance.models';
+import { Allocation, Balances, ContinuityReport, Investments, Money, Obligation, Payout, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, fundStanding } from '../finance/finance.models';
 import { TradingApiService } from '../trading/trading-api.service';
 import { AnalyticsSummary, BehaviourSummary } from '../trading/models/analytics.model';
 import { MoneyPipe } from '../../shared/money.pipe';
@@ -127,7 +127,7 @@ const RECENT_PAYOUTS = 5;
                     <li class="attention-item clear"><app-icon name="check" [size]="18" /><p>Nothing in the recorded data needs attention.</p></li>
                   }
                 </ul>
-                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations, obligations, continuity and trades. Budgets and investments are not tracked yet.</p>
+                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations, obligations, continuity, investment valuations and trades. Budgets are not tracked yet.</p>
               </section>
             </div>
 
@@ -273,7 +273,9 @@ export class OverviewComponent {
   readonly activeAccounts = computed(() => this.balances()?.accounts.filter(a => a.status === 'Active').length ?? 0);
   readonly obligations = signal<Obligation[]>([]);
   readonly continuity = signal<ContinuityReport | null>(null);
-  readonly attention = computed(() => attentionItems(this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations(), this.continuity()));
+  readonly investments = signal<Investments | null>(null);
+  readonly attention = computed(() => attentionItems(
+    this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations(), this.continuity(), this.investments()));
   // The latest payouts recorded, whatever their status
   readonly recentPayouts = computed(() => [...this.payouts()].sort((a, b) => b.id - a.id).slice(0, RECENT_PAYOUTS));
 
@@ -290,11 +292,13 @@ export class OverviewComponent {
       payouts: this.finance.getPayouts(),
       allocations: this.finance.getAllocations(),
       obligations: this.finance.getObligations(),
-      continuity: this.finance.getContinuity()
+      continuity: this.finance.getContinuity(),
+      investments: this.finance.getInvestments()
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: ({ balances, recent, payouts, allocations, obligations, continuity }) => {
+      next: ({ balances, recent, payouts, allocations, obligations, continuity, investments }) => {
         this.obligations.set(obligations);
         this.continuity.set(continuity);
+        this.investments.set(investments);
         this.balances.set(balances);
         this.recent.set(recent.items);
         this.payouts.set(payouts);
@@ -363,7 +367,8 @@ function formatMoney(m: Money): string {
 // Derives what needs looking at from recorded data only; nothing here is a forecast or a guess
 export function attentionItems(
   balances: Balances | null, behaviour: BehaviourSummary | null,
-  payouts: Payout[] = [], allocations: Allocation[] = [], obligations: Obligation[] = [], continuity: ContinuityReport | null = null
+  payouts: Payout[] = [], allocations: Allocation[] = [], obligations: Obligation[] = [], continuity: ContinuityReport | null = null,
+  investments: Investments | null = null
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
 
@@ -404,6 +409,23 @@ export function attentionItems(
       detail: 'Enter the monthly essential expense so the reserve can be measured in months.',
       link: '/finance/continuity', action: 'Enter it'
     });
+  }
+
+  // A gain or loss can only be shown against a valuation that covers what the ledger recorded
+  for (const a of investments?.accounts.filter(x => x.status === 'Active') ?? []) {
+    if (!a.latest && a.currentRecordedBalance.amount !== 0) {
+      items.push({
+        tone: 'info', title: `${a.accountName} is not valued`,
+        detail: `${formatMoney(a.currentRecordedBalance)} recorded in the ledger and no valuation, so there is no gain or loss to show.`,
+        link: '/finance/investments', action: 'Record a valuation'
+      });
+    } else if (a.latest && a.transactionsSinceValuation > 0) {
+      items.push({
+        tone: 'info', title: `${a.accountName} moved since its valuation`,
+        detail: `${a.transactionsSinceValuation === 1 ? '1 transaction after ' + a.latest.valuedOn + ' is' : a.transactionsSinceValuation + ' transactions after ' + a.latest.valuedOn + ' are'} not in its unrealised gain or loss.`,
+        link: '/finance/investments', action: 'Record a valuation'
+      });
+    }
   }
 
   // Money has arrived but nobody has decided where it goes

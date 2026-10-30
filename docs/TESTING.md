@@ -49,6 +49,44 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-10-30 (branch `phase-7-3-investments`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 193 passed, 0 failed |
+| `dotnet test` (Release): integration | 107 passed, 0 failed |
+| `ng test --watch=false` | 178 passed, 0 failed (26 files), three runs |
+| `ng build` (production) | Succeeded; initial bundle 310.77 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddInvestmentValuations` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+**New tests**
+- **Unit (`InvestmentValuationTests`):** a valuation takes the account's currency and a trimmed note. Bank and cash accounts, closed accounts, dates more than a day ahead, negative values, fractions of a cent and over-long notes are refused.
+- **Integration (`InvestmentEndpointTests`):**
+  - **Figures:** a ZAR brokerage account has an opening balance of 10,000, a transfer in of 20,000, a 500 dividend, a 50 fee and a withdrawal of 5,000. A 1,000 transfer in was reversed. Its net contributions are 25,000 (the reversal cancels as a contribution), the recorded balance 25,450, and a 27,000 valuation is +1,550 unrealised and +2,000 on contributions.
+  - **Later movement:** a 3,000 transfer dated after the valuation is counted apart (1 transaction, +3,000) and is not in the gain.
+  - **Exchange:** a USD account funded by a currency exchange has 1,000 contributed, and a valuation of 950 is −50.
+  - **Totals and scope:** totals are per currency (USD and ZAR apart), of valued accounts only. An unvalued account has no gain or loss, and only brokerage accounts are listed.
+  - **Balances:** the account's ledger balance is unchanged by valuations.
+- **Integration (`InvestmentValuationRuleTests`, in a database of its own):** a bank account, a future date, a negative or fractional-cent value and a missing date are refused, and an unknown account is 404. A second valuation on a day is 409, and deleting another account's valuation is 404. Deleting frees the day. Recorded, deleted and recorded again are audited in order, and with no token the request is 401.
+- **Angular:**
+  - **Investments page:** totals per currency, the figures for each account with the gain labelled unrealised and signed, the warning about transactions since the valuation, and the "Not valued yet" state.
+  - **Recording and deleting:** recording sends the trimmed body and reloads. The history table shows each valuation against the ledger, and deleting asks first.
+  - **Overview:** it asks for a valuation of an account never valued or moved since its valuation, and skips accounts that are up to date, empty or closed. The overview specs answer the new investments request.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Setup:** the page showed the empty state with no brokerage account. A scratch brokerage account "Scratch broker ZAR" was then created through the API, with a ZAR 5,000 transfer in and a ZAR 25 platform fee. The page showed 5,000 contributed, 4,975 recorded and "Not valued yet".
+- **Recording a valuation:** ZAR 5,300 dated today was recorded through the form. It showed +325 unrealised and +300 on contributions, and the totals strip showed ZAR 5,300 valued and +325 unrealised.
+- **Deleting and re-dating:** the valuation was deleted from the history table after confirming. ZAR 4,900 was then recorded for the day before, and a ZAR 1,000 transfer was made today.
+  - **Investments page:** it showed −75 unrealised and "1 transaction since this valuation (ZAR +1,000.00)".
+  - **Overview:** it showed "Scratch broker ZAR moved since its valuation". Cash went down by the 6,000 moved to the broker, because brokerage money is not cash.
+- **Fixes found and made:**
+  - **Grammar:** the overview text said "1 transaction … are"; it now says "is".
+  - **Phone width:** the valuation history table overflowed its card at phone width; it now scrolls inside the card, as other tables do.
+- **Phone width and console:** after the fix, nothing extends past the 375 px page, and the console had no errors.
+- **Not checked visually:** the browser pane would not draw while the app window was behind another window, so a screenshot could not be taken; layout was checked by measuring element positions.
+
 ## Results — 2026-10-30 (branch `phase-7-2-continuity`)
 
 | Command | Result |

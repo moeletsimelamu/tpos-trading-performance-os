@@ -19,6 +19,10 @@ public record TransactionQuery(
 
 // Entries in Bank and Cash accounts summed per day, transaction type, entry role and currency, with how many
 // transactions they came from
+// One ledger entry in a brokerage account. Type is the transaction's type, or for a reversal the type of the
+// transaction it reverses, so a reversed contribution cancels as a contribution.
+public record InvestmentEntryRow(int AccountId, DateOnly Date, LedgerTransactionType Type, LedgerEntryRole Role, decimal Amount, int TransactionId);
+
 public record CashEntryRow(DateOnly Date, LedgerTransactionType Type, LedgerEntryRole Role, string Currency, decimal Amount, int Transactions);
 
 public interface IFinanceRepository
@@ -66,6 +70,13 @@ public interface IFinanceRepository
     Task<Allocation?> GetActiveAllocationForPayoutAsync(int payoutId);
     Task<Allocation?> GetAllocationBySettlementTransactionAsync(int transactionId);
 
+    // Every entry in a Brokerage account (see InvestmentEntryRow)
+    Task<List<InvestmentEntryRow>> GetBrokerageEntriesAsync();
+
+    // Valuations of one account, or of all accounts
+    Task<List<InvestmentValuation>> GetValuationsAsync(int? accountId = null);
+    Task<InvestmentValuation?> GetValuationAsync(int id);
+
     // The one continuity settings record (seeded by the migration)
     Task<ContinuitySettings?> GetContinuitySettingsAsync();
 
@@ -84,6 +95,8 @@ public interface IFinanceRepository
     void Add(AllocationPolicy policy);
     void Add(Allocation allocation);
     void Add(Obligation obligation);
+    void Add(InvestmentValuation valuation);
+    void Remove(InvestmentValuation valuation);
 
     // Saves everything added or changed. Throws UniqueConstraintViolationException when a unique index rejects the write,
     // and ConflictException when another request changed a row (payout, allocation) since it was read.

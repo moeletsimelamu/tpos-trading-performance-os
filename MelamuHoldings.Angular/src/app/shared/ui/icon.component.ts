@@ -23,6 +23,7 @@ const PATHS = {
   transactions: 'M4 8h15l-3.5-3.5M20 16H5l3.5 3.5',
   audit: 'M9 3.5h6v3H9zM7 5H5v15h14V5h-2M9 13l2 2 4-4.5',
   calendar: 'M5 6h14v14H5zM5 10h14M9 3.5V8M15 3.5V8M8.5 14h2M13.5 14h2M8.5 17h2',
+  investments: 'M4 20h16M6 16l4-4 3 3 6-7M15 8h4v4',
   shield: 'M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6zM9 12l2 2 4-4',
   'sign-out': 'M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10',
   menu: 'M4 7h16M4 12h16M4 17h16',

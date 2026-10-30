@@ -104,6 +104,25 @@ public partial class FinanceRepository : IFinanceRepository
         return rows.Select(r => new CashEntryRow(r.TransactionDate, r.Type, r.Role, r.Currency.Code, r.Amount, r.Transactions)).ToList();
     }
 
+    public async Task<List<InvestmentEntryRow>> GetBrokerageEntriesAsync()
+    {
+        var rows = await (
+            from e in _context.LedgerEntries
+            join t in _context.LedgerTransactions on e.LedgerTransactionId equals t.Id
+            join a in _context.FinancialAccounts on e.FinancialAccountId equals a.Id
+            where a.Type == FinancialAccountType.Brokerage
+            join o in _context.LedgerTransactions on t.ReversesTransactionId equals (int?)o.Id into originals
+            from o in originals.DefaultIfEmpty()
+            select new { e.FinancialAccountId, t.TransactionDate, t.Type, OriginalType = (LedgerTransactionType?)o.Type, e.Role, e.Amount, e.LedgerTransactionId })
+            .ToListAsync();
+        return rows.Select(r => new InvestmentEntryRow(r.FinancialAccountId, r.TransactionDate, r.OriginalType ?? r.Type, r.Role, r.Amount, r.LedgerTransactionId)).ToList();
+    }
+
+    public Task<List<InvestmentValuation>> GetValuationsAsync(int? accountId = null) =>
+        _context.InvestmentValuations.Where(v => accountId == null || v.FinancialAccountId == accountId).ToListAsync();
+
+    public Task<InvestmentValuation?> GetValuationAsync(int id) => _context.InvestmentValuations.FirstOrDefaultAsync(v => v.Id == id);
+
     public async Task<decimal> GetAccountBalanceAsync(int accountId) =>
         await _context.LedgerEntries.Where(e => e.FinancialAccountId == accountId).SumAsync(e => (decimal?)e.Amount) ?? 0m;
 
@@ -183,6 +202,10 @@ public partial class FinanceRepository : IFinanceRepository
     }
 
     public void Add(Obligation obligation) => _context.Obligations.Add(obligation);
+
+    public void Add(InvestmentValuation valuation) => _context.InvestmentValuations.Add(valuation);
+
+    public void Remove(InvestmentValuation valuation) => _context.InvestmentValuations.Remove(valuation);
 
     public void Add(Allocation allocation) => _context.Allocations.Add(allocation);
 

@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { OverviewComponent, attentionItems } from './overview.component';
-import { Account, Allocation, Balances, ContinuityReport, Fund, Obligation, Payout } from '../finance/finance.models';
+import { Account, Allocation, Balances, ContinuityReport, Fund, InvestmentAccount, Obligation, Payout } from '../finance/finance.models';
 import { BehaviourSummary } from '../trading/models/analytics.model';
 import { environment } from '../../../environments/environment';
 
@@ -39,6 +39,26 @@ const continuity: ContinuityReport = {
 };
 
 describe('attentionItems', () => {
+  it('asks for a valuation of a brokerage account never valued, or moved since its valuation', () => {
+    const inv = (overrides: Partial<InvestmentAccount>): InvestmentAccount => ({
+      accountId: 1, accountName: 'Broker', currency: 'ZAR', ownership: 'Company', status: 'Active', asOf: '2026-10-25',
+      netContributions: zar(1000), recordedIncome: zar(0), recordedCosts: zar(0), recordedBalance: zar(1000),
+      transactionsSinceValuation: 0, movedSinceValuation: zar(0), currentRecordedBalance: zar(1000), ...overrides
+    });
+    const valued = { id: 1, accountId: 1, valuedOn: '2026-10-25', value: zar(1100), recordedAt: '', recordedBalance: zar(1000), unrealised: zar(100) };
+    const accounts = [
+      inv({ accountName: 'Never valued' }),
+      inv({ accountId: 2, accountName: 'Moved', latest: valued, transactionsSinceValuation: 2, movedSinceValuation: zar(500) }),
+      inv({ accountId: 3, accountName: 'Up to date', latest: valued }),
+      inv({ accountId: 4, accountName: 'Empty', currentRecordedBalance: zar(0) }),
+      inv({ accountId: 5, accountName: 'Closed', status: 'Closed' })
+    ];
+    const items = attentionItems(null, null, [], [], [], null, { accounts, totals: [] });
+
+    expect(items.map(i => [i.tone, i.title])).toEqual([['info', 'Never valued is not valued'], ['info', 'Moved moved since its valuation']]);
+    expect(items[1].detail).toBe('2 transactions after 2026-10-25 are not in its unrealised gain or loss.');
+  });
+
   it('warns when continuity is below its target, and asks for the essential expense when it cannot be measured', () => {
     const below = attentionItems(null, null, [], [], [], continuity);
     expect(below.map(i => [i.tone, i.title])).toEqual([['warning', 'Continuity covers 7.0 of 24 months']]);
@@ -207,6 +227,7 @@ describe('OverviewComponent', () => {
     http.expectOne(`${api}/allocations`).flush([]);
     http.expectOne(`${api}/obligations`).flush([]);
     http.expectOne(`${api}/continuity`).flush(continuity);
+    http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
   }
 
   function flushTrading(totalTrades: number) {
@@ -246,6 +267,7 @@ describe('OverviewComponent', () => {
     http.expectOne(`${api}/allocations`).flush([]);
     http.expectOne(`${api}/obligations`).flush([]);
     http.expectOne(`${api}/continuity`).flush(continuity);
+    http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
     flushTrading(0);
     await fixture.whenStable();
 
@@ -270,8 +292,8 @@ describe('OverviewComponent', () => {
     const fixture = await render();
     http.expectOne(`${api}/balances`).flush(null, { status: 403, statusText: 'Forbidden' });
     // forkJoin abandons the other finance requests once the balances fail
-    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`, `${api}/continuity`].includes(r.url));
-    expect(others.length).toBe(5);
+    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`, `${api}/continuity`, `${api}/investments`].includes(r.url));
+    expect(others.length).toBe(6);
     expect(others.every(r => r.cancelled)).toBe(true);
     flushTrading(0);
     await fixture.whenStable();

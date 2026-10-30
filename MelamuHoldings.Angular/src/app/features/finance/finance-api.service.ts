@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, ContinuityReport, ContinuitySettings, CurrencyInfo, Fund, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PayoutStatus, RecordKind, SaveContinuitySettings, SaveFund, SaveObligation, Transaction, TransactionFilter } from './finance.models';
+import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, ContinuityReport, ContinuitySettings, CurrencyInfo, Fund, Investments, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PayoutStatus, RecordKind, RecordValuation, SaveContinuitySettings, SaveFund, SaveObligation, Transaction, TransactionFilter, Valuation } from './finance.models';
 
 export interface CreateAccountRequest {
   name: string; type: AccountType; currency: string; ownership: Ownership; institution?: string; notes?: string;
@@ -181,6 +181,23 @@ export class FinanceApiService {
 
   saveContinuitySettings(request: SaveContinuitySettings): Observable<ContinuitySettings> {
     return this.http.put<ContinuitySettings>(`${this.base}/continuity/settings`, request);
+  }
+
+  // Investments: brokerage valuations; recording one never moves money
+  getInvestments(): Observable<Investments> {
+    return this.http.get<Investments>(`${this.base}/investments`);
+  }
+
+  getValuations(accountId: number): Observable<Valuation[]> {
+    return this.http.get<Valuation[]>(`${this.base}/investments/${accountId}/valuations`);
+  }
+
+  recordValuation(accountId: number, request: RecordValuation): Observable<Valuation> {
+    return this.http.post<Valuation>(`${this.base}/investments/${accountId}/valuations`, request);
+  }
+
+  deleteValuation(accountId: number, valuationId: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/investments/${accountId}/valuations/${valuationId}`);
   }
 
   private keyHeader(key: string): HttpHeaders {

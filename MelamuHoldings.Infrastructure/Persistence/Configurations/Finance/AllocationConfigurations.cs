@@ -187,3 +187,17 @@ public class ContinuitySettingsConfiguration : IEntityTypeConfiguration<Continui
         builder.HasData(new { Id = ContinuitySettings.SingletonId, ContinuityFundId = 3, Months = ContinuitySettings.DefaultMonths, Currency = Currency.ZAR });
     }
 }
+
+public class InvestmentValuationConfiguration : IEntityTypeConfiguration<InvestmentValuation>
+{
+    public void Configure(EntityTypeBuilder<InvestmentValuation> builder)
+    {
+        builder.ToTable("InvestmentValuations", FinanceSchema.Name);
+        builder.Property(v => v.Currency).IsCurrencyCode();
+        builder.Property(v => v.Value).HasColumnType("decimal(19,4)");
+        builder.Property(v => v.Note).HasMaxLength(InvestmentValuation.MaxNoteLength);
+        builder.HasOne<FinancialAccount>().WithMany().HasForeignKey(v => v.FinancialAccountId).OnDelete(DeleteBehavior.Restrict);
+        // One valuation per account per day, so a retried request cannot add a second one
+        builder.HasIndex(v => new { v.FinancialAccountId, v.ValuedOn }).IsUnique().HasDatabaseName(InvestmentService.ValuationDateIndex);
+    }
+}
