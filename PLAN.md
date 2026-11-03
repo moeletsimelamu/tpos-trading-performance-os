@@ -28,7 +28,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Phase 7 is staged (§7b; decisions D6–D8). P7.1 (fund minimum and target, obligations and their warnings) is complete on branch `phase-7-1-funds-obligations`, cut from `main`.
 - P7.2 (continuity and trading restoration) is complete on branch `phase-7-2-continuity`, cut from `phase-7-1-funds-obligations`.
 - P7.3 (investments: brokerage valuations and unrealised gain or loss) is complete on branch `phase-7-3-investments`, cut from `phase-7-2-continuity`.
-- Next: P7.4 (budgets and planned purchases).
+- P7.4 (budgets, planned purchases and the affordability check) is complete on branch `phase-7-4-budgets-purchases`, cut from `phase-7-3-investments`.
+- Next: P7.5 (verification and documentation).
 
 ---
 
@@ -369,7 +370,7 @@ Phase 7 is delivered in stages, each on its own branch cut from the previous one
 | **P7.1** ✅ | Fund minimum and target (one currency per fund); obligations (one-off or recurring, a due date that advances without drift, payments linked to existing expense transactions, never created by the system); warnings for a fund below its minimum, an obligation overdue or due within 14 days, and a payment whose expense was reversed |
 | **P7.2** ✅ | Continuity (D6–D8): the Trading Restoration fund; the continuity target (months, default 24, and the monthly essential expense in ZAR) and the restoration target; coverage in months and the shortfall; earmarked versus physically separated continuity money; a warning below target |
 | **P7.3** ✅ | Investments: valuation snapshots on brokerage accounts; net contributions from the ledger; unrealised gain or loss, labelled unrealised |
-| **P7.4** | Budgets per month and category with budget versus actual from expense categories; planned purchases (Proposed → Committed → Purchased with a linked expense, or Cancelled) and the "can it be afforded without breaching the operating minimum" check; warnings for an exceeded budget and a purchase that would breach the minimum |
+| **P7.4** ✅ | Budgets per month and category with budget versus actual from expense categories; planned purchases (Proposed → Committed → Purchased with a linked expense, or Cancelled) and the "can it be afforded without breaching the operating minimum" check; warnings for an exceeded budget and a purchase that would breach the minimum |
 | **P7.5** | Verification and documentation |
 
 ### 7a. Trading journal and AI-assisted review (owner brief, 2026-10-27)

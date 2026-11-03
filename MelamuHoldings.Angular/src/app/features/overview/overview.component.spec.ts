@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { OverviewComponent, attentionItems } from './overview.component';
-import { Account, Allocation, Balances, ContinuityReport, Fund, InvestmentAccount, Obligation, Payout } from '../finance/finance.models';
+import { Account, Allocation, Balances, BudgetMonth, ContinuityReport, Fund, InvestmentAccount, Obligation, Payout, PlannedPurchase } from '../finance/finance.models';
 import { BehaviourSummary } from '../trading/models/analytics.model';
 import { environment } from '../../../environments/environment';
 
@@ -39,6 +39,34 @@ const continuity: ContinuityReport = {
 };
 
 describe('attentionItems', () => {
+  it('warns about a budget exceeded this month, and leaves the others alone', () => {
+    const line = (category: string, actual: number, exceeded: boolean) => ({
+      id: 1, month: '2026-11', category, budget: zar(8000), actual: zar(actual), remaining: zar(8000 - actual), usedPercent: 0, exceeded, transactions: 1
+    });
+    const budgets: BudgetMonth = { month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [line('Rent', 8500, true), line('Fibre', 100, false)], unbudgeted: [], totals: [] };
+    const items = attentionItems(null, null, [], [], [], null, null, budgets);
+
+    expect(items.map(i => [i.tone, i.title])).toEqual([['warning', 'Rent is over budget']]);
+    expect(items[0].detail).toBe('ZAR 8,500.00 spent of ZAR 8,000.00 in 2026-11; ZAR 500.00 over.');
+  });
+
+  it('warns about a committed purchase the fund cannot carry, notes a proposed one, and flags a reversed expense', () => {
+    const purchase = (name: string, status: PlannedPurchase['status'], verdict: 'Affordable' | 'BreachesMinimum' | 'NotEnoughMoney' | null, reversed = false): PlannedPurchase => ({
+      id: 1, name, amount: zar(16000), fundId: 2, fundName: 'Operating Capital', status, expenseReversed: reversed, createdAt: '',
+      affordability: verdict && { verdict, available: zar(20000), committedElsewhere: zar(0), purchase: zar(16000), after: zar(4000), shortfall: zar(1000), obligationsDue: zar(0) }
+    });
+    const items = attentionItems(null, null, [], [], [], null, null, null, [
+      purchase('Server', 'Committed', 'BreachesMinimum'), purchase('Desk', 'Proposed', 'NotEnoughMoney'), purchase('Laptop', 'Proposed', 'Affordable'), purchase('Chair', 'Purchased', null, true)
+    ]);
+
+    expect(items.map(i => [i.tone, i.title])).toEqual([
+      ['warning', 'Server would breach the Operating Capital minimum'],
+      ['info', 'Operating Capital cannot pay for Desk'],
+      ['warning', 'The expense for Chair was reversed']
+    ]);
+    expect(items[0].detail).toBe('ZAR 16,000.00, committed, would leave ZAR 4,000.00; ZAR 1,000.00 short.');
+  });
+
   it('asks for a valuation of a brokerage account never valued, or moved since its valuation', () => {
     const inv = (overrides: Partial<InvestmentAccount>): InvestmentAccount => ({
       accountId: 1, accountName: 'Broker', currency: 'ZAR', ownership: 'Company', status: 'Active', asOf: '2026-10-25',
@@ -228,6 +256,8 @@ describe('OverviewComponent', () => {
     http.expectOne(`${api}/obligations`).flush([]);
     http.expectOne(`${api}/continuity`).flush(continuity);
     http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
+    http.expectOne(`${api}/budgets`).flush({ month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [], unbudgeted: [], totals: [] });
+    http.expectOne(r => r.url === `${api}/planned-purchases`).flush([]);
   }
 
   function flushTrading(totalTrades: number) {
@@ -268,6 +298,8 @@ describe('OverviewComponent', () => {
     http.expectOne(`${api}/obligations`).flush([]);
     http.expectOne(`${api}/continuity`).flush(continuity);
     http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
+    http.expectOne(`${api}/budgets`).flush({ month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [], unbudgeted: [], totals: [] });
+    http.expectOne(r => r.url === `${api}/planned-purchases`).flush([]);
     flushTrading(0);
     await fixture.whenStable();
 
@@ -292,8 +324,8 @@ describe('OverviewComponent', () => {
     const fixture = await render();
     http.expectOne(`${api}/balances`).flush(null, { status: 403, statusText: 'Forbidden' });
     // forkJoin abandons the other finance requests once the balances fail
-    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`, `${api}/continuity`, `${api}/investments`].includes(r.url));
-    expect(others.length).toBe(6);
+    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`, `${api}/continuity`, `${api}/investments`, `${api}/budgets`, `${api}/planned-purchases`].includes(r.url));
+    expect(others.length).toBe(8);
     expect(others.every(r => r.cancelled)).toBe(true);
     flushTrading(0);
     await fixture.whenStable();

@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, ContinuityReport, ContinuitySettings, CurrencyInfo, Fund, Investments, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PayoutStatus, RecordKind, RecordValuation, SaveContinuitySettings, SaveFund, SaveObligation, Transaction, TransactionFilter, Valuation } from './finance.models';
+import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, BudgetLine, BudgetMonth, ContinuityReport, ContinuitySettings, CurrencyInfo, Fund, Investments, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PlannedPurchase, PayoutStatus, RecordKind, RecordValuation, SaveContinuitySettings, SaveFund, SaveObligation, SavePlannedPurchase, Transaction, TransactionFilter, Valuation } from './finance.models';
 
 export interface CreateAccountRequest {
   name: string; type: AccountType; currency: string; ownership: Ownership; institution?: string; notes?: string;
@@ -198,6 +198,58 @@ export class FinanceApiService {
 
   deleteValuation(accountId: number, valuationId: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/investments/${accountId}/valuations/${valuationId}`);
+  }
+
+  // Budgets: plans per month and category; never move money
+  getBudgets(month?: string): Observable<BudgetMonth> {
+    const params = month ? new HttpParams().set('month', month) : undefined;
+    return this.http.get<BudgetMonth>(`${this.base}/budgets`, { params });
+  }
+
+  createBudgetLine(request: { month: string; category: string; amount: number; currency: string }): Observable<BudgetLine> {
+    return this.http.post<BudgetLine>(`${this.base}/budgets`, request);
+  }
+
+  updateBudgetLine(id: number, request: { category: string; amount: number }): Observable<BudgetLine> {
+    return this.http.put<BudgetLine>(`${this.base}/budgets/${id}`, request);
+  }
+
+  deleteBudgetLine(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/budgets/${id}`);
+  }
+
+  // Planned purchases: a purchase links an expense already in the ledger; nothing here moves money
+  getPlannedPurchases(includeClosed = false): Observable<PlannedPurchase[]> {
+    const params = includeClosed ? new HttpParams().set('includeClosed', true) : undefined;
+    return this.http.get<PlannedPurchase[]>(`${this.base}/planned-purchases`, { params });
+  }
+
+  savePlannedPurchase(id: number | null, request: SavePlannedPurchase): Observable<PlannedPurchase> {
+    return id ? this.http.put<PlannedPurchase>(`${this.base}/planned-purchases/${id}`, request) : this.http.post<PlannedPurchase>(`${this.base}/planned-purchases`, request);
+  }
+
+  commitPurchase(id: number): Observable<PlannedPurchase> {
+    return this.http.post<PlannedPurchase>(`${this.base}/planned-purchases/${id}/commit`, {});
+  }
+
+  withdrawPurchaseCommitment(id: number): Observable<PlannedPurchase> {
+    return this.http.post<PlannedPurchase>(`${this.base}/planned-purchases/${id}/withdraw-commitment`, {});
+  }
+
+  cancelPurchase(id: number): Observable<PlannedPurchase> {
+    return this.http.post<PlannedPurchase>(`${this.base}/planned-purchases/${id}/cancel`, {});
+  }
+
+  getPurchaseCandidates(id: number): Observable<PaymentCandidate[]> {
+    return this.http.get<PaymentCandidate[]>(`${this.base}/planned-purchases/${id}/expense-candidates`);
+  }
+
+  recordPurchase(id: number, transactionId: number): Observable<PlannedPurchase> {
+    return this.http.post<PlannedPurchase>(`${this.base}/planned-purchases/${id}/purchase`, { transactionId });
+  }
+
+  undoPurchase(id: number): Observable<PlannedPurchase> {
+    return this.http.post<PlannedPurchase>(`${this.base}/planned-purchases/${id}/purchase/undo`, {});
   }
 
   private keyHeader(key: string): HttpHeaders {

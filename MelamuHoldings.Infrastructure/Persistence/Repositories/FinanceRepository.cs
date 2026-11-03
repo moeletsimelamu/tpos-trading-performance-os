@@ -104,6 +104,33 @@ public partial class FinanceRepository : IFinanceRepository
         return rows.Select(r => new CashEntryRow(r.TransactionDate, r.Type, r.Role, r.Currency.Code, r.Amount, r.Transactions)).ToList();
     }
 
+    public async Task<List<ExpenseRow>> GetUnreversedExpensesAsync(DateOnly first, DateOnly last)
+    {
+        var rows = await (
+            from e in _context.LedgerEntries
+            join t in _context.LedgerTransactions on e.LedgerTransactionId equals t.Id
+            where t.Type == LedgerTransactionType.Expense && t.TransactionDate >= first && t.TransactionDate <= last
+                && !_context.LedgerTransactions.Any(r => r.ReversesTransactionId == t.Id)
+            select new { t.Id, t.TransactionDate, t.Category, e.Currency, e.Amount })
+            .ToListAsync();
+        return rows.Select(r => new ExpenseRow(r.Id, r.TransactionDate, r.Category, r.Currency.Code, -r.Amount)).ToList();
+    }
+
+    public Task<List<BudgetLine>> GetBudgetLinesAsync(DateOnly month) => _context.BudgetLines.Where(l => l.Month == month).ToListAsync();
+
+    public Task<BudgetLine?> GetBudgetLineAsync(int id) => _context.BudgetLines.FirstOrDefaultAsync(l => l.Id == id);
+
+    public Task<List<PlannedPurchase>> GetPlannedPurchasesAsync() => _context.PlannedPurchases.ToListAsync();
+
+    public Task<PlannedPurchase?> GetPlannedPurchaseAsync(int id) => _context.PlannedPurchases.FirstOrDefaultAsync(p => p.Id == id);
+
+    public async Task<HashSet<int>> GetLinkedPurchaseTransactionIdsAsync(IEnumerable<int> transactionIds)
+    {
+        var ids = transactionIds.Select(id => (int?)id).Distinct().ToList();
+        if (ids.Count == 0) return [];
+        return (await _context.PlannedPurchases.Where(p => ids.Contains(p.LedgerTransactionId)).Select(p => p.LedgerTransactionId!.Value).ToListAsync()).ToHashSet();
+    }
+
     public async Task<List<InvestmentEntryRow>> GetBrokerageEntriesAsync()
     {
         var rows = await (
@@ -204,6 +231,12 @@ public partial class FinanceRepository : IFinanceRepository
     public void Add(Obligation obligation) => _context.Obligations.Add(obligation);
 
     public void Add(InvestmentValuation valuation) => _context.InvestmentValuations.Add(valuation);
+
+    public void Add(BudgetLine line) => _context.BudgetLines.Add(line);
+
+    public void Remove(BudgetLine line) => _context.BudgetLines.Remove(line);
+
+    public void Add(PlannedPurchase purchase) => _context.PlannedPurchases.Add(purchase);
 
     public void Remove(InvestmentValuation valuation) => _context.InvestmentValuations.Remove(valuation);
 

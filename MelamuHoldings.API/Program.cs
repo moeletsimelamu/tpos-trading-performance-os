@@ -119,6 +119,8 @@ builder.Services.AddScoped<OverviewService>();
 builder.Services.AddScoped<ObligationService>();
 builder.Services.AddScoped<ContinuityService>();
 builder.Services.AddScoped<InvestmentService>();
+builder.Services.AddScoped<BudgetService>();
+builder.Services.AddScoped<PlannedPurchaseService>();
 builder.Services.AddScoped<PayoutService>();
 builder.Services.AddScoped<AllocationService>();
 builder.Services.AddScoped<AuthService>();

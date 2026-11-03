@@ -49,6 +49,50 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-03 (branch `phase-7-4-budgets-purchases`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 198 passed, 0 failed |
+| `dotnet test` (Release): integration | 111 passed, 0 failed |
+| `ng test --watch=false` | 187 passed, 0 failed (28 files) |
+| `ng build` (production) | Succeeded; initial bundle 311.01 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddBudgetsAndPlannedPurchases` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+**New tests**
+- **Unit (`BudgetAndPurchaseTests`):**
+  - **Budget lines:** a whole month, a required category, a positive amount and a fixed currency. Categories match whatever their case or surrounding spaces.
+  - **Purchases:** the stages run in order, and what it cost is recorded even when it differs from the plan. Undo returns it to committed. Another currency, a reversed expense and an income are refused, and nothing refused is kept. The system fund, a blank name and a zero amount are refused.
+- **Integration (`BudgetEndpointTests`):** an expense in another case counts against its line, and over budget is reported (8,500 of 8,000: −500, 106.2%). A reversed expense counts for nothing, and other months are left out. A dollar expense does not count against a rand budget and is listed outside the budget, with expenses of other categories and those with none. Totals are per currency, and with no month given the report is for this month.
+- **Integration (`BudgetRuleTests`):** bad months, a zero or fractional-cent amount and an unknown currency are refused. A second line for a month, category and currency is 409 in any case, while another currency or month is allowed. Changing and deleting work and are audited, and with no token the request is 401.
+- **Integration (`PlannedPurchaseEndpointTests`):**
+  - **Affordable or not:** brokerage money is not counted. Exactly at the minimum is affordable, and a cent below breaches it.
+  - **Commitments:** a commitment reserves its money from the others and not from itself. Committing is allowed even when it breaches the minimum.
+  - **No minimum:** no minimum in the currency gives "no minimum" or "not enough money", and a minimum in another currency is shown and not converted.
+  - **Obligations:** those due within 30 days are shown and not deducted; other currencies and later dates are left out.
+- **Integration (`PlannedPurchaseLifecycleTests`):**
+  - **Candidates:** other currencies, reversed expenses and expenses that paid an obligation are left out.
+  - **Buying:** it is refused before committing, and creates no ledger transaction. It records what the purchase cost and ends the check.
+  - **One expense, one thing:** a second purchase is 409, and an obligation is refused it and does not offer it.
+  - **Reversal and undo:** a later reversal is flagged, and undo returns it to committed with the expense still in the ledger.
+  - **Names and refusals:** open names are unique, and cancelling frees the name. Refusals, 404, 401 and the audit events are checked.
+- **Angular:**
+  - **Budgets page:** budget versus actual, the over-budget tag with the bar stopping at full, totals, spending outside the budget, choosing a month, "Budget it" filling the form, a fixed currency when editing, and asking before deleting.
+  - **Purchases page:** the answer in words for all four results with the figures behind it, the stages with a reload after each change, linking an expense, the operating fund as the default with no system fund offered, asking before cancelling, and closed ones only when asked.
+  - **Overview:** warnings for a budget exceeded, a committed purchase that breaches (a note while proposed), and a reversed expense. The overview specs answer the new requests.
+- **Existing tests changed:** none beyond the overview specs answering the new requests.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Budgets:** November started empty. A scratch ZAR 900 expense with category "fibre", created through the API, showed outside the budget. "Budget it" filled the form, and a ZAR 800 budget then showed 112.5% used, over budget, ZAR −100. October showed only the uncategorised ZAR 25 fee, because its Rent and Software expenses were reversed.
+- **Affordability:** Operating Capital held ZAR 8,882 with a ZAR 5,000 minimum. Through the form, "Monitor" at ZAR 3,000 was affordable (leaves 5,882) and "Server" at ZAR 5,000 breached the minimum (leaves 3,882, 1,118 below). The overdue ZAR 8,500 rent was shown beside both and not deducted.
+- **Commitment:** committing Monitor moved Server to "would leave 882".
+- **Buying:** a ZAR 2,950 expense was created through the API and linked from the page. The purchase recorded 2,950, and Server then showed 932 (8,882 − 2,950 − 5,000), so the reservation ended and the real cost applied.
+- **Overview:** it warned "fibre is over budget" and "Server (scratch) would breach the Operating Capital minimum". The coverage note no longer says budgets are not tracked.
+- **Phone width and console:** at 375 px nothing extends past the page on Budgets or Planned purchases, with or without their forms; the budget table scrolls inside its card. The console had no errors after a fresh load of Planned purchases.
+- **Not exercised in the browser:** undoing a purchase, a later reversal, withdrawing a commitment and deleting a budget line. Those are covered by the integration and Angular tests.
+
 ## Results — 2026-10-30 (branch `phase-7-3-investments`)
 
 | Command | Result |

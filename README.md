@@ -23,9 +23,16 @@ The landing page shows the business as recorded:
   - **Totals:** income, expenses and net cash movement month by month, and the payouts received.
   - **Every figure links** to the ledger list it is summed from, with the same dates and type;
 - fund positions;
-- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, funds below their minimum, obligations overdue or due within 14 days, continuity below its target or not measured, brokerage accounts not valued or moved since their valuation, ownership not stated, critical trading-behaviour alerts;
+- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, funds below their minimum, obligations overdue or due within 14 days, continuity below its target or not measured, brokerage accounts not valued or moved since their valuation, budgets exceeded, purchases that would breach a fund's minimum, ownership not stated, critical trading-behaviour alerts;
 - recent payouts with their status, and recent ledger activity;
 - a trading summary, labelled as not business cash until a payout is recorded.
+
+## What works today: budgets and planned purchases
+
+- **Budgets:** an amount per category per month, against the expenses recorded with that category. Reversed expenses count for nothing, and spending with no budget line is listed apart. A budget never blocks an expense.
+- **Planned purchases:** proposed, then committed, then purchased by linking an expense from the ledger, or cancelled. Nothing here records or moves money.
+- **Can it be afforded?** Each open purchase answers from recorded balances: the fund's money in bank and cash accounts, less its other commitments and the purchase, against the fund's minimum. It warns and never blocks. Obligations due within 30 days are shown beside the answer, not deducted.
+- **Warnings:** the overview flags a budget exceeded this month, a purchase that would breach a minimum, and a purchase whose expense was reversed.
 
 ## What works today: investments
 
@@ -294,6 +301,13 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/investments` | Brokerage accounts with net contributions, recorded income and costs, the latest valuation and the unrealised gain or loss, and totals per currency |
 | GET / POST | `/api/investments/{accountId}/valuations` | An account's valuations, each against the ledger on its date / record one (`{ valuedOn, value, note }`) |
 | DELETE | `/api/investments/{accountId}/valuations/{id}` | Delete a wrong valuation (audited) |
+| GET / POST | `/api/budgets` | Budget versus actual for a month (`month=yyyy-MM`, this month by default), with spending outside the budget / add a line |
+| PUT / DELETE | `/api/budgets/{id}` | Change a line's category or amount / delete it |
+| GET / POST | `/api/planned-purchases` | List planned purchases with the affordability answer (`includeClosed` for purchased and cancelled ones) / propose one |
+| GET / PUT | `/api/planned-purchases/{id}` | One purchase / change a proposal |
+| POST | `/api/planned-purchases/{id}/commit`, `/withdraw-commitment`, `/cancel` | Move it between stages |
+| GET | `/api/planned-purchases/{id}/expense-candidates` | Recent expenses that could be the purchase: same currency, not reversed, not linked |
+| POST | `/api/planned-purchases/{id}/purchase`, `/purchase/undo` | Link an expense as the purchase (`{ transactionId }`) / remove the link; the expense stays in the ledger |
 | GET / POST | `/api/financial-accounts` | List accounts with balances / create an account |
 | GET / PUT | `/api/financial-accounts/{id}` | One account / update name, ownership, institution, notes |
 | POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |

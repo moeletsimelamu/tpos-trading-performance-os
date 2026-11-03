@@ -96,6 +96,8 @@ public class ObligationService
         var transactionId = request.TransactionId!.Value;
         var expense = await _repository.GetTransactionAsync(transactionId) ?? throw new DomainException($"Transaction {transactionId} does not exist.");
         var reversed = (await _repository.GetReversalIdsAsync([transactionId])).ContainsKey(transactionId);
+        if ((await _repository.GetLinkedPurchaseTransactionIdsAsync([transactionId])).Count > 0)
+            throw new DomainException($"Transaction {transactionId} is already recorded as a planned purchase.");
         var payment = obligation.RecordPayment(expense, reversed, Now);
         await SaveWithAuditAsync(() => { }, () => Audit(userId, "obligation.paid", obligation,
             $"Recorded transaction {transactionId} as the payment of '{obligation.Name}' due {payment.DueDate:yyyy-MM-dd}.",
@@ -124,6 +126,7 @@ public class ObligationService
             .ToList();
         var reversed = await _repository.GetReversalIdsAsync(expenses.Select(t => t.Id));
         var linked = await _repository.GetLinkedPaymentTransactionIdsAsync(expenses.Select(t => t.Id));
+        linked.UnionWith(await _repository.GetLinkedPurchaseTransactionIdsAsync(expenses.Select(t => t.Id)));
         return expenses
             .Where(t => !reversed.ContainsKey(t.Id) && !linked.Contains(t.Id))
             .Select(t => new PaymentCandidateDto(t.Id, t.TransactionDate, t.Description, t.Category, new MoneyDto(-t.Entries.Sum(e => e.Amount), obligation.Currency.Code)))

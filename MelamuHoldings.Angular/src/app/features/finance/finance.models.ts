@@ -88,6 +88,30 @@ export interface InvestmentTotal { currency: string; value: number; netContribut
 export interface Investments { accounts: InvestmentAccount[]; totals: InvestmentTotal[]; }
 export interface RecordValuation { valuedOn: string; value: number; note?: string | null; }
 
+// Budgets (Phase 7.4): budget versus actual per month and category. Actual comes from unreversed expenses with that category.
+export interface BudgetLine {
+  id: number; month: string; category: string; budget: Money; actual: Money; remaining: Money; usedPercent: number; exceeded: boolean; transactions: number;
+}
+export interface UnbudgetedSpend { category?: string | null; actual: Money; transactions: number; }
+export interface BudgetTotal { currency: string; budget: number; actualBudgeted: number; actualUnbudgeted: number; }
+export interface BudgetMonth { month: string; from: string; to: string; lines: BudgetLine[]; unbudgeted: UnbudgetedSpend[]; totals: BudgetTotal[]; }
+
+// Planned purchases (Phase 7.4): a purchase links an expense already in the ledger. The check warns and never blocks.
+export type PlannedPurchaseStatus = 'Proposed' | 'Committed' | 'Purchased' | 'Cancelled';
+export type AffordabilityVerdict = 'Affordable' | 'BreachesMinimum' | 'NoMinimum' | 'NotEnoughMoney';
+export interface Affordability {
+  verdict: AffordabilityVerdict; available: Money; committedElsewhere: Money; purchase: Money; after: Money; minimum?: Money | null; shortfall?: Money | null;
+  minimumInOtherCurrency?: Money | null; obligationsDue: Money;
+}
+export interface PlannedPurchase {
+  id: number; name: string; amount: Money; fundId: number; fundName: string; category?: string | null; targetDate?: string | null; notes?: string | null;
+  status: PlannedPurchaseStatus; transactionId?: number | null; paid?: Money | null; purchasedOn?: string | null; expenseReversed: boolean;
+  affordability?: Affordability | null; createdAt: string; updatedAt?: string | null;
+}
+export interface SavePlannedPurchase {
+  name: string; amount: number; currency: string; fundId: number; category?: string | null; targetDate?: string | null; notes?: string | null;
+}
+
 export interface PaymentCandidate { transactionId: number; date: string; description: string; category?: string | null; amount: Money; }
 
 // Principal entries move the money; fee entries record a charge taken along the way (kept visible, never netted)

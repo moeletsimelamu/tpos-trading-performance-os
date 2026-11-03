@@ -201,3 +201,39 @@ public class InvestmentValuationConfiguration : IEntityTypeConfiguration<Investm
         builder.HasIndex(v => new { v.FinancialAccountId, v.ValuedOn }).IsUnique().HasDatabaseName(InvestmentService.ValuationDateIndex);
     }
 }
+
+public class BudgetLineConfiguration : IEntityTypeConfiguration<BudgetLine>
+{
+    public void Configure(EntityTypeBuilder<BudgetLine> builder)
+    {
+        builder.ToTable("BudgetLines", FinanceSchema.Name, t => t.HasCheckConstraint("CK_BudgetLines_FirstOfMonth", "DAY([Month]) = 1"));
+        builder.Property(l => l.Category).HasMaxLength(LedgerTransaction.MaxCategoryLength).IsRequired();
+        builder.Property(l => l.Amount).HasColumnType("decimal(19,4)");
+        builder.Property(l => l.Currency).IsCurrencyCode();
+        // One line per month, category and currency, so a retried request cannot add a second one
+        builder.HasIndex(l => new { l.Month, l.Category, l.Currency }).IsUnique().HasDatabaseName(BudgetService.LineIndex);
+    }
+}
+
+public class PlannedPurchaseConfiguration : IEntityTypeConfiguration<PlannedPurchase>
+{
+    public void Configure(EntityTypeBuilder<PlannedPurchase> builder)
+    {
+        builder.ToTable("PlannedPurchases", FinanceSchema.Name);
+        builder.Property(p => p.Name).HasMaxLength(PlannedPurchase.MaxNameLength).IsRequired();
+        builder.Property(p => p.Amount).HasColumnType("decimal(19,4)");
+        builder.Property(p => p.PaidAmount).HasColumnType("decimal(19,4)");
+        builder.Property(p => p.Currency).IsCurrencyCode();
+        builder.Property(p => p.Category).HasMaxLength(LedgerTransaction.MaxCategoryLength);
+        builder.Property(p => p.Notes).HasMaxLength(PlannedPurchase.MaxNotesLength);
+        builder.Property(p => p.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(p => p.RowVersion).IsRowVersion();
+        builder.Ignore(p => p.IsOpen);
+        builder.HasOne<Fund>().WithMany().HasForeignKey(p => p.FundId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<LedgerTransaction>().WithMany().HasForeignKey(p => p.LedgerTransactionId).OnDelete(DeleteBehavior.Restrict);
+        // Two open purchases cannot share a name, so a retried create does not add a second one
+        builder.HasIndex(p => p.Name).IsUnique().HasFilter("[Status] IN ('Proposed', 'Committed')").HasDatabaseName(PlannedPurchaseService.ActiveNameIndex);
+        // One expense pays for one purchase
+        builder.HasIndex(p => p.LedgerTransactionId).IsUnique().HasFilter("[LedgerTransactionId] IS NOT NULL").HasDatabaseName(PlannedPurchaseService.TransactionIndex);
+    }
+}

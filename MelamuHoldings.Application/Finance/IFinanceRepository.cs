@@ -19,6 +19,9 @@ public record TransactionQuery(
 
 // Entries in Bank and Cash accounts summed per day, transaction type, entry role and currency, with how many
 // transactions they came from
+// One expense transaction that has not been reversed; Amount is what it cost, as a positive number
+public record ExpenseRow(int TransactionId, DateOnly Date, string? Category, string Currency, decimal Amount);
+
 // One ledger entry in a brokerage account. Type is the transaction's type, or for a reversal the type of the
 // transaction it reverses, so a reversed contribution cancels as a contribution.
 public record InvestmentEntryRow(int AccountId, DateOnly Date, LedgerTransactionType Type, LedgerEntryRole Role, decimal Amount, int TransactionId);
@@ -70,6 +73,18 @@ public interface IFinanceRepository
     Task<Allocation?> GetActiveAllocationForPayoutAsync(int payoutId);
     Task<Allocation?> GetAllocationBySettlementTransactionAsync(int transactionId);
 
+    // Expense transactions dated in the range, leaving out reversed ones
+    Task<List<ExpenseRow>> GetUnreversedExpensesAsync(DateOnly from, DateOnly to);
+
+    Task<List<BudgetLine>> GetBudgetLinesAsync(DateOnly month);
+    Task<BudgetLine?> GetBudgetLineAsync(int id);
+
+    Task<List<PlannedPurchase>> GetPlannedPurchasesAsync();
+    Task<PlannedPurchase?> GetPlannedPurchaseAsync(int id);
+
+    // Which of these expenses are already linked as a planned purchase
+    Task<HashSet<int>> GetLinkedPurchaseTransactionIdsAsync(IEnumerable<int> transactionIds);
+
     // Every entry in a Brokerage account (see InvestmentEntryRow)
     Task<List<InvestmentEntryRow>> GetBrokerageEntriesAsync();
 
@@ -96,6 +111,9 @@ public interface IFinanceRepository
     void Add(Allocation allocation);
     void Add(Obligation obligation);
     void Add(InvestmentValuation valuation);
+    void Add(BudgetLine line);
+    void Remove(BudgetLine line);
+    void Add(PlannedPurchase purchase);
     void Remove(InvestmentValuation valuation);
 
     // Saves everything added or changed. Throws UniqueConstraintViolationException when a unique index rejects the write,

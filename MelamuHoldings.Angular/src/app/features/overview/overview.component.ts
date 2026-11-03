@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { FinanceApiService } from '../finance/finance-api.service';
-import { Allocation, Balances, ContinuityReport, Investments, Money, Obligation, Payout, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, fundStanding } from '../finance/finance.models';
+import { Allocation, Balances, BudgetMonth, ContinuityReport, Investments, Money, Obligation, Payout, PlannedPurchase, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, fundStanding } from '../finance/finance.models';
 import { TradingApiService } from '../trading/trading-api.service';
 import { AnalyticsSummary, BehaviourSummary } from '../trading/models/analytics.model';
 import { MoneyPipe } from '../../shared/money.pipe';
@@ -127,7 +127,7 @@ const RECENT_PAYOUTS = 5;
                     <li class="attention-item clear"><app-icon name="check" [size]="18" /><p>Nothing in the recorded data needs attention.</p></li>
                   }
                 </ul>
-                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations, obligations, continuity, investment valuations and trades. Budgets are not tracked yet.</p>
+                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations, obligations, continuity, investment valuations, budgets, planned purchases and trades.</p>
               </section>
             </div>
 
@@ -274,8 +274,10 @@ export class OverviewComponent {
   readonly obligations = signal<Obligation[]>([]);
   readonly continuity = signal<ContinuityReport | null>(null);
   readonly investments = signal<Investments | null>(null);
+  readonly budgets = signal<BudgetMonth | null>(null);
+  readonly purchases = signal<PlannedPurchase[]>([]);
   readonly attention = computed(() => attentionItems(
-    this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations(), this.continuity(), this.investments()));
+    this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations(), this.continuity(), this.investments(), this.budgets(), this.purchases()));
   // The latest payouts recorded, whatever their status
   readonly recentPayouts = computed(() => [...this.payouts()].sort((a, b) => b.id - a.id).slice(0, RECENT_PAYOUTS));
 
@@ -293,9 +295,13 @@ export class OverviewComponent {
       allocations: this.finance.getAllocations(),
       obligations: this.finance.getObligations(),
       continuity: this.finance.getContinuity(),
-      investments: this.finance.getInvestments()
+      investments: this.finance.getInvestments(),
+      budgets: this.finance.getBudgets(),
+      purchases: this.finance.getPlannedPurchases(true)
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: ({ balances, recent, payouts, allocations, obligations, continuity, investments }) => {
+      next: ({ balances, recent, payouts, allocations, obligations, continuity, investments, budgets, purchases }) => {
+        this.budgets.set(budgets);
+        this.purchases.set(purchases);
         this.obligations.set(obligations);
         this.continuity.set(continuity);
         this.investments.set(investments);
@@ -368,7 +374,7 @@ function formatMoney(m: Money): string {
 export function attentionItems(
   balances: Balances | null, behaviour: BehaviourSummary | null,
   payouts: Payout[] = [], allocations: Allocation[] = [], obligations: Obligation[] = [], continuity: ContinuityReport | null = null,
-  investments: Investments | null = null
+  investments: Investments | null = null, budgets: BudgetMonth | null = null, purchases: PlannedPurchase[] = []
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
 
@@ -409,6 +415,35 @@ export function attentionItems(
       detail: 'Enter the monthly essential expense so the reserve can be measured in months.',
       link: '/finance/continuity', action: 'Enter it'
     });
+  }
+
+  // This month's spending past its budget; a budget warns and never blocks
+  for (const line of budgets?.lines.filter(l => l.exceeded) ?? []) {
+    items.push({
+      tone: 'warning', title: `${line.category} is over budget`,
+      detail: `${formatMoney(line.actual)} spent of ${formatMoney(line.budget)} in ${line.month}; ${formatMoney({ ...line.remaining, amount: -line.remaining.amount })} over.`,
+      link: '/finance/budgets', action: 'View budgets'
+    });
+  }
+
+  // A purchase the fund cannot carry: a warning once committed, a note while it is only proposed
+  for (const p of purchases) {
+    const a = p.affordability;
+    if (a && (a.verdict === 'BreachesMinimum' || a.verdict === 'NotEnoughMoney')) {
+      items.push({
+        tone: p.status === 'Committed' ? 'warning' : 'info',
+        title: a.verdict === 'BreachesMinimum' ? `${p.name} would breach the ${p.fundName} minimum` : `${p.fundName} cannot pay for ${p.name}`,
+        detail: `${formatMoney(p.amount)}, ${p.status.toLowerCase()}, would leave ${formatMoney(a.after)}; ${formatMoney(a.shortfall!)} short.`,
+        link: '/finance/purchases', action: 'Review the purchase'
+      });
+    }
+    if (p.expenseReversed) {
+      items.push({
+        tone: 'warning', title: `The expense for ${p.name} was reversed`,
+        detail: 'The expense linked as this purchase has since been reversed in the ledger, so it may not have been bought.',
+        link: '/finance/purchases', action: 'Review the purchase'
+      });
+    }
   }
 
   // A gain or loss can only be shown against a valuation that covers what the ledger recorded

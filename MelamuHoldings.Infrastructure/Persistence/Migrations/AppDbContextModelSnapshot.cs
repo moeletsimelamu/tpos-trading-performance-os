@@ -336,6 +336,47 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditEvents", "finance");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.BudgetLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("char(3)");
+
+                    b.Property<DateOnly>("Month")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Month", "Category", "Currency")
+                        .IsUnique()
+                        .HasDatabaseName("IX_BudgetLines_Month_Category_Currency");
+
+                    b.ToTable("BudgetLines", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_BudgetLines_FirstOfMonth", "DAY([Month]) = 1");
+                        });
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.ContinuitySettings", b =>
                 {
                     b.Property<int>("Id")
@@ -878,6 +919,83 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("Payouts", "finance");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PlannedPurchase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("char(3)");
+
+                    b.Property<int>("FundId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("LedgerTransactionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal?>("PaidAmount")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<DateOnly?>("PurchasedOn")
+                        .HasColumnType("date");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateOnly?>("TargetDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FundId");
+
+                    b.HasIndex("LedgerTransactionId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PlannedPurchases_LedgerTransactionId")
+                        .HasFilter("[LedgerTransactionId] IS NOT NULL");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PlannedPurchases_Name_Open")
+                        .HasFilter("[Status] IN ('Proposed', 'Committed')");
+
+                    b.ToTable("PlannedPurchases", "finance");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Identity.User", b =>
@@ -1702,6 +1820,20 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.HasOne("MelamuHoldings.Domain.Finance.FinancialAccount", null)
                         .WithMany()
                         .HasForeignKey("ReceivedIntoAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PlannedPurchase", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Finance.Fund", null)
+                        .WithMany()
+                        .HasForeignKey("FundId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MelamuHoldings.Domain.Finance.LedgerTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("LedgerTransactionId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

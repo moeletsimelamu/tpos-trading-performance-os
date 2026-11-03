@@ -12,7 +12,7 @@ MelamuHoldings.Domain/          no dependencies
                 TradeRevision (append-only change history), UploadLog
     Journal/    JournalTemplate (+ immutable versions), JournalSchema, TradeJournalEntry, DefaultJournalTemplate
   Common/       DomainException, Text (length rules)
-  Finance/      Money, Currency, Fund (+ minimum and target), FinancialAccount, Obligation (+ payments), ContinuitySettings, InvestmentValuation, LedgerTransaction (+ LedgerEntry, fee role), AuditEvent,
+  Finance/      Money, Currency, Fund (+ minimum and target), FinancialAccount, Obligation (+ payments), ContinuitySettings, InvestmentValuation, BudgetLine, PlannedPurchase, LedgerTransaction (+ LedgerEntry, fee role), AuditEvent,
                 Payout, AllocationPolicy (+ AllocationCalculator), Allocation (+ lines, settlements)
 MelamuHoldings.Application/     depends on Domain
   Common/       IRepository<T>, PagedResult<T>, NotFound/Conflict/UniqueConstraintViolation exceptions
@@ -29,6 +29,7 @@ MelamuHoldings.Application/     depends on Domain
                 FinanceReadModel (balances from entries), OverviewService (period cash movement by type and month),
                 ObligationService (obligations and their payment links), ContinuityService (coverage and restoration),
                 InvestmentService (brokerage valuations and unrealised gain or loss),
+                BudgetService (budget versus actual), PlannedPurchaseService (purchases and the affordability check),
                 AuditLog, Idempotency, request/response contracts,
                 IFinanceRepository
 MelamuHoldings.Infrastructure/  depends on Application and Domain
