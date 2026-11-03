@@ -114,7 +114,7 @@ const RECENT_PAYOUTS = 5;
               <section class="card attention" aria-labelledby="attention-heading">
                 <div class="card-header"><h2 id="attention-heading">Needs attention</h2></div>
                 <ul class="attention-list">
-                  @for (item of attention(); track item.title) {
+                  @for (item of attention(); track $index) {
                     <li [class]="'attention-item ' + item.tone">
                       <app-icon [name]="iconFor(item)" [size]="18" />
                       <div>
@@ -293,7 +293,8 @@ export class OverviewComponent {
       recent: this.finance.getTransactions({ page: 1, pageSize: RECENT_COUNT }),
       payouts: this.finance.getPayouts(),
       allocations: this.finance.getAllocations(),
-      obligations: this.finance.getObligations(),
+      // Paid ones too: a one-off is closed by its payment, and that expense can still be reversed later
+      obligations: this.finance.getObligations(true),
       continuity: this.finance.getContinuity(),
       investments: this.finance.getInvestments(),
       budgets: this.finance.getBudgets(),
@@ -394,11 +395,12 @@ export function attentionItems(
       link: '/finance/obligations', action: 'View obligations'
     });
   }
-  for (const o of obligations.filter(x => x.payments.some(p => p.reversed))) {
+  // A cancelled obligation cannot be changed, so nothing could clear its warning
+  for (const o of obligations.filter(x => x.status !== 'Cancelled' && x.payments.some(p => p.reversed))) {
     items.push({
       tone: 'warning', title: `A payment of ${o.name} was reversed`,
       detail: 'The expense linked as its payment has since been reversed in the ledger, so that date may not be paid.',
-      link: '/finance/obligations', action: 'Review the payment'
+      link: '/finance/obligations', queryParams: { closed: 'true' }, action: 'Review the payment'
     });
   }
 
@@ -441,7 +443,7 @@ export function attentionItems(
       items.push({
         tone: 'warning', title: `The expense for ${p.name} was reversed`,
         detail: 'The expense linked as this purchase has since been reversed in the ledger, so it may not have been bought.',
-        link: '/finance/purchases', action: 'Review the purchase'
+        link: '/finance/purchases', queryParams: { closed: 'true' }, action: 'Review the purchase'
       });
     }
   }

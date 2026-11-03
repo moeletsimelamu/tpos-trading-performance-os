@@ -50,4 +50,15 @@ public class ContinuitySettings
 
     // Months × monthly essential expense, when the expense is set
     public decimal? Target => MonthlyEssentialExpense * Months;
+
+    // Counted money ÷ the monthly expense, rounded down to one decimal so it never overstates; never below zero
+    public static decimal CoverageMonths(decimal counted, decimal monthlyExpense) =>
+        Math.Max(0, Math.Round(counted / monthlyExpense, 1, MidpointRounding.ToZero));
+
+    // What is still missing; never below zero
+    public static decimal Shortfall(decimal target, decimal counted) => Math.Max(0, target - counted);
+
+    // Percentage of the target held, rounded down to one decimal, between 0 and 100
+    public static decimal Progress(decimal counted, decimal target) =>
+        Math.Clamp(Math.Round(counted / target * 100, 1, MidpointRounding.ToZero), 0, 100);
 }

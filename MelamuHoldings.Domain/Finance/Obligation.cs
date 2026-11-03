@@ -19,6 +19,9 @@ public class Obligation
     public const int MaxCategoryLength = 50;
     public const int DueSoonDays = 14;
 
+    // Far enough for any real schedule, and far from the end of the calendar, where counting due dates forward would fail
+    public const int LastFirstDueYear = 2100;
+
     private readonly List<ObligationPayment> _payments = new();
 
     public int Id { get; private set; }
@@ -130,6 +133,7 @@ public class Obligation
     {
         if (!Enum.IsDefined(recurrence)) throw new DomainException("Choose how often it is due: once, monthly, quarterly or yearly.");
         if (firstDueDate == default) throw new DomainException("Give the date it is (first) due.");
+        if (firstDueDate.Year > LastFirstDueYear) throw new DomainException($"The first due date must be no later than {LastFirstDueYear}.");
         Recurrence = recurrence;
         FirstDueDate = firstDueDate;
         DueDate = firstDueDate;

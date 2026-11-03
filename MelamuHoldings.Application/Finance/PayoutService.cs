@@ -114,7 +114,7 @@ public class PayoutService
                 payout!.MarkReceived(receipt, account);
                 _repository.Add(Audit(userId, "payout.received", payout,
                     $"Payout #{payout.Id} received into '{account.Name}': {payout.Credited} credited"
-                    + (payout.FeeAmount is { } fee ? $" after a {account.Currency} {fee:0.00} fee" : "")
+                    + (payout.FeeAmount is { } fee ? $" after a {account.Currency} {AuditLog.Amount(fee)} fee" : "")
                     + $" (transaction #{receipt.Id})."));
             });
 

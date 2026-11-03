@@ -13,6 +13,9 @@ public class CurrencyMismatchException : DomainException
 // Arithmetic only combines amounts of the same currency; converting needs an explicit, recorded exchange.
 public sealed record Money : IComparable<Money>
 {
+    // The most an amount column (decimal(19,4)) can hold, in whole cents
+    public const decimal MaxAmount = 999_999_999_999_999.99m;
+
     public decimal Amount { get; }
     public Currency Currency { get; }
 
@@ -29,6 +32,8 @@ public sealed record Money : IComparable<Money>
         if (!currency.IsWholeMinorUnits(amount))
             throw new DomainException(
                 $"{amount.ToString(CultureInfo.InvariantCulture)} has more than {currency.MinorUnits} decimal places for {currency}.");
+        if (Math.Abs(amount) > MaxAmount)
+            throw new DomainException($"{amount.ToString(CultureInfo.InvariantCulture)} is too large an amount to record.");
         return new Money(amount, currency);
     }
 

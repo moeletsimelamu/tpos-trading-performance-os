@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using MelamuHoldings.Application.Common;
 using MelamuHoldings.Domain.Finance;
@@ -7,6 +8,9 @@ namespace MelamuHoldings.Application.Finance;
 public static class AuditLog
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    // For summaries: the same on every server, whatever its culture's decimal separator
+    public static string Amount(decimal amount) => amount.ToString("0.00", CultureInfo.InvariantCulture);
 
     public static AuditEvent Event(DateTime at, int userId, string action, string entityType, object entityId, string summary, object? data = null) =>
         new(at, userId, action, entityType, entityId.ToString()!, Truncate(summary, 300), data is null ? null : JsonSerializer.Serialize(data, Json));

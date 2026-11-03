@@ -1,7 +1,7 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FinanceApiService, todayIso } from '../finance-api.service';
 import { CurrencyInfo, Obligation, ObligationStanding, PaymentCandidate, RECURRENCES, Recurrence } from '../finance.models';
 import { MoneyPipe } from '../../../shared/money.pipe';
@@ -197,7 +197,8 @@ export class ObligationsComponent {
   readonly state = signal<'loading' | 'ready' | 'error'>('loading');
   readonly error = signal('');
   readonly obligations = signal<Obligation[]>([]);
-  readonly includeClosed = signal(false);
+  // The overview's warning about a paid obligation links here with closed=true, or it would not be on the page
+  readonly includeClosed = signal(inject(ActivatedRoute).snapshot.queryParamMap.get('closed') === 'true');
   readonly currencies = signal<CurrencyInfo[]>([]);
   // undefined: no form; null: adding; an obligation: editing it
   readonly editing = signal<Obligation | null | undefined>(undefined);

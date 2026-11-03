@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { PurchasesComponent } from './purchases.component';
 import { Affordability, Fund, PlannedPurchase } from '../finance.models';
 import { environment } from '../../../../environments/environment';
@@ -136,5 +136,28 @@ describe('PurchasesComponent', () => {
     http.expectOne(`${api}/funds`).flush(funds);
     await fixture.whenStable();
     expect(text(el.querySelector('section.purchase')!)).toContain('Cancelled');
+  });
+
+  it('opens with the closed ones when the overview links here about a bought purchase', async () => {
+    TestBed.configureTestingModule({ imports: [PurchasesComponent], providers: [
+      provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ closed: 'true' }) } } }
+    ] });
+    http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(PurchasesComponent);
+    await fixture.whenStable();
+
+    const req = http.expectOne(listUrl);
+    expect(req.request.params.get('includeClosed')).toBe('true');
+    req.flush([]);
+    http.expectOne(`${api}/funds`).flush(funds);
+    http.expectOne(`${api}/currencies`).flush([]);
+    expect(fixture.componentInstance.includeClosed()).toBe(true);
+  });
+
+  it('shows a committed purchase the same way as other things committed with nothing moved yet', async () => {
+    const { el } = await render([purchase({ status: 'Committed' })]);
+    const tag = [...el.querySelectorAll('section.purchase .tag')].find(t => text(t) === 'Committed')!;
+    expect(tag.classList.contains('tag-info')).toBe(true);
   });
 });

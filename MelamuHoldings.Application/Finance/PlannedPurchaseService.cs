@@ -21,14 +21,9 @@ public class RecordPurchaseRequest
     [Required] public int? TransactionId { get; set; }
 }
 
-// Affordable: the fund stays at or above its minimum. BreachesMinimum: it would not. NoMinimum: the money is there, but the
-// fund has no minimum in this currency to compare with. NotEnoughMoney: no minimum in this currency, and the fund would go below zero.
-public enum AffordabilityVerdict { Affordable, BreachesMinimum, NoMinimum, NotEnoughMoney }
-
-// Can it be afforded, from recorded balances:
-// After = Available (the fund in this currency in bank and cash accounts) − CommittedElsewhere (its other committed purchases) − Purchase.
-// Shortfall is how far After falls below the minimum, or below zero with no minimum. ObligationsDue is shown beside the answer
-// and not deducted, because obligations are not tied to a fund.
+// Can it be afforded (Domain: Affordability), from recorded balances. Available is the fund in this currency in bank and cash
+// accounts, and CommittedElsewhere its other committed purchases. ObligationsDue is shown beside the answer and not deducted,
+// because obligations are not tied to a fund.
 public record AffordabilityDto(
     AffordabilityVerdict Verdict, MoneyDto Available, MoneyDto CommittedElsewhere, MoneyDto Purchase, MoneyDto After, MoneyDto? Minimum, MoneyDto? Shortfall,
     MoneyDto? MinimumInOtherCurrency, MoneyDto ObligationsDue);
@@ -78,7 +73,7 @@ public class PlannedPurchaseService
     {
         var purchase = new PlannedPurchase(request.Name, Amount(request), await FundAsync(request.FundId!.Value), request.Category, request.TargetDate, request.Notes, Now);
         await SaveWithAuditAsync(() => _repository.Add(purchase), () => Audit(userId, "purchase.proposed", purchase,
-            $"Proposed '{purchase.Name}': {purchase.Currency.Code} {purchase.Amount:0.00}."));
+            $"Proposed '{purchase.Name}': {purchase.Currency.Code} {AuditLog.Amount(purchase.Amount)}."));
         return await GetAsync(purchase.Id);
     }
 
@@ -186,16 +181,11 @@ public class PlannedPurchaseService
         var committed = all
             .Where(p => p.Id != purchase.Id && p.Status == PlannedPurchaseStatus.Committed && p.FundId == purchase.FundId && p.Currency == purchase.Currency)
             .Sum(p => p.Amount);
-        var after = available - committed - purchase.Amount;
-
         var minimum = fund?.Minimum?.Currency == currency ? fund.Minimum : null;
-        var floor = minimum?.Amount ?? 0;
-        var verdict = minimum is not null
-            ? (after >= floor ? AffordabilityVerdict.Affordable : AffordabilityVerdict.BreachesMinimum)
-            : (after >= 0 ? AffordabilityVerdict.NoMinimum : AffordabilityVerdict.NotEnoughMoney);
+        var answer = Affordability.Evaluate(available, committed, purchase.Amount, minimum?.Amount);
 
         return new AffordabilityDto(
-            verdict, M(available), M(committed), M(purchase.Amount), M(after), minimum, after < floor ? M(floor - after) : null,
+            answer.Verdict, M(available), M(committed), M(purchase.Amount), M(answer.After), minimum, answer.Shortfall is { } shortfall ? M(shortfall) : null,
             fund?.Minimum is { } other && other.Currency != currency ? other : null,
             M(obligations.Where(o => o.Currency == purchase.Currency).Sum(o => o.Amount)));
     }

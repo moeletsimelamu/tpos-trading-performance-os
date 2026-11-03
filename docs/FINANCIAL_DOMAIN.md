@@ -1,6 +1,6 @@
 # Financial Domain
 
-The rules for money in Melamu Holdings OS. This file records what is **implemented**: accounts, funds and the ledger (Phase 4); payouts, allocation policies and allocations (Phase 5). Later-phase designs (obligations, continuity, investments) are in [`../PLAN.md`](../PLAN.md) §3.6 and move here as they are built.
+The rules for money in Melamu Holdings OS. This file records what is **implemented**: accounts, funds and the ledger (Phase 4); payouts, allocation policies and allocations (Phase 5); the Executive Overview (Phase 6); and obligations, continuity, investments, budgets and planned purchases (Phase 7, reviewed in [`PHASE_7_REVIEW.md`](PHASE_7_REVIEW.md)). Later-phase designs are in [`../PLAN.md`](../PLAN.md) §3.6 and move here as they are built.
 
 ## Scope and limits
 
@@ -19,6 +19,7 @@ Code: `MelamuHoldings.Domain/Finance/Currency.cs`, `Money.cs`. Tests: `tests/Mel
 | Currency is always explicit | Every `Money` carries a `Currency`. There is no default currency. |
 | Only supported currencies | `ZAR`, `USD`, `EUR` and `GBP` (ISO 4217, 2 minor units each). An unknown or mistyped code is rejected rather than creating a new currency. |
 | Whole minor units | `Money.Of` rejects amounts finer than the currency allows: `10.005 USD` is a 422, not silently rounded. |
+| What fits | `Money.Of` also rejects an amount larger than the `decimal(19,4)` columns can hold (more than 999,999,999,999,999.99), with a 422 rather than a database error. |
 | Rounding is explicit | Calculated amounts go through `Money.Round(amount, currency, mode)`, so the rounding mode is visible where it happens. The allocation calculator works in whole minor units and distributes the leftover units by largest remainder (see "Allocation"). |
 | No implicit conversion | Adding, subtracting, summing or comparing different currencies throws `CurrencyMismatchException`. Converting requires a recorded **currency exchange** with its rate. |
 | Value equality | `10.5 USD == 10.50 USD`, but `10.5 USD != 10.5 ZAR`. |
@@ -225,10 +226,10 @@ Earmarks move money between funds inside one account, so they net to zero here a
 **Warnings.** "Needs attention" on the same page is derived from records as of today, whatever the period:
 - **Payouts and allocations:** received payouts not allocated, allocations not fully settled, and payouts on the way (not cash).
 - **Money:** money left in Unallocated, accounts below zero, funds below zero in any currency, and funds below their minimum (Phase 7.1).
-- **Obligations (Phase 7.1):** overdue ones, those due within 14 days, and payments whose expense was reversed.
+- **Obligations (Phase 7.1):** overdue ones, those due within 14 days, and payments whose expense was reversed, on a paid one-off too (not on a cancelled obligation, which cannot be changed). The warning links to the page with the closed ones showing.
 - **Continuity (Phase 7.2):** below its target, or not measured because no monthly essential expense is entered. The cash strip also shows the coverage in months.
 - **Investments (Phase 7.3):** an active brokerage account holding a recorded balance with no valuation, or with transactions dated after its latest valuation.
-- **Budgets and purchases (Phase 7.4):** a budget line exceeded this month; an open purchase that would breach its fund's minimum or that the fund cannot pay for (a warning once committed, a note while proposed); and a purchase whose expense was reversed.
+- **Budgets and purchases (Phase 7.4):** a budget line exceeded this month; an open purchase that would breach its fund's minimum or that the fund cannot pay for (a warning once committed, a note while proposed); and a purchase whose expense was reversed, which links to the page with the closed ones showing.
 - **Setup:** no accounts, and ownership not stated.
 - **Trading:** critical trading-behaviour alerts.
 
@@ -252,7 +253,7 @@ Code: `Domain/Finance/Obligation.cs`, `Application/Finance/ObligationService.cs`
 | Rule | Behaviour |
 |---|---|
 | What it is | A name, an amount in one currency, an optional category and notes, and how often it is due: once, monthly, quarterly or yearly. **It never moves money and never creates a ledger entry.** |
-| Due dates | The n-th due date is the first one plus n periods (months, quarters or years), so a monthly obligation first due on the 31st is due on the 28th in February and the 31st again in March. The next due date is the one after the last recorded payment. |
+| Due dates | The n-th due date is the first one plus n periods (months, quarters or years), so a monthly obligation first due on the 31st is due on the 28th in February and the 31st again in March. The next due date is the one after the last recorded payment. A first due date after 2100 is refused. |
 | Paying | A payment is a **link** to an Expense transaction already in the ledger: same currency, not reversed, and not linked to another payment (unique index) or to a planned purchase. The amount actually paid is recorded, even if it differs from the obligation's amount. A one-off is Completed by its payment. |
 | Undoing | Only the latest payment can be undone. The link is removed and the due date goes back; the expense stays in the ledger. |
 | A later reversal | If an expense is reversed after it was linked, the payment is marked "expense reversed" and a warning asks for it to be reviewed. Nothing is changed automatically. |
@@ -263,8 +264,8 @@ Code: `Domain/Finance/Obligation.cs`, `Application/Finance/ObligationService.cs`
 
 ## Continuity (Phase 7.2: implemented)
 
-Code: `Domain/Finance/ContinuitySettings.cs`, `Application/Finance/ContinuityService.cs`, `/api/continuity`. Decisions: PLAN.md D6–D8.
-Tests: `ContinuitySettingsTests.cs` (unit), `ContinuityEndpointTests.cs` (integration).
+Code: `Domain/Finance/ContinuitySettings.cs` (the target, coverage, shortfall and progress), `Application/Finance/ContinuityService.cs` (what is counted), `/api/continuity`. Decisions: PLAN.md D6–D8.
+Tests: `ContinuitySettingsTests.cs` and `Phase7FormulaTests.cs` (unit), `ContinuityEndpointTests.cs` (integration).
 
 | Rule | Behaviour |
 |---|---|
@@ -280,8 +281,8 @@ Tests: `ContinuitySettingsTests.cs` (unit), `ContinuityEndpointTests.cs` (integr
 
 ## Investments (Phase 7.3: implemented)
 
-Code: `Domain/Finance/InvestmentValuation.cs`, `Application/Finance/InvestmentService.cs`, `/api/investments`.
-Tests: `InvestmentValuationTests.cs` (unit), `InvestmentEndpointTests.cs` (integration).
+Code: `Domain/Finance/InvestmentValuation.cs` (the unrealised gain or loss, and which group an entry falls in), `Application/Finance/InvestmentService.cs`, `/api/investments`.
+Tests: `InvestmentValuationTests.cs` and `Phase7FormulaTests.cs` (unit), `InvestmentEndpointTests.cs` (integration).
 
 An investment account is a financial account of type **Brokerage**. Money reaches it through the ledger's own transactions; the owner records what the broker says it is worth.
 
@@ -300,11 +301,11 @@ An investment account is a financial account of type **Brokerage**. Money reache
 
 ## Budgets (Phase 7.4: implemented)
 
-Code: `Domain/Finance/BudgetLine.cs`, `Application/Finance/BudgetService.cs`, `/api/budgets`. Tests: `BudgetAndPurchaseTests.cs` (unit), `BudgetAndPurchaseEndpointTests.cs` (integration).
+Code: `Domain/Finance/BudgetLine.cs` (remaining, used % and exceeded), `Application/Finance/BudgetService.cs`, `/api/budgets`. Tests: `BudgetAndPurchaseTests.cs` and `Phase7FormulaTests.cs` (unit), `BudgetAndPurchaseEndpointTests.cs` (integration).
 
 | Rule | Behaviour |
 |---|---|
-| Budget line | An amount for one category in one calendar month, in one currency, in whole minor units. One line per month, category and currency (unique index; a second is 409). The month and currency of a line never change. |
+| Budget line | An amount for one category in one calendar month from 2000 to 2100, in one currency, in whole minor units. One line per month, category and currency (unique index; a second is 409). The month and currency of a line never change. |
 | Actual | The sum of **Expense** transactions dated in that month, in that currency, with that category, by transaction date. |
 | Matching | Categories are free text on the ledger, so they match whatever their case or surrounding spaces. |
 | Reversed expenses | Count for nothing, in the month of the original, whenever the reversal was dated. |
@@ -315,7 +316,7 @@ Code: `Domain/Finance/BudgetLine.cs`, `Application/Finance/BudgetService.cs`, `/
 
 ## Planned purchases (Phase 7.4: implemented)
 
-Code: `Domain/Finance/PlannedPurchase.cs`, `Application/Finance/PlannedPurchaseService.cs`, `/api/planned-purchases`.
+Code: `Domain/Finance/PlannedPurchase.cs`, `Domain/Finance/Affordability.cs`, `Application/Finance/PlannedPurchaseService.cs`, `/api/planned-purchases`. Tests: `BudgetAndPurchaseTests.cs` and `Phase7FormulaTests.cs` (unit), `BudgetAndPurchaseEndpointTests.cs` (integration).
 
 | Rule | Behaviour |
 |---|---|

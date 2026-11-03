@@ -68,7 +68,7 @@ public class ObligationService
     {
         var obligation = new Obligation(request.Name, Amount(request), request.Category, request.Recurrence!.Value, request.FirstDueDate!.Value, request.Notes, Now);
         await SaveWithAuditAsync(() => _repository.Add(obligation), () => Audit(userId, "obligation.created", obligation,
-            $"Added obligation '{obligation.Name}': {obligation.Currency.Code} {obligation.Amount:0.00}, {obligation.Recurrence}, first due {obligation.FirstDueDate:yyyy-MM-dd}."));
+            $"Added obligation '{obligation.Name}': {obligation.Currency.Code} {AuditLog.Amount(obligation.Amount)}, {obligation.Recurrence}, first due {obligation.FirstDueDate:yyyy-MM-dd}."));
         return await GetAsync(obligation.Id);
     }
 

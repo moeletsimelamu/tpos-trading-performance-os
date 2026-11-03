@@ -6,6 +6,9 @@ namespace MelamuHoldings.Domain.Finance;
 // to the ledger and never blocks an expense. Actual spending comes from expense transactions with the same category.
 public class BudgetLine
 {
+    public const int FirstYear = 2000;
+    public const int LastYear = 2100;
+
     public int Id { get; private set; }
 
     // Always the first day of the month
@@ -37,6 +40,14 @@ public class BudgetLine
 
     // Categories are free text on the ledger, so they match whatever their case or surrounding spaces
     public static string CategoryKey(string? category) => category?.Trim().ToUpperInvariant() ?? string.Empty;
+
+    // Below zero when the budget is exceeded
+    public decimal Remaining(decimal actual) => Amount - actual;
+
+    // Rounded down to one decimal and not capped, so 130 means 30% over
+    public decimal UsedPercent(decimal actual) => Math.Round(actual / Amount * 100, 1, MidpointRounding.ToZero);
+
+    public bool IsExceeded(decimal actual) => actual > Amount;
 
     private void Set(string category, Money amount)
     {

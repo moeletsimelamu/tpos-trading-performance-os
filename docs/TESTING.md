@@ -49,6 +49,48 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-03 (branch `phase-7-5-verification`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 238 passed, 0 failed |
+| `dotnet test` (Release): integration | 120 passed, 0 failed, on three consecutive runs |
+| `ng test --watch=false` | 191 passed, 0 failed (28 files), on two consecutive runs |
+| `ng build` (production) | Succeeded; initial bundle 311.01 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | All 14 migrations, each guarded |
+
+No migration: P7.5 changes no schema. The same checks, run before any change, passed at 198 unit, 111 integration and 187 Angular tests. CI has not run on Phase 7, because P7.1 to P7.5 have not been pushed.
+
+The requirement-by-requirement check of Phase 7 is in [`PHASE_7_REVIEW.md`](PHASE_7_REVIEW.md).
+
+**New tests**
+- **Unit (`Phase7FormulaTests`):** the affordability answer, coverage, shortfall, restoration progress, budget figures, unrealised gain or loss, and the group each brokerage entry falls in, at their edges: exactly at a minimum and a cent below, exactly on budget and a cent over, 1.25 months reading 1.2, a fund below zero. Also the largest amount that fits and the next one up, the last first due date, and audit amounts under a comma-decimal culture.
+- **Integration (`FinanceInputLimitTests`, in a database of its own):** a budget month of `9999-12` or `0001-01`, an obligation first due in 9999, and an amount too large to store on budgets, obligations, purchases and the ledger are each refused with a 422, and the largest amount that fits is accepted. Run before the fixes, four of these failed: two 500s, a 200 and a 201.
+- **Integration (`FinanceAccessTests`):** obligations, continuity, investments, budgets and planned purchases are now in the 401 and 403 checks. These passed before any change.
+- **Angular:**
+  - **Overview:** it asks for paid obligations too, warns about a reversed payment on a paid one-off with a link that opens the closed ones, and skips a cancelled obligation.
+  - **Obligations and Purchases:** each opens with the closed ones showing when linked with `closed=true`. A committed purchase has the info tag.
+- **Existing tests changed:** the overview specs expect `includeClosed=true` on the obligations request. No integration test changed apart from the access list.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Later reversals:** expense 18, already linked to the bought Monitor, was reversed through the API. A new one-off "Licence (scratch)", ZAR 500, was paid by a linked expense, and that expense was reversed too. The overview then warned "A payment of Licence (scratch) was reversed" and "The expense for Monitor (scratch) was reversed", with links ending `?closed=true`.
+- **Undoing a payment:** "Review the payment" opened Obligations with the paid one showing and the box ticked. "Undo this payment" returned the licence to due today.
+- **Undoing a purchase:** "Undo this purchase" returned Monitor to Committed. Operating Capital read ZAR 8,882 again (5,932 + the 2,950 returned by the reversal). Monitor showed "leaves 5,882" and Server "would leave 882", with the obligations beside them now ZAR 9,000 (8,500 + 500).
+- **Withdrawing a commitment:** "Back to proposed" put Monitor back, and Server moved to "would leave 3,882".
+- **Deleting a budget line:** "Delete", then "Delete it", removed the fibre line, and its ZAR 900 moved to "Spent outside the budget".
+- **Audit log:** it held `purchase.undone`, `purchase.commitment-withdrawn`, `obligation.payment-undone` and `budget.deleted` in order.
+- **Against the database:** a direct query of the scratch ledger gave Operating Capital ZAR 8,882, cash USD 1,149 and ZAR 21,132.50, Business Continuity ZAR 3,000 in a shared account and ZAR 2,000 in its own, and November's fibre ZAR 900. Each matches the app. Both databases have all 14 migrations (dev was only read).
+- **Bad input against the running API:** an amount of 1e15, month `9999-12` and a first due date in 9999 each returned 422 with a reason.
+- **Tag and layout:** the Committed tag has the info colour, and the "Over budget" tag sits 8 px from its label (the gap added in P7.4, unseen until now). Purchases and Obligations with the closed ones showing do not overflow at 375 px.
+- **Console:** the only errors were my own: two refused connections and a failed chunk from opening the page before the dev server was ready, and three 422s from the bad-input probes. Nothing new appeared in the final check.
+- **Final check, after the last two changes:** the overview's warnings rendered in order, and a budget line created and deleted through the API was audited as `ZAR 800.00` on this comma-decimal machine.
+- **Not done in the browser:** the two reversals and the expenses were sent through the API; the ledger's reversal form is covered by existing tests. Two warnings sharing a title were not produced, as that needs two over-budget lines of one category in different currencies.
+- **My own slip:** the first licence expense was recorded against the USD account by mistake. It was reversed and recorded again in ZAR, so the scratch ledger has that extra pair (transactions 20 and 21).
+
 ## Results — 2026-11-03 (branch `phase-7-4-budgets-purchases`)
 
 | Command | Result |

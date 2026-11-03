@@ -113,19 +113,23 @@ public class BudgetService
         var currency = line.Currency.Code;
         return new BudgetLineDto(
             line.Id, line.Month.ToString(MonthFormat, CultureInfo.InvariantCulture), line.Category, new MoneyDto(line.Amount, currency), new MoneyDto(actual, currency),
-            new MoneyDto(line.Amount - actual, currency), Math.Round(actual / line.Amount * 100, 1, MidpointRounding.ToZero), actual > line.Amount,
+            new MoneyDto(line.Remaining(actual), currency), line.UsedPercent(actual), line.IsExceeded(actual),
             mine.Select(e => e.TransactionId).Distinct().Count());
     }
 
-    private static DateOnly ParseMonth(string month) =>
-        DateOnly.TryParseExact(month.Trim(), MonthFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
-            ? parsed
-            : throw new DomainException("Give the month as yyyy-MM.");
+    private static DateOnly ParseMonth(string month)
+    {
+        if (!DateOnly.TryParseExact(month.Trim(), MonthFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+            throw new DomainException("Give the month as yyyy-MM.");
+        if (parsed.Year is < BudgetLine.FirstYear or > BudgetLine.LastYear)
+            throw new DomainException($"Choose a month from {BudgetLine.FirstYear} to {BudgetLine.LastYear}.");
+        return parsed;
+    }
 
     private async Task<BudgetLine> LineAsync(int id) =>
         await _repository.GetBudgetLineAsync(id) ?? throw new NotFoundException($"Budget line {id} does not exist.");
 
-    private static string Describe(BudgetLine l) => $"{l.Category} in {l.Month.ToString(MonthFormat, CultureInfo.InvariantCulture)}: {l.Currency.Code} {l.Amount:0.00}";
+    private static string Describe(BudgetLine l) => $"{l.Category} in {l.Month.ToString(MonthFormat, CultureInfo.InvariantCulture)}: {l.Currency.Code} {AuditLog.Amount(l.Amount)}";
 
     private static object Snapshot(BudgetLine l) => new { Month = l.Month.ToString(MonthFormat, CultureInfo.InvariantCulture), l.Category, l.Amount, Currency = l.Currency.Code };
 

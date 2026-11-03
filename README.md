@@ -8,7 +8,7 @@ A unified operating system for managing trading operations, financial performanc
 > - the trading module;
 > - **Financial Management**: accounts, funds, an auditable ledger and balances.
 >
-> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. Business continuity, wealth management and planning are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
+> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets and planned purchases** work too (Phase 7). Prop-firm accounts and business planning are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
 
 ![Executive overview](docs/images/executive-overview.jpg)
 
@@ -349,6 +349,7 @@ The integration tests need SQL Server. Details and the latest results are in [`d
 - [`docs/FINANCIAL_DOMAIN.md`](docs/FINANCIAL_DOMAIN.md): money and currency rules
 - [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md): the journal's audit, design and phases
 - [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): the journal brief checked requirement by requirement, with gaps
+- [`docs/PHASE_7_REVIEW.md`](docs/PHASE_7_REVIEW.md): continuity and wealth checked requirement by requirement, with gaps
 - [`docs/DATABASE_MIGRATION.md`](docs/DATABASE_MIGRATION.md): migration, backup and restore procedure, and the migration log
 - [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md): brand identity, tokens, components and UI conventions
 - [`docs/UI_AUDIT.md`](docs/UI_AUDIT.md): the frontend audit behind the redesign

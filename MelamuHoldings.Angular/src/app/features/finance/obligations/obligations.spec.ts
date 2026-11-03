@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { ObligationsComponent } from './obligations.component';
 import { Obligation } from '../finance.models';
 import { environment } from '../../../../environments/environment';
@@ -30,6 +30,22 @@ describe('ObligationsComponent', () => {
     await fixture.whenStable();
     return { fixture, el: fixture.nativeElement as HTMLElement, c: fixture.componentInstance };
   }
+
+  it('opens with the closed ones when the overview links here about a paid obligation', async () => {
+    TestBed.configureTestingModule({ imports: [ObligationsComponent], providers: [
+      provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ closed: 'true' }) } } }
+    ] });
+    http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(ObligationsComponent);
+    await fixture.whenStable();
+
+    const req = http.expectOne(r => r.url === `${api}/obligations`);
+    expect(req.request.params.get('includeClosed')).toBe('true');
+    req.flush([]);
+    http.expectOne(`${api}/currencies`).flush([]);
+    expect(fixture.componentInstance.includeClosed()).toBe(true);
+  });
 
   it('totals what is due within 30 days per currency, overdue included, and counts what is late', async () => {
     const { el } = await render([

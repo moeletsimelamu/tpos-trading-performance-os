@@ -1,7 +1,7 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, Observable } from 'rxjs';
 import { FinanceApiService } from '../finance-api.service';
 import { Affordability, AffordabilityVerdict, CurrencyInfo, Fund, PaymentCandidate, PlannedPurchase, PlannedPurchaseStatus } from '../finance.models';
@@ -19,7 +19,7 @@ const VERDICT: Record<AffordabilityVerdict, { label: string; tag: string }> = {
 
 const STATUS: Record<PlannedPurchaseStatus, { label: string; tag: string }> = {
   Proposed: { label: 'Proposed', tag: 'tag' },
-  Committed: { label: 'Committed', tag: 'tag tag-warning' },
+  Committed: { label: 'Committed', tag: 'tag tag-info' },
   Purchased: { label: 'Purchased', tag: 'tag tag-positive' },
   Cancelled: { label: 'Cancelled', tag: 'tag' }
 };
@@ -195,7 +195,8 @@ export class PurchasesComponent {
   readonly purchases = signal<PlannedPurchase[]>([]);
   readonly funds = signal<Fund[]>([]);
   readonly currencies = signal<CurrencyInfo[]>([]);
-  readonly includeClosed = signal(false);
+  // The overview's warning about a bought purchase links here with closed=true, or it would not be on the page
+  readonly includeClosed = signal(inject(ActivatedRoute).snapshot.queryParamMap.get('closed') === 'true');
   // undefined: no form; null: adding; a purchase: editing it
   readonly editing = signal<PlannedPurchase | null | undefined>(undefined);
   readonly busy = signal(false);

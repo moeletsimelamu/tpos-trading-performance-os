@@ -131,6 +131,18 @@ describe('attentionItems', () => {
     expect(items[1].detail).toContain('Insurance ZAR 8,500.00 on 2026-10-25');
   });
 
+  it('flags a reversed payment on a paid one-off and opens the closed ones, but not on a cancelled obligation', () => {
+    const closed = (name: string, status: Obligation['status'], standing: Obligation['standing']): Obligation => ({
+      id: 1, name, amount: { amount: 900, currency: 'ZAR' }, recurrence: 'None', firstDueDate: '2026-10-01', dueDate: '2026-10-01',
+      status, standing, daysUntilDue: -30, createdAt: '',
+      payments: [{ id: 1, transactionId: 9, dueDate: '2026-10-01', paidOn: '2026-10-01', amount: { amount: 900, currency: 'ZAR' }, reversed: true }]
+    });
+    const items = attentionItems(null, null, [], [], [closed('Licence', 'Completed', 'Completed'), closed('Old lease', 'Cancelled', 'Cancelled')]);
+
+    expect(items.map(i => i.title)).toEqual(['A payment of Licence was reversed']);
+    expect(items[0].queryParams).toEqual({ closed: 'true' });
+  });
+
   it('flags a fund below its minimum, but leaves a fund below zero to its own warning', () => {
     const withMinimum = (id: number, name: string, amount: number): Fund =>
       ({ ...fund(id, name, amount === 0 ? [] : [{ amount, currency: 'ZAR' }]), minimum: { amount: 20000, currency: 'ZAR' } });
@@ -253,7 +265,7 @@ describe('OverviewComponent', () => {
     http.expectOne(r => r.url === `${api}/transactions`).flush({ items: [], page: 1, pageSize: 6, totalCount: 0, totalPages: 0 });
     http.expectOne(`${api}/payouts`).flush([]);
     http.expectOne(`${api}/allocations`).flush([]);
-    http.expectOne(`${api}/obligations`).flush([]);
+    http.expectOne(r => r.url === `${api}/obligations` && r.params.get('includeClosed') === 'true').flush([]);
     http.expectOne(`${api}/continuity`).flush(continuity);
     http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
     http.expectOne(`${api}/budgets`).flush({ month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [], unbudgeted: [], totals: [] });
@@ -295,7 +307,7 @@ describe('OverviewComponent', () => {
       ...[3, 4, 5, 6].map(id => payout(id, 'Rejected', { rejectedOn: '2026-10-02' }))
     ]);
     http.expectOne(`${api}/allocations`).flush([]);
-    http.expectOne(`${api}/obligations`).flush([]);
+    http.expectOne(r => r.url === `${api}/obligations` && r.params.get('includeClosed') === 'true').flush([]);
     http.expectOne(`${api}/continuity`).flush(continuity);
     http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
     http.expectOne(`${api}/budgets`).flush({ month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [], unbudgeted: [], totals: [] });

@@ -41,9 +41,6 @@ public class InvestmentService
 {
     public const string ValuationDateIndex = "IX_InvestmentValuations_FinancialAccountId_ValuedOn";
 
-    private static readonly LedgerTransactionType[] ContributionTypes =
-        [LedgerTransactionType.OpeningBalance, LedgerTransactionType.Transfer, LedgerTransactionType.CurrencyExchange];
-
     private readonly IFinanceRepository _repository;
     private readonly TimeProvider _clock;
 
@@ -95,7 +92,7 @@ public class InvestmentService
                 _repository.Add(valuation);
                 await _repository.SaveChangesAsync();
                 _repository.Add(AuditLog.Event(Now, userId, "valuation.recorded", nameof(InvestmentValuation), valuation.Id,
-                    $"Valued '{account.Name}' at {valuation.Currency.Code} {valuation.Value:0.00} on {valuation.ValuedOn:yyyy-MM-dd}.", Snapshot(valuation)));
+                    $"Valued '{account.Name}' at {valuation.Currency.Code} {AuditLog.Amount(valuation.Value)} on {valuation.ValuedOn:yyyy-MM-dd}.", Snapshot(valuation)));
                 await _repository.SaveChangesAsync();
                 return true;
             });
@@ -118,7 +115,7 @@ public class InvestmentService
         {
             _repository.Remove(valuation);
             _repository.Add(AuditLog.Event(Now, userId, "valuation.deleted", nameof(InvestmentValuation), valuation.Id,
-                $"Deleted the {valuation.ValuedOn:yyyy-MM-dd} valuation of account {accountId} ({valuation.Currency.Code} {valuation.Value:0.00}).", Snapshot(valuation)));
+                $"Deleted the {valuation.ValuedOn:yyyy-MM-dd} valuation of account {accountId} ({valuation.Currency.Code} {AuditLog.Amount(valuation.Value)}).", Snapshot(valuation)));
             await _repository.SaveChangesAsync();
             return true;
         });
@@ -138,8 +135,8 @@ public class InvestmentService
             account.Id, account.Name, currency, account.Institution, account.Ownership, account.Status, asOf,
             latest is null ? null : Dto(latest, entries),
             M(contributions), M(income), M(costs), M(recorded),
-            latest is null ? null : M(latest.Value - recorded),
-            latest is null ? null : M(latest.Value - contributions),
+            latest is null ? null : M(latest.Unrealised(recorded)),
+            latest is null ? null : M(latest.GainOnContributions(contributions)),
             latest is null ? 0 : after.Select(e => e.TransactionId).Distinct().Count(),
             M(latest is null ? 0 : after.Sum(e => e.Amount)),
             M(entries.Sum(e => e.Amount)));
@@ -150,15 +147,15 @@ public class InvestmentService
         var recorded = entries.Where(e => e.Date <= v.ValuedOn).Sum(e => e.Amount);
         var currency = v.Currency.Code;
         return new ValuationDto(v.Id, v.FinancialAccountId, v.ValuedOn, new MoneyDto(v.Value, currency), v.Note, v.RecordedAt,
-            new MoneyDto(recorded, currency), new MoneyDto(v.Value - recorded, currency));
+            new MoneyDto(recorded, currency), new MoneyDto(v.Unrealised(recorded), currency));
     }
 
-    // Contributions: principal of opening balances, transfers and exchanges (a reversal counts as its original's type).
-    // Income: principal of income. Costs: expenses and every fee. Earmarks net to zero inside the account.
-    private static (decimal Contributions, decimal Income, decimal Costs) Split(List<InvestmentEntryRow> entries) => (
-        entries.Where(e => e.Role == LedgerEntryRole.Principal && ContributionTypes.Contains(e.Type)).Sum(e => e.Amount),
-        entries.Where(e => e.Role == LedgerEntryRole.Principal && e.Type == LedgerTransactionType.Income).Sum(e => e.Amount),
-        entries.Where(e => e.Role == LedgerEntryRole.Fee || e.Type == LedgerTransactionType.Expense).Sum(e => e.Amount));
+    // Each entry falls in one group (Domain: InvestmentValuation.FlowOf); earmarks net to zero inside the account
+    private static (decimal Contributions, decimal Income, decimal Costs) Split(List<InvestmentEntryRow> entries)
+    {
+        decimal Sum(InvestmentFlow flow) => entries.Where(e => InvestmentValuation.FlowOf(e.Type, e.Role) == flow).Sum(e => e.Amount);
+        return (Sum(InvestmentFlow.Contribution), Sum(InvestmentFlow.Income), Sum(InvestmentFlow.Cost));
+    }
 
     private async Task<FinancialAccount> BrokerageAsync(int accountId)
     {

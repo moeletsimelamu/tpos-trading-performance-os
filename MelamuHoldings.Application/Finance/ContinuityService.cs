@@ -61,9 +61,7 @@ public class ContinuityService
 
         var (cash, holdings, notCounted) = Measure(settings.ContinuityFundId, currency, accounts, outstanding);
         var target = settings.Target;
-        var coverage = settings.MonthlyEssentialExpense is { } expense
-            ? Math.Max(0, Math.Round(cash / expense, 1, MidpointRounding.ToZero))
-            : (decimal?)null;
+        var coverage = settings.MonthlyEssentialExpense is { } expense ? ContinuitySettings.CoverageMonths(cash, expense) : (decimal?)null;
 
         RestorationDto? restoration = null;
         if (settings.RestorationFundId is { } restorationId && funds.TryGetValue(restorationId, out var fund))
@@ -77,15 +75,15 @@ public class ContinuityService
                 var (restorationCash, _, restorationNotCounted) = Measure(fund.Id, restorationCurrency, accounts, outstanding);
                 var restorationTarget = fund.Target!.Amount;
                 restoration = new RestorationDto(fund.Id, fund.Name, fund.Target, new MoneyDto(restorationCash, restorationCurrency),
-                    new MoneyDto(Math.Max(0, restorationTarget - restorationCash), restorationCurrency),
-                    Math.Clamp(Math.Round(restorationCash / restorationTarget * 100, 1, MidpointRounding.ToZero), 0, 100), restorationNotCounted);
+                    new MoneyDto(ContinuitySettings.Shortfall(restorationTarget, restorationCash), restorationCurrency),
+                    ContinuitySettings.Progress(restorationCash, restorationTarget), restorationNotCounted);
             }
         }
 
         return new ContinuityReportDto(
             ToDto(settings, funds), new MoneyDto(cash, currency),
             target is { } t ? new MoneyDto(t, currency) : null, coverage,
-            target is { } goal ? new MoneyDto(Math.Max(0, goal - cash), currency) : null,
+            target is { } goal ? new MoneyDto(ContinuitySettings.Shortfall(goal, cash), currency) : null,
             target is { } limit && cash < limit,
             new MoneyDto(holdings.Where(h => !h.Separated).Sum(h => h.Amount.Amount), currency),
             new MoneyDto(holdings.Where(h => h.Separated).Sum(h => h.Amount.Amount), currency),
@@ -108,7 +106,7 @@ public class ContinuityService
             await _repository.SaveChangesAsync();
             _repository.Add(AuditLog.Event(Now, userId, "continuity.updated", nameof(ContinuitySettings), settings.Id,
                 $"Updated continuity: {settings.Months} months of "
-                + (settings.MonthlyEssentialExpense is { } expense ? $"{settings.Currency.Code} {expense:0.00}" : "an essential expense not yet entered")
+                + (settings.MonthlyEssentialExpense is { } expense ? $"{settings.Currency.Code} {AuditLog.Amount(expense)}" : "an essential expense not yet entered")
                 + $" from '{continuityFund.Name}'"
                 + (restorationFund is null ? "; no restoration fund." : $"; restoration from '{restorationFund.Name}'."),
                 new { before, after = Snapshot(settings) }));

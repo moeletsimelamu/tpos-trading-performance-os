@@ -2,6 +2,10 @@ using MelamuHoldings.Domain.Common;
 
 namespace MelamuHoldings.Domain.Finance;
 
+// What a ledger entry in a brokerage account is: money the business put in or took out (Contribution), income or a cost
+// recorded there, or nothing that changes the account's total (an earmark between funds)
+public enum InvestmentFlow { Contribution, Income, Cost, None }
+
 // The observed value of a brokerage account on a date, as the owner read it from the broker (PLAN.md §3.6).
 // It is not a ledger movement, not income and not cash: it never changes a balance. Comparing it with what the
 // ledger recorded for the account up to that date gives the unrealised gain or loss. One valuation per account per day.
@@ -41,4 +45,20 @@ public class InvestmentValuation
         RecordedByUserId = userId;
         RecordedAt = now;
     }
+
+    // The change in market value the ledger does not hold: never cash, never income
+    public decimal Unrealised(decimal recordedBalance) => Value - recordedBalance;
+
+    // The unrealised gain or loss plus the income and costs recorded in the account
+    public decimal GainOnContributions(decimal netContributions) => Value - netContributions;
+
+    // The type is the original's for a reversal, so a reversed contribution cancels as a contribution.
+    // Every fee is a cost, whatever it was charged on.
+    public static InvestmentFlow FlowOf(LedgerTransactionType type, LedgerEntryRole role) => (type, role) switch
+    {
+        (_, LedgerEntryRole.Fee) or (LedgerTransactionType.Expense, _) => InvestmentFlow.Cost,
+        (LedgerTransactionType.OpeningBalance or LedgerTransactionType.Transfer or LedgerTransactionType.CurrencyExchange, _) => InvestmentFlow.Contribution,
+        (LedgerTransactionType.Income, _) => InvestmentFlow.Income,
+        _ => InvestmentFlow.None
+    };
 }

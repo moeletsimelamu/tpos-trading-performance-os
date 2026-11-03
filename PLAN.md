@@ -29,7 +29,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - P7.2 (continuity and trading restoration) is complete on branch `phase-7-2-continuity`, cut from `phase-7-1-funds-obligations`.
 - P7.3 (investments: brokerage valuations and unrealised gain or loss) is complete on branch `phase-7-3-investments`, cut from `phase-7-2-continuity`.
 - P7.4 (budgets, planned purchases and the affordability check) is complete on branch `phase-7-4-budgets-purchases`, cut from `phase-7-3-investments`.
-- Next: P7.5 (verification and documentation).
+- P7.5 (verification and documentation) is complete on branch `phase-7-5-verification`, cut from `phase-7-4-budgets-purchases`: full regression, Phase 7 traced requirement by requirement in `docs/PHASE_7_REVIEW.md`, the formulas moved to Domain with unit tests, defects fixed, gaps listed. Phase 7 is complete and awaiting review; it has not been pushed.
+- Next: the owner's decision on unrestricted cash (`docs/PHASE_7_REVIEW.md`, gap 1), then Phase 8.
 
 ---
 
@@ -173,7 +174,7 @@ Invariants that `Domain` enforces and tests cover:
 | `Expense` | −X from (account, fund) | X > 0 |
 | `Transfer` (physical, between bank accounts) | −X (A, fund₁), +X (B, fund₂) | Same currency; sums to zero |
 | `FundReallocation` (earmark, same account) | −X (A, Unallocated), +X (A, Continuity) | Same account; sums to zero; **no bank movement** |
-| `InvestmentContribution` / `InvestmentWithdrawal` | Transfer into or out of a brokerage-type account | Zero-sum; never income or gain |
+| `InvestmentContribution` / `InvestmentWithdrawal` | Transfer into or out of a brokerage-type account | Zero-sum; never income or gain. **As built (P7.3):** no separate types; these are the ledger's own transfers, exchanges and opening balances, and the account's type says what they are |
 | `OwnerDistribution` | −X from (account, Owner's Distribution) | Money leaving the company |
 | `CurrencyExchange` | −X USD (A), +Y ZAR (B), with the rate stored | Two currencies; zero-sum is not required, the rate is recorded |
 | `Reversal` | Exact negation of an earlier transaction, linked to it | The original is marked reversed, never deleted |
@@ -229,12 +230,14 @@ Examples (tests will assert these):
 
 ### 3.6 Later-phase entities (designed now so the core does not need rework)
 
+Phase 7's entities are built. Where the design changed, the entry says so; the rules as built are in `docs/FINANCIAL_DOMAIN.md`, and `docs/PHASE_7_REVIEW.md` explains each difference.
+
 - `FinancialObligation`: name, amount, currency, due date, recurrence, status. Feeds warnings and continuity.
-- `BudgetLine`: period, category, amount, currency. `PlannedPurchase`: `Proposed → Committed → Purchased (linked Expense) → Paid`, or `Cancelled`. A planned purchase never creates a ledger entry by itself.
-- `ContinuityTarget`: essential-expense months (default 24), monthly essential expense (entered manually, or derived from expenses flagged essential), and a **separate** trading-restoration target amount.
+- `BudgetLine`: period, category, amount, currency. `PlannedPurchase`: `Proposed → Committed → Purchased (linked Expense)`, or `Cancelled`. A planned purchase never creates a ledger entry by itself. **As built (P7.4):** no `Paid` stage, because the linked expense is the payment.
+- `ContinuitySettings`: essential-expense months (default 24), monthly essential expense (entered by the owner, D8), and a **separate** restoration fund with its own target (D6).
   - Coverage in months = continuity fund balance ÷ monthly essential expense.
   - Remaining amount = target − recorded balance.
-- `InvestmentAccount` (a financial account of type Brokerage) plus `ValuationSnapshot`. Unrealised gain/loss = latest valuation − net contributions, labelled **unrealised**.
+- `InvestmentAccount` (a financial account of type Brokerage) plus `InvestmentValuation`. Unrealised gain/loss, labelled **unrealised**. **As built (P7.3):** latest valuation − recorded balance on its date, so dividends and fees are not counted as market movement. Latest valuation − net contributions is shown separately as the gain on contributions.
 - `PropFirmAccount`: firm, nickname, phase, size, currency, status history, and a configurable rule set (drawdown model, limits, target, minimum days, payout split, fees). Fees and resets are `Expense` transactions linked back to the account.
 - **Warnings** (computed, never stored, never acted on automatically):
   - a fund below its minimum;
@@ -242,7 +245,7 @@ Examples (tests will assert these):
   - an allocation not fully settled;
   - an obligation due within N days;
   - a budget line exceeded;
-  - a planned purchase that would breach the operating minimum.
+  - a planned purchase that would breach the operating minimum (as built: the minimum of whichever fund pays for it).
 
 ---
 
@@ -282,6 +285,7 @@ The existing routes stay unchanged: `/api/auth/*`, `/api/trades`, `/api/upload`,
 | Policies | `GET /api/allocation-policies`, `POST` (new version), `POST /{id}/activate` |
 | Allocations | `POST /api/allocations/preview`, `POST /api/allocations` (confirm), `GET /api/allocations/{id}`, `POST /{id}/cancel` |
 | Overview | `GET /api/overview?from&to` returns only metrics backed by stored records |
+| Phase 7 | `/api/obligations`, `/api/continuity`, `/api/investments`, `/api/budgets`, `/api/planned-purchases`; the full list is in `README.md` |
 
 Cross-cutting:
 
@@ -305,8 +309,8 @@ Cross-cutting:
   |---|---|---|
   | Overview | Executive overview | |
   | Trading operations | Performance, Trades, Import, Behaviour | Journal (§7a), Prop firm accounts (Phase 8) |
-  | Finance | Accounts, Funds, Transactions, Audit log | Payouts, Capital allocation (Phase 5) |
-  | Wealth | | Wealth management, Business continuity (Phase 7) |
+  | Finance | Accounts, Funds, Transactions, Audit log | Payouts, Capital allocation (Phase 5); Obligations, Continuity, Investments, Budgets, Purchases (Phase 7) |
+  | Wealth | | Not used: Continuity, Investments, Budgets and Purchases (Phase 7) sit under Finance, because all of them read the ledger |
   | Business | | Business planning (Phase 9) |
   | System | | Settings, Security (Phase 10) |
 
@@ -356,7 +360,7 @@ Each phase ends with a build, all tests green, a browser check of the touched pa
 | **4 — Accounts and ledger** ✅ | Funds, financial accounts, ledger transactions and entries; income, expense, transfer, reallocation, opening balance, reversal, currency exchange. Balances by account and by fund. Audit events. Transaction list with filters and pagination. | Domain tests for every invariant in §3.2; API integration tests including 401, 400, 409 and idempotent retry; balances reconcile to entries |
 | **5 — Payouts and allocation (first milestone)** ✅ | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. Outstanding allocations added to the Executive overview (cash and fund positions are already there). | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
 | **6 — Executive Overview** ✅ | Period filters; income and expenses by period; net cash movement (labelled as cash movement, not profit); recent payouts; drill-down links to records; warnings panel. | Every figure traceable to a record list |
-| **7 — Continuity and wealth** | Obligations, continuity targets (24-month essential cover plus a separate restoration target), coverage months, earmarked versus physically separated view; investment accounts, contributions, valuation snapshots, unrealised gain/loss; budgets and planned purchases with budget-versus-actual. | Formulas documented in `FINANCIAL_DOMAIN.md` and unit-tested |
+| **7 — Continuity and wealth** ✅ | Obligations, continuity targets (24-month essential cover plus a separate restoration target), coverage months, earmarked versus physically separated view; investment accounts, contributions, valuation snapshots, unrealised gain/loss; budgets and planned purchases with budget-versus-actual. | Formulas documented in `FINANCIAL_DOMAIN.md` and unit-tested |
 | **8 — Trading integration** | Prop firm accounts with configurable rules and status history; trades linked to accounts; fees and resets as expenses; payouts linked to accounts; per-user strategies with CRUD; CSV duplicate detection; analytics fixes (profit factor, drawdown, date filters). | Existing analytics unchanged except the documented definition fixes; tests prove it |
 | **9 — Planning and reporting** | Objectives and milestones linked to financial targets; monthly cash-flow report; allocation history report. | Reports built only on stored data |
 | **10 — Hardening** | Full regression run; security review; migration replay; UI and accessibility pass; README and screenshots; deployment documentation; `docs/REVIEW.md`. | Definition of Done (prompt §19 plus the supplementary §9) met, with known limitations listed |
@@ -371,7 +375,7 @@ Phase 7 is delivered in stages, each on its own branch cut from the previous one
 | **P7.2** ✅ | Continuity (D6–D8): the Trading Restoration fund; the continuity target (months, default 24, and the monthly essential expense in ZAR) and the restoration target; coverage in months and the shortfall; earmarked versus physically separated continuity money; a warning below target |
 | **P7.3** ✅ | Investments: valuation snapshots on brokerage accounts; net contributions from the ledger; unrealised gain or loss, labelled unrealised |
 | **P7.4** ✅ | Budgets per month and category with budget versus actual from expense categories; planned purchases (Proposed → Committed → Purchased with a linked expense, or Cancelled) and the "can it be afforded without breaching the operating minimum" check; warnings for an exceeded budget and a purchase that would breach the minimum |
-| **P7.5** | Verification and documentation |
+| **P7.5** ✅ | Verification and documentation: `docs/PHASE_7_REVIEW.md` |
 
 ### 7a. Trading journal and AI-assisted review (owner brief, 2026-10-27)
 
