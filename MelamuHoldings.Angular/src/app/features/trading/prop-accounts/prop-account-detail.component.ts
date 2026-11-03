@@ -5,7 +5,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { TradingApiService } from '../trading-api.service';
-import { EVENT_LABELS, PHASES, PropAccount, PropAccountPhase, PropAccountStatus, STATUS_TAGS } from '../models/prop-account.model';
+import { EVENT_LABELS, PHASES, PropAccount, PropAccountBalance, PropAccountPhase, PropAccountStatus, RULE_STANDING, STATUS_TAGS } from '../models/prop-account.model';
 import { PropRulesFieldsComponent, PropRulesSummaryComponent, RulesGroup, rulesFrom, rulesGroup } from './prop-rules';
 import { todayIso } from '../../finance/finance-api.service';
 import { MoneyPipe } from '../../../shared/money.pipe';
@@ -13,7 +13,7 @@ import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
-type Panel = 'details' | 'rules' | 'phase' | 'status' | 'reset';
+type Panel = 'details' | 'rules' | 'phase' | 'status' | 'reset' | 'balance';
 
 const STATUSES: PropAccountStatus[] = ['Active', 'Pending', 'Breached', 'Closed'];
 
@@ -52,6 +52,7 @@ const STATUSES: PropAccountStatus[] = ['Active', 'Pending', 'Breached', 'Closed'
                 <button type="button" class="btn btn-sm" (click)="open('rules')">Change rules</button>
                 @if (a.status === 'Active' || a.status === 'Pending') { <button type="button" class="btn btn-sm" (click)="open('phase')">Change phase</button> }
                 <button type="button" class="btn btn-sm" (click)="open('reset')">Record a reset</button>
+                <button type="button" class="btn btn-sm" (click)="open('balance')">Enter a balance</button>
               }
               <button type="button" class="btn btn-sm" (click)="open('status')">Change status</button>
             </div>
@@ -114,6 +115,20 @@ const STATUSES: PropAccountStatus[] = ['Active', 'Pending', 'Breached', 'Closed'
                   <ng-container *ngTemplateOutlet="formFooter; context: { invalid: statusForm.invalid || (reasonRequired() && !statusForm.controls.reason.value.trim()), label: 'Change status' }" />
                 </form>
               }
+              @case ('balance') {
+                <form class="card form-card" [formGroup]="balanceForm" (ngSubmit)="saveBalance(a)" aria-label="Enter a balance">
+                  <div class="form-grid">
+                    <div class="field"><label for="b-date">As of the end of</label><input id="b-date" type="date" formControlName="asOf" /></div>
+                    <div class="field"><label for="b-balance">Balance on the firm's dashboard</label><input id="b-balance" type="number" min="0" step="0.01" formControlName="balance" /></div>
+                    @if (a.rules.rules.maxDrawdown !== null) {
+                      <div class="field"><label for="b-level">Drawdown level it shows (optional)</label><input id="b-level" type="number" min="0" step="0.01" formControlName="drawdownLevel" /></div>
+                    }
+                    <div class="field wide"><label for="b-note">Note (optional)</label><input id="b-note" formControlName="note" maxlength="500" placeholder="e.g. after the October payout" /></div>
+                  </div>
+                  <p class="small secondary">The balance replaces the app's figure as of that day, and trades on later days move on from it. After a payout, enter the drawdown level too: the balance alone cannot tell a withdrawal from a loss.</p>
+                  <ng-container *ngTemplateOutlet="formFooter; context: { invalid: balanceForm.invalid, label: 'Save balance' }" />
+                </form>
+              }
               @case ('reset') {
                 <form class="card form-card" [formGroup]="resetForm" (ngSubmit)="saveReset(a)" aria-label="Record a reset">
                   <div class="form-grid">
@@ -134,6 +149,99 @@ const STATUSES: PropAccountStatus[] = ['Active', 'Pending', 'Breached', 'Closed'
                 <button type="button" class="btn" (click)="panel.set(null)">Cancel</button>
               </div>
             </ng-template>
+
+            @if (a.standing.figures; as f) {
+              <section class="card section" aria-label="Where it stands">
+                <h2>Where it stands <span class="small muted">Since {{ a.runStartedOn }}</span></h2>
+                <p class="small secondary">Worked out from {{ f.tradesCounted }} closed {{ f.tradesCounted === 1 ? 'trade' : 'trades' }} linked to this account and the balances you entered. These are not the firm's figures, and the firm's own numbers decide.</p>
+                <dl class="standing">
+                  <div><dt>Balance</dt><dd>{{ f.balance | money: a.accountSize.currency }}</dd></div>
+                  <div><dt>Profit or loss</dt><dd [class.text-negative]="f.profit < 0">{{ f.profit | money: a.accountSize.currency : true }}</dd></div>
+                  <div>
+                    <dt>Drawdown room</dt>
+                    @if (f.drawdown; as d) {
+                      <dd>
+                        {{ d.room | money: a.accountSize.currency }} <span [class]="ruleStanding[d.standing].tag">{{ ruleStanding[d.standing].label }}</span>
+                        <span class="note">Breached at {{ d.level | money: a.accountSize.currency }}, with a limit of {{ d.limit | money: a.accountSize.currency }}</span>
+                      </dd>
+                    } @else { <dd class="muted">No limit set</dd> }
+                  </div>
+                  <div>
+                    <dt>Daily loss</dt>
+                    @if (f.dailyLoss; as l) {
+                      <dd>
+                        @if (l.worstLoss != null) { Worst {{ l.worstLoss | money: a.accountSize.currency }} on {{ l.worstDay }} } @else { No losing day }
+                        <span [class]="ruleStanding[l.standing].tag">{{ ruleStanding[l.standing].label }}</span>
+                        <span class="note">Limit {{ l.limit | money: a.accountSize.currency }} a day</span>
+                        @if (l.daysPastLimit.length > 0) { <span class="note text-negative">Past the limit on {{ l.daysPastLimit.join(', ') }}</span> }
+                      </dd>
+                    } @else { <dd class="muted">No limit set</dd> }
+                  </div>
+                  <div>
+                    <dt>Profit target</dt>
+                    @if (f.target; as t) {
+                      <dd>
+                        {{ t.profit | money: a.accountSize.currency }} of {{ t.target | money: a.accountSize.currency }}
+                        @if (t.reached) { <span class="tag tag-positive">Reached</span> } @else { <span class="note">{{ t.remaining | money: a.accountSize.currency }} to go</span> }
+                      </dd>
+                    } @else { <dd class="muted">Not set</dd> }
+                  </div>
+                  <div>
+                    <dt>Trading days</dt>
+                    @if (f.minimumDays; as m) {
+                      <dd>
+                        {{ m.done }} of {{ m.required }}
+                        @if (m.reached) { <span class="tag tag-positive">Reached</span> }
+                      </dd>
+                    } @else { <dd>{{ f.tradingDays }} <span class="note">No minimum set</span></dd> }
+                  </div>
+                </dl>
+                @if (a.standing.openTrades > 0) { <p class="small secondary">{{ a.standing.openTrades }} open {{ a.standing.openTrades === 1 ? 'trade is' : 'trades are' }} not counted until closed.</p> }
+                @if (a.standing.tradesBeforeRun > 0) { <p class="small secondary">{{ a.standing.tradesBeforeRun }} {{ a.standing.tradesBeforeRun === 1 ? 'trade' : 'trades' }} closed before {{ a.runStartedOn }} {{ a.standing.tradesBeforeRun === 1 ? 'belongs' : 'belong' }} to an earlier phase or reset and {{ a.standing.tradesBeforeRun === 1 ? 'is' : 'are' }} not counted.</p> }
+                @if (f.drawdown?.model === 'TrailingIntraday') { <p class="small secondary">Intraday trailing follows unrealised profit, which closed trades cannot show. The firm's level can be higher than this.</p> }
+                @if (a.standing.linkedTrades > 0) {
+                  <p class="small">
+                    <a routerLink="/trading/trades" [queryParams]="{ account: a.nickname }">View its {{ a.standing.linkedTrades }} {{ a.standing.linkedTrades === 1 ? 'trade' : 'trades' }}</a>
+                    · <a routerLink="/trading/performance" [queryParams]="{ account: a.nickname }">Performance</a>
+                  </p>
+                } @else { <p class="small secondary">No trades are linked yet. Choose this account on a trade, or when importing a file.</p> }
+              </section>
+            }
+
+            @if (a.balances.length > 0) {
+              <section class="card table-card section" aria-label="Balances entered">
+                <h2 class="table-heading">Balances entered</h2>
+                @if (balanceError()) { <p class="notice notice-error" role="alert">{{ balanceError() }}</p> }
+                <table class="data-table">
+                  <thead><tr><th>As of</th><th class="num">Firm's balance</th><th class="num">Drawdown level</th><th class="num">Trades came to</th><th class="num">Difference</th><th>Note</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+                  <tbody>
+                    @for (b of a.balances; track b.id) {
+                      <tr>
+                        <td class="nowrap">{{ b.asOf }}</td>
+                        <td class="num">{{ b.balance.amount | money: b.balance.currency }}</td>
+                        <td class="num">@if (b.drawdownLevel) { {{ b.drawdownLevel.amount | money: b.drawdownLevel.currency }} }</td>
+                        @if (b.expected != null) {
+                          <td class="num">{{ b.expected | money: b.balance.currency }}</td>
+                          <td class="num" [class.text-negative]="b.difference !== 0">{{ b.difference! | money: b.balance.currency : true }}</td>
+                        } @else { <td class="muted" colspan="2">Before this phase or reset</td> }
+                        <td class="note">{{ b.note }}</td>
+                        <td>
+                          @if (a.status !== 'Closed') {
+                            @if (confirmingRemove() === b.id) {
+                              <button type="button" class="btn btn-sm btn-danger" [disabled]="busy()" (click)="removeBalance(a, b)">Remove it</button>
+                              <button type="button" class="btn-link small" (click)="confirmingRemove.set(null)">Keep</button>
+                            } @else {
+                              <button type="button" class="btn-link small" (click)="confirmingRemove.set(b.id)">Remove</button>
+                            }
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+                <p class="small secondary table-note">A difference means trades are missing or wrong, or money left the account, such as a payout.</p>
+              </section>
+            }
 
             <section class="card section" aria-label="Current rules">
               <h2>Rules <span class="small muted">Version {{ a.rules.version }}, from {{ a.rules.effectiveFrom }}</span></h2>
@@ -185,6 +293,12 @@ const STATUSES: PropAccountStatus[] = ['Active', 'Pending', 'Breached', 'Closed'
     h3 { font-size: var(--text-sm); margin: var(--space-4) 0 var(--space-2); }
     .nowrap { white-space: nowrap; }
     .note { white-space: normal; }
+    dd .note { display: block; font-size: var(--text-xs); color: var(--text-secondary); }
+    dd .note.text-negative { color: var(--negative); }
+    .standing { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-4) var(--space-5); margin: var(--space-4) 0; }
+    .standing dt { font-size: var(--text-xs); color: var(--text-secondary); }
+    .standing dd { margin: 0; font-size: var(--text-sm); }
+    .table-note { padding: var(--space-3) var(--space-5); }
   `]
 })
 export class PropAccountDetailComponent {
@@ -194,6 +308,7 @@ export class PropAccountDetailComponent {
   private id = Number(inject(ActivatedRoute).snapshot.paramMap.get('id'));
 
   readonly statusTags = STATUS_TAGS;
+  readonly ruleStanding = RULE_STANDING;
   readonly eventLabels = EVENT_LABELS;
   readonly state = signal<'loading' | 'ready' | 'error'>('loading');
   readonly error = signal('');
@@ -201,6 +316,8 @@ export class PropAccountDetailComponent {
   readonly panel = signal<Panel | null>(null);
   readonly busy = signal(false);
   readonly formError = signal('');
+  readonly balanceError = signal('');
+  readonly confirmingRemove = signal<number | null>(null);
 
   // The forms' selects are read through signals so the labels follow them on a zoneless page
   private readonly chosenPhase = signal<PropAccountPhase>('Evaluation');
@@ -246,6 +363,13 @@ export class PropAccountDetailComponent {
     note: ['', Validators.maxLength(500)]
   });
 
+  readonly balanceForm = this.fb.nonNullable.group({
+    asOf: [todayIso(), Validators.required],
+    balance: [null as number | null, [Validators.required, Validators.min(0)]],
+    drawdownLevel: [null as number | null, Validators.min(0)],
+    note: ['', Validators.maxLength(500)]
+  });
+
   constructor() {
     this.phaseForm.controls.phase.valueChanges.pipe(takeUntilDestroyed()).subscribe(p => this.chosenPhase.set(p));
     this.statusForm.controls.status.valueChanges.pipe(takeUntilDestroyed()).subscribe(s => this.chosenStatus.set(s));
@@ -275,6 +399,8 @@ export class PropAccountDetailComponent {
       this.phaseForm.controls.rules.reset(this.rulesValue(a));
     } else if (panel === 'status') {
       this.statusForm.reset({ status: this.otherStatuses()[0], date: todayIso(), reason: '' });
+    } else if (panel === 'balance') {
+      this.balanceForm.reset({ asOf: todayIso(), balance: null, drawdownLevel: null, note: '' });
     } else {
       this.resetForm.reset({ date: todayIso(), startingBalance: a.accountSize.amount, note: '' });
     }
@@ -310,6 +436,21 @@ export class PropAccountDetailComponent {
   saveReset(a: PropAccount): void {
     const v = this.resetForm.getRawValue();
     this.submit(this.resetForm.invalid, this.api.resetPropAccount(a.id, { date: v.date, startingBalance: v.startingBalance, note: v.note.trim() || null }));
+  }
+
+  saveBalance(a: PropAccount): void {
+    const v = this.balanceForm.getRawValue();
+    this.submit(this.balanceForm.invalid, this.api.recordPropAccountBalance(a.id, { asOf: v.asOf, balance: v.balance!, drawdownLevel: v.drawdownLevel, note: v.note.trim() || null }));
+  }
+
+  removeBalance(a: PropAccount, b: PropAccountBalance): void {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.balanceError.set('');
+    this.api.removePropAccountBalance(a.id, b.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: updated => { this.busy.set(false); this.confirmingRemove.set(null); this.account.set(updated); },
+      error: err => { this.busy.set(false); this.balanceError.set(`Not removed: ${describeHttpError(err)}`); }
+    });
   }
 
   private rulesValue(a: PropAccount) {

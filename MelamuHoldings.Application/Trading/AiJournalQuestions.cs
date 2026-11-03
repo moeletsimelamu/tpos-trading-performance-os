@@ -120,7 +120,7 @@ public class AiJournalQuestionService
         Dictionary<int, List<JournalField>> labels) => new
     {
         id = t.Id, date = t.TradeDate, day = t.TradeDate.DayOfWeek.ToString(), entryTime = t.EntryTime, instrument = t.Instrument,
-        direction = t.Direction?.ToString(), session = t.Session, strategy = t.Strategy?.Name, account = t.TradingAccount,
+        direction = t.Direction?.ToString(), session = t.Session, strategy = t.Strategy?.Name, account = t.AccountName,
         pnl = t.PnL, r = t.RR, durationMinutes = t.TradeDuration, status = t.Status.ToString(),
         overrodeStrategyRules = t.IsManualOverride, overrideReason = AiReplies.Clip(t.DeviationNotes, MaxNoteLength),
         notes = AiReplies.Clip(t.Notes, MaxNoteLength), review = AiReplies.Clip(t.ReviewNotes, MaxNoteLength),

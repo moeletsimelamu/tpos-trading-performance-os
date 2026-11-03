@@ -54,4 +54,11 @@ public class PropAccountsController : ControllerBase
 
     [HttpPost("{id:int}/reset")]
     public async Task<IActionResult> Reset(int id, ResetPropAccountRequest request) => Ok(await _accounts.ResetAsync(id, request, UserId));
+
+    // A balance read from the firm's dashboard
+    [HttpPost("{id:int}/balances")]
+    public async Task<IActionResult> RecordBalance(int id, RecordPropAccountBalanceRequest request) => Ok(await _accounts.RecordBalanceAsync(id, request, UserId));
+
+    [HttpDelete("{id:int}/balances/{balanceId:int}")]
+    public async Task<IActionResult> RemoveBalance(int id, int balanceId) => Ok(await _accounts.RemoveBalanceAsync(id, balanceId, UserId));
 }

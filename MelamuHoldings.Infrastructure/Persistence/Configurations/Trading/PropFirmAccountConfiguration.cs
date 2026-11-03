@@ -31,6 +31,22 @@ public class PropFirmAccountConfiguration : IEntityTypeConfiguration<PropFirmAcc
         builder.Navigation(a => a.Events).UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.HasMany(a => a.RuleSets).WithOne().HasForeignKey(r => r.PropFirmAccountId).IsRequired().OnDelete(DeleteBehavior.Restrict);
         builder.Navigation(a => a.RuleSets).UsePropertyAccessMode(PropertyAccessMode.Field);
+        // Cascade so a reading taken off the collection is deleted with the save
+        builder.HasMany(a => a.Balances).WithOne().HasForeignKey(b => b.PropFirmAccountId).IsRequired().OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(a => a.Balances).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+public class PropAccountBalanceConfiguration : IEntityTypeConfiguration<PropAccountBalance>
+{
+    public void Configure(EntityTypeBuilder<PropAccountBalance> builder)
+    {
+        builder.ToTable("PropAccountBalances");
+        builder.Property(b => b.Amount).HasColumnType("decimal(19,4)");
+        builder.Property(b => b.DrawdownLevel).HasColumnType("decimal(19,4)");
+        builder.Property(b => b.Note).HasMaxLength(PropAccountEvent.MaxNoteLength);
+        // One reading per account per day; two requests cannot both add it
+        builder.HasIndex(b => new { b.PropFirmAccountId, b.AsOf }).IsUnique().HasDatabaseName(PropAccountService.BalanceDayIndex);
     }
 }
 

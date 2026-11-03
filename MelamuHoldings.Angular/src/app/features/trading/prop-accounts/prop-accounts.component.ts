@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TradingApiService } from '../trading-api.service';
-import { PHASES, PropAccount, PropAccountPhase, STATUS_TAGS, drawdownLabel } from '../models/prop-account.model';
+import { PHASES, PropAccount, PropAccountPhase, RULE_STANDING, STATUS_TAGS } from '../models/prop-account.model';
 import { PropRulesFieldsComponent, rulesFrom, rulesGroup } from './prop-rules';
 import { todayIso } from '../../finance/finance-api.service';
 import { MoneyPipe } from '../../../shared/money.pipe';
@@ -69,13 +69,14 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
           <div class="toolbar">
             <label class="check"><input type="checkbox" [checked]="includeClosed()" (change)="toggleClosed()" />Show closed</label>
           </div>
+          <p class="small secondary">Balances and room are worked out from the trades linked to each account and the balances you entered. The firm's own figures decide.</p>
 
           <div class="card table-card">
             @if (accounts().length === 0) {
               <p class="empty-state small">No prop firm accounts recorded. Add each account you buy, with the rules the firm sets for it.</p>
             } @else {
               <table class="data-table">
-                <thead><tr><th>Account</th><th class="num">Size</th><th>Phase</th><th>Status</th><th>Balance since</th><th>Drawdown</th><th class="num">Profit target</th></tr></thead>
+                <thead><tr><th>Account</th><th class="num">Balance</th><th>Phase</th><th>Status</th><th class="num">Drawdown room</th><th class="num">Daily loss limit</th><th class="num">Target</th></tr></thead>
                 <tbody>
                   @for (a of accounts(); track a.id) {
                     <tr>
@@ -83,16 +84,29 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
                         <a class="name" [routerLink]="['/trading/prop-accounts', a.id]">{{ a.nickname }}</a>
                         <div class="small muted">{{ a.firm }}</div>
                       </td>
-                      <td class="num">{{ a.accountSize.amount | money: a.accountSize.currency }}</td>
+                      <td class="num">
+                        {{ a.standing.figures.balance | money: a.accountSize.currency }}
+                        <div class="small muted">of {{ a.startingBalance.amount | money: a.accountSize.currency }}, since {{ a.runStartedOn }}</div>
+                      </td>
                       <td>{{ a.phase }}</td>
                       <td><span [class]="statusTags[a.status]">{{ a.status }}</span></td>
-                      <td class="nowrap">{{ a.runStartedOn }}</td>
-                      <td>
-                        {{ drawdown(a) }}
-                        @if (a.rules.rules.maxDrawdown !== null) { <div class="small muted">{{ a.rules.rules.maxDrawdown! | money: a.accountSize.currency }}</div> }
+                      <td class="num">
+                        @if (a.standing.figures.drawdown; as d) {
+                          {{ d.room | money: a.accountSize.currency }}
+                          @if (d.standing !== 'Clear') { <div><span [class]="ruleStanding[d.standing].tag">{{ ruleStanding[d.standing].label }}</span></div> }
+                        } @else { <span class="muted">Not set</span> }
                       </td>
                       <td class="num">
-                        @if (a.rules.rules.profitTarget !== null) { {{ a.rules.rules.profitTarget! | money: a.accountSize.currency }} } @else { <span class="muted">Not set</span> }
+                        @if (a.standing.figures.dailyLoss; as l) {
+                          {{ l.limit | money: a.accountSize.currency }}
+                          @if (l.standing !== 'Clear') { <div><span [class]="ruleStanding[l.standing].tag">{{ ruleStanding[l.standing].label }}</span></div> }
+                        } @else { <span class="muted">Not set</span> }
+                      </td>
+                      <td class="num">
+                        @if (a.standing.figures.target; as t) {
+                          {{ t.profit | money: a.accountSize.currency }}
+                          <div class="small muted">of {{ t.target | money: a.accountSize.currency }}</div>
+                        } @else { <span class="muted">Not set</span> }
                       </td>
                     </tr>
                   }
@@ -111,7 +125,6 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
     .check { display: flex; gap: var(--space-2); align-items: center; font-size: var(--text-sm); }
     .check input { height: auto; }
     .name { font-weight: 500; }
-    .nowrap { white-space: nowrap; }
     .empty-state.small { padding: var(--space-6) var(--space-5); }
   `]
 })
@@ -123,6 +136,7 @@ export class PropAccountsComponent {
 
   readonly phases = PHASES;
   readonly statusTags = STATUS_TAGS;
+  readonly ruleStanding = RULE_STANDING;
   readonly state = signal<'loading' | 'ready' | 'error'>('loading');
   readonly error = signal('');
   readonly accounts = signal<PropAccount[]>([]);
@@ -186,9 +200,5 @@ export class PropAccountsComponent {
 
   count(status: PropAccount['status']): number {
     return this.accounts().filter(a => a.status === status).length;
-  }
-
-  drawdown(a: PropAccount): string {
-    return drawdownLabel(a.rules.rules.drawdownModel);
   }
 }

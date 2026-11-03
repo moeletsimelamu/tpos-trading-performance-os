@@ -8,7 +8,7 @@ A unified operating system for managing trading operations, financial performanc
 > - the trading module;
 > - **Financial Management**: accounts, funds, an auditable ledger and balances.
 >
-> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets, planned purchases and unrestricted cash** work too (Phase 7). **Prop firm accounts** can be recorded with their rules and history (Phase 8, in progress); linking them to trades, payouts and fees is next. Business planning is **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
+> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets, planned purchases and unrestricted cash** work too (Phase 7). **Prop firm accounts** work with their rules, history and linked trades, and warn near a limit (Phase 8, in progress); linking payouts and fees is next. Business planning is **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
 
 ![Executive overview](docs/images/executive-overview.jpg)
 
@@ -33,7 +33,11 @@ The landing page shows the business as recorded:
 - **One record per attempt:** evaluation, verification and funded are phases of one record. A paid reset stays on it; a new challenge after a breach is a new record.
 - **Rules:** drawdown model and limit, daily loss limit, profit target, minimum trading days, payout split and the firm's stated fees. They change by adding a version, so earlier rules stay readable.
 - **History:** every phase, status, reset, rule change and correction is kept with its date. A breach says which rule.
-- **Not yet:** trades, payouts and fees are not linked to an account, and nothing is calculated against the rules. Nothing on these pages touches the ledger. The rules as built are in [`docs/PROP_ACCOUNTS.md`](docs/PROP_ACCOUNTS.md).
+- **Trades:** choose the account on a trade, or put a whole CSV file on one when importing. A linked trade takes the account's name and currency, and Performance and the trade log can filter by it.
+- **Balances:** enter what the firm's dashboard shows. The page lists what your trades came to beside it, so a difference shows up.
+- **Where it stands:** balance, drawdown room, daily loss, target progress and trading days, worked out from linked closed trades and the balances you entered. These are labelled as the app's figures, because the firm's own numbers decide.
+- **Warnings:** the overview warns near or at a limit and when the target is met. Nothing is ever blocked or changed by a warning.
+- **Not yet:** payouts and fees are not linked to an account. Nothing on these pages touches the ledger. The rules as built are in [`docs/PROP_ACCOUNTS.md`](docs/PROP_ACCOUNTS.md).
 
 ## What works today: budgets and planned purchases
 
@@ -254,7 +258,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/auth/login` | Sign in; returns a JWT |
 | GET | `/api/trades?status=` | List your trades, optionally by status (`Draft`, `Open`, `Closed`, `Reviewed`) |
 | GET | `/api/trades/{id}` | Get one trade |
-| POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted; optional `journal` and `checklist` answers); accepts `Idempotency-Key` |
+| POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted; optional `propAccountId`, `journal` and `checklist` answers); accepts `Idempotency-Key` |
 | PUT | `/api/trades/{id}` | Update a journal entry (omit `status` to keep it) |
 | GET | `/api/trades/{id}/history` | Every saved change to the trade, newest first, with each value before and after |
 | POST | `/api/trades/{id}/review` | Mark a closed trade reviewed, with the review notes (refused while required journal questions are unanswered) |
@@ -269,13 +273,14 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/strategies` | Create a strategy with its rules |
 | PUT | `/api/strategies/{id}` | Update a strategy; rules left out are retired |
 | POST | `/api/strategies/{id}/archive` · `/restore` · `/rules/{ruleId}/restore` | Strategy actions |
-| GET | `/api/prop-accounts?includeClosed=` | List your prop firm accounts with their rules and history |
+| GET | `/api/prop-accounts?includeClosed=` | List your prop firm accounts with their rules, history, balances and where each stands |
 | GET | `/api/prop-accounts/{id}` · `/api/prop-accounts/currencies` | Get one account; the currencies an account can be in |
 | POST | `/api/prop-accounts` | Add an account with its first rules |
 | PUT | `/api/prop-accounts/{id}` | Correct the firm, nickname, size, login or notes |
 | POST | `/api/prop-accounts/{id}/rules` · `/phase` · `/status` · `/reset` | Add a rule version, change phase (with that phase's rules), change status, record a reset |
+| POST · DELETE | `/api/prop-accounts/{id}/balances` · `/balances/{balanceId}` | Enter a balance from the firm's dashboard, or remove a wrong one |
 | DELETE | `/api/trades/{id}` | Delete a trade |
-| POST | `/api/upload` | Import a CSV journal (max 10 MB) |
+| POST | `/api/upload` | Import a CSV journal (max 10 MB); an optional `propAccountId` form field puts the whole file on that prop firm account |
 | GET | `/api/upload/logs` | Upload history (imported, skipped, matched and failed rows) |
 | GET | `/api/upload/matches?status=` | CSV rows that matched trades journaled by hand (default: those waiting for a decision) |
 | POST | `/api/upload/matches/{id}/link` · `/import` · `/dismiss` | Decide on a matched row |

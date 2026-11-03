@@ -14,6 +14,7 @@ public class TradeService
 
     private readonly ITradeRepository _tradeRepository;
     private readonly IStrategyRepository _strategyRepository;
+    private readonly IPropAccountRepository _propAccounts;
     private readonly TradeJournal _journal;
     private readonly TradeChecklists _checklists;
     private readonly AttachmentService _attachments;
@@ -21,13 +22,14 @@ public class TradeService
     private readonly TradeHistory _history;
     private readonly TimeProvider _clock;
 
-    public TradeService(ITradeRepository tradeRepository, IStrategyRepository strategyRepository, TradeJournal journal,
+    public TradeService(ITradeRepository tradeRepository, IStrategyRepository strategyRepository, IPropAccountRepository propAccounts, TradeJournal journal,
         TradeChecklists checklists, AttachmentService attachments, IAttachmentRepository attachmentRecords, TradeHistory history,
         TimeProvider clock)
     {
         _history = history;
         _tradeRepository = tradeRepository;
         _strategyRepository = strategyRepository;
+        _propAccounts = propAccounts;
         _journal = journal;
         _checklists = checklists;
         _attachments = attachments;
@@ -193,6 +195,17 @@ public class TradeService
         trade.IsManualOverride = dto.IsManualOverride;
         trade.DeviationNotes = Blank(dto.DeviationNotes);
         trade.Notes = Blank(dto.Notes);
+        trade.LinkTo(await PropAccountAsync(trade, dto.PropAccountId));
+    }
+
+    // One of the trader's accounts. A closed account takes no new trades, though one already on it can still be edited.
+    private async Task<PropFirmAccount?> PropAccountAsync(Trade trade, int? accountId)
+    {
+        if (accountId is not { } id) return null;
+        var account = await _propAccounts.GetForUserAsync(id, trade.UserId) ?? throw new DomainException($"Prop firm account {id} is not one of yours.");
+        if (account.Status == PropAccountStatus.Closed && trade.PropFirmAccountId != id)
+            throw new DomainException($"{account.Nickname} is closed. Reopen it to add a trade to it.");
+        return account;
     }
 
     private static TradeStatus? ParseStatus(string? status) =>
@@ -207,7 +220,8 @@ public class TradeService
         IsImported = trade.IsImported,
         TradeDate = trade.TradeDate,
         Instrument = trade.Instrument,
-        TradingAccount = trade.TradingAccount,
+        TradingAccount = trade.AccountName,
+        PropAccountId = trade.PropFirmAccountId,
         Direction = trade.Direction?.ToString(),
         EntryTime = trade.EntryTime,
         EntryPrice = trade.EntryPrice,

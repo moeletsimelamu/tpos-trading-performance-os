@@ -1,6 +1,6 @@
 # Architecture
 
-How the code is organised today (after Phase 7, the trading journal and P8.1). Plans for modules that aren't built yet are in [`../PLAN.md`](../PLAN.md); the original audit is in [`ARCHITECTURE_REVIEW.md`](ARCHITECTURE_REVIEW.md).
+How the code is organised today (after Phase 7, the trading journal and P8.2). Plans for modules that aren't built yet are in [`../PLAN.md`](../PLAN.md); the original audit is in [`ARCHITECTURE_REVIEW.md`](ARCHITECTURE_REVIEW.md).
 
 ## Backend (.NET 10)
 

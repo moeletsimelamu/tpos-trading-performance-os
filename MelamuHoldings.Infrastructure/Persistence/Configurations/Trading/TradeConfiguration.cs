@@ -41,6 +41,9 @@ public class TradeConfiguration : IEntityTypeConfiguration<Trade>
         builder.Property(t => t.IdempotencyKey).HasMaxLength(64);
         builder.Ignore(t => t.IsImported);
         builder.Ignore(t => t.CountsInAnalytics);
+        builder.Ignore(t => t.AccountName);
+        // Restrict: prop firm accounts are closed, never deleted, and users already cascade to trades
+        builder.HasOne(t => t.PropFirmAccount).WithMany().HasForeignKey(t => t.PropFirmAccountId).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(t => t.User)
             .WithMany()

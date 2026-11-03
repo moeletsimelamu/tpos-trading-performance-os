@@ -11,6 +11,9 @@ public class TradeResponseDto
     public DateOnly TradeDate { get; set; }
     public string Instrument { get; set; } = string.Empty;
     public string? TradingAccount { get; set; }
+
+    // Set when the trade is linked to a prop firm account; TradingAccount is then that account's nickname
+    public int? PropAccountId { get; set; }
     public string? Direction { get; set; }
     public TimeOnly? EntryTime { get; set; }
     public decimal? EntryPrice { get; set; }
@@ -66,6 +69,9 @@ public class CreateTradeDto : IValidatableObject
 
     [MaxLength(100)]
     public string? TradingAccount { get; set; }
+
+    // One of the trader's prop firm accounts. Given, it replaces TradingAccount and sets the currency.
+    public int? PropAccountId { get; set; }
 
     public string? Direction { get; set; }
     public TimeOnly? EntryTime { get; set; }

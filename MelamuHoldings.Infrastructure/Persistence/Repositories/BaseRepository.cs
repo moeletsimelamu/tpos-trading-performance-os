@@ -24,7 +24,7 @@ public class BaseRepository<T> : IRepository<T> where T : class
     public async Task AddAsync(T entity) =>
         await _dbSet.AddAsync(entity);
 
-    public Task UpdateAsync(T entity)
+    public virtual Task UpdateAsync(T entity)
     {
         _dbSet.Update(entity);
         return Task.CompletedTask;

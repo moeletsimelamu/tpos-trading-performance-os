@@ -73,6 +73,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new PropFirmAccountConfiguration());
         modelBuilder.ApplyConfiguration(new PropAccountEventConfiguration());
         modelBuilder.ApplyConfiguration(new PropAccountRuleSetConfiguration());
+        modelBuilder.ApplyConfiguration(new PropAccountBalanceConfiguration());
 
         modelBuilder.ApplyConfiguration(new FundConfiguration());
         modelBuilder.ApplyConfiguration(new FinancialAccountConfiguration());

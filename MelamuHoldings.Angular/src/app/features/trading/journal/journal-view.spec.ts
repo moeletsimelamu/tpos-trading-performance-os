@@ -145,6 +145,11 @@ describe('TradesComponent journal filters', () => {
     expect(cells.sort()).toEqual(['Broke a rule', 'Followed', '—']);
   });
 
+  it('opens on one account when a prop account page links here', async () => {
+    const { c } = await render([trade(1, { tradingAccount: 'Attempt 1' }), trade(2)], { account: 'Attempt 1' });
+    expect(c.filtered().map(t => t.id)).toEqual([1]);
+  });
+
   it('filters by strategy, session and account', async () => {
     const { c } = await render([trade(1), trade(2, { strategyName: 'Pullback', session: 'New York' }), trade(3, { tradingAccount: 'Prop 1' })]);
 

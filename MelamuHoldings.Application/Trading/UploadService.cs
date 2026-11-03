@@ -1,3 +1,4 @@
+using MelamuHoldings.Domain.Common;
 using MelamuHoldings.Domain.Trading;
 
 namespace MelamuHoldings.Application.Trading;
@@ -22,23 +23,34 @@ public class UploadService
     private readonly IStrategyRepository _strategyRepository;
     private readonly IUploadLogRepository _uploadLogRepository;
     private readonly IImportMatchRepository _matchRepository;
+    private readonly IPropAccountRepository _propAccounts;
 
     public UploadService(
         CsvParserService csvParser,
         ITradeRepository tradeRepository,
         IStrategyRepository strategyRepository,
         IUploadLogRepository uploadLogRepository,
-        IImportMatchRepository matchRepository)
+        IImportMatchRepository matchRepository,
+        IPropAccountRepository propAccounts)
     {
         _csvParser = csvParser;
         _tradeRepository = tradeRepository;
         _strategyRepository = strategyRepository;
         _uploadLogRepository = uploadLogRepository;
         _matchRepository = matchRepository;
+        _propAccounts = propAccounts;
     }
 
-    public async Task<UploadResultDto> ProcessUploadAsync(Stream fileStream, string fileName, int userId)
+    // A CSV has no account column, so a whole file can be put on one prop firm account
+    public async Task<UploadResultDto> ProcessUploadAsync(Stream fileStream, string fileName, int userId, int? propAccountId = null)
     {
+        PropFirmAccount? account = null;
+        if (propAccountId is { } id)
+        {
+            account = await _propAccounts.GetForUserAsync(id, userId) ?? throw new DomainException($"Prop firm account {id} is not one of yours.");
+            if (account.Status == PropAccountStatus.Closed) throw new DomainException($"{account.Nickname} is closed. Reopen it to add trades to it.");
+        }
+
         // Create an upload log entry immediately — status starts as Pending
         var uploadLog = new UploadLog
         {
@@ -90,7 +102,9 @@ public class UploadService
 
             var strategy = string.IsNullOrWhiteSpace(row.Strategy) ? null
                 : await _strategyRepository.GetOrCreateAsync(userId, row.Strategy, DateTime.UtcNow);
-            await _tradeRepository.AddAsync(ImportReconciliationService.ToTrade(row, userId, uploadLog.Id, strategy?.Id, DateTime.UtcNow));
+            var trade = ImportReconciliationService.ToTrade(row, userId, uploadLog.Id, strategy?.Id, DateTime.UtcNow);
+            trade.LinkTo(account);
+            await _tradeRepository.AddAsync(trade);
             imported++;
         }
 

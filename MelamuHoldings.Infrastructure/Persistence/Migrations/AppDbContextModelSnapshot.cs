@@ -1266,6 +1266,42 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.ToTable("TradeJournalEntries");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountBalance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<DateOnly>("AsOf")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("DrawdownLevel")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("PropFirmAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PropFirmAccountId", "AsOf")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PropAccountBalances_PropFirmAccountId_AsOf");
+
+                    b.ToTable("PropAccountBalances", (string)null);
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountEvent", b =>
                 {
                     b.Property<int>("Id")
@@ -1617,6 +1653,9 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<decimal?>("PositionSize")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<int?>("PropFirmAccountId")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("RR")
                         .HasColumnType("decimal(8,2)");
 
@@ -1668,6 +1707,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PropFirmAccountId");
 
                     b.HasIndex("StrategyId");
 
@@ -2110,6 +2151,15 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountBalance", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", null)
+                        .WithMany("Balances")
+                        .HasForeignKey("PropFirmAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountEvent", b =>
                 {
                     b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", null)
@@ -2162,6 +2212,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Trade", b =>
                 {
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", "PropFirmAccount")
+                        .WithMany()
+                        .HasForeignKey("PropFirmAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("MelamuHoldings.Domain.Trading.Strategy", "Strategy")
                         .WithMany("Trades")
                         .HasForeignKey("StrategyId")
@@ -2176,6 +2231,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("PropFirmAccount");
 
                     b.Navigation("Strategy");
 
@@ -2267,6 +2324,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropFirmAccount", b =>
                 {
+                    b.Navigation("Balances");
+
                     b.Navigation("Events");
 
                     b.Navigation("RuleSets");

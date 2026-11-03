@@ -9,7 +9,7 @@ public enum PropAccountPhase { Evaluation, Verification, Funded }
 
 public enum PropAccountStatus { Active, Pending, Breached, Closed }
 
-public enum PropAccountEventKind { Opened, PhaseChanged, StatusChanged, Reset, RulesChanged, DetailsChanged }
+public enum PropAccountEventKind { Opened, PhaseChanged, StatusChanged, Reset, RulesChanged, DetailsChanged, BalanceRecorded, BalanceRemoved }
 
 // How the firm measures the drawdown limit. Trailing intraday follows unrealised profit, which closed trades cannot show.
 public enum DrawdownModel { None, Static, TrailingEndOfDay, TrailingIntraday }
@@ -68,6 +68,7 @@ public class PropFirmAccount
 
     private readonly List<PropAccountEvent> _events = new();
     private readonly List<PropAccountRuleSet> _ruleSets = new();
+    private readonly List<PropAccountBalance> _balances = new();
 
     public int Id { get; private set; }
     public int UserId { get; private set; }
@@ -94,6 +95,7 @@ public class PropFirmAccount
     public IReadOnlyList<PropAccountEvent> Events => _events.OrderBy(e => e.Id).ToList();
     public IReadOnlyList<PropAccountRuleSet> RuleSets => _ruleSets.OrderBy(r => r.Version).ToList();
     public PropAccountRuleSet CurrentRules => _ruleSets.MaxBy(r => r.Version)!;
+    public IReadOnlyList<PropAccountBalance> Balances => _balances.OrderBy(b => b.AsOf).ToList();
 
     private PropFirmAccount() { }
 
@@ -216,7 +218,41 @@ public class PropFirmAccount
         Append(PropAccountEventKind.Reset, on, start, text, now);
     }
 
-    private DateOnly LastLifecycleDate => _events.Where(e => e.Kind is not (PropAccountEventKind.RulesChanged or PropAccountEventKind.DetailsChanged)).Max(e => e.OccurredOn);
+    // A balance read from the firm's dashboard at the end of a day. The drawdown level is optional: after a payout it
+    // is the only way to tell the app where the firm now measures from. One reading per day, within the current run.
+    public PropAccountBalance RecordBalance(DateOnly asOf, Money balance, Money? drawdownLevel, string? note, DateTime now)
+    {
+        RequireOpen();
+        RequireDate(asOf, now, "balance");
+        if (asOf < RunStartedOn) throw new DomainException($"This phase or reset began on {RunStartedOn:yyyy-MM-dd}; a balance before then does not apply.");
+        if (balance.Currency != Currency) throw new CurrencyMismatchException(Currency, balance.Currency);
+        if (balance.IsNegative) throw new DomainException("A balance cannot be below zero.");
+        if (drawdownLevel is { } level)
+        {
+            if (level.Currency != Currency) throw new CurrencyMismatchException(Currency, level.Currency);
+            if (level.IsNegative) throw new DomainException("A drawdown level cannot be below zero.");
+            if (CurrentRules.MaxDrawdown is null) throw new DomainException("This account's rules have no drawdown limit, so a drawdown level does not apply.");
+        }
+        if (_balances.Any(b => b.AsOf == asOf)) throw new DomainException($"A balance for {asOf:yyyy-MM-dd} is already recorded. Remove it first to replace it.");
+
+        var entry = new PropAccountBalance(asOf, balance.Amount, drawdownLevel?.Amount, Text.Optional(note, PropAccountEvent.MaxNoteLength, "Note"), now);
+        _balances.Add(entry);
+        Append(PropAccountEventKind.BalanceRecorded, asOf, null, $"Balance {balance}" + (drawdownLevel is { } stated ? $", drawdown level {stated}" : ""), now);
+        return entry;
+    }
+
+    // A wrong reading comes off the figures; the history keeps that it was there
+    public void RemoveBalance(int balanceId, DateTime now)
+    {
+        RequireOpen();
+        var entry = _balances.FirstOrDefault(b => b.Id == balanceId) ?? throw new DomainException($"Balance {balanceId} is not part of this account.");
+        _balances.Remove(entry);
+        Append(PropAccountEventKind.BalanceRemoved, DateOnly.FromDateTime(now), null, $"Removed the balance of {Format(entry.Amount)} for {entry.AsOf:yyyy-MM-dd}", now);
+    }
+
+    private DateOnly LastLifecycleDate => _events
+        .Where(e => e.Kind is PropAccountEventKind.Opened or PropAccountEventKind.PhaseChanged or PropAccountEventKind.StatusChanged or PropAccountEventKind.Reset)
+        .Max(e => e.OccurredOn);
 
     private decimal StartFrom(Money? startingBalance)
     {
@@ -303,6 +339,29 @@ public class PropAccountEvent
         Status = status;
         Login = login;
         StartingBalance = startingBalance;
+        Note = note;
+        RecordedAt = recordedAt;
+    }
+}
+
+// A balance entered from the firm's dashboard, as at the end of a day. It never moves money.
+public class PropAccountBalance
+{
+    public int Id { get; private set; }
+    public int PropFirmAccountId { get; private set; }
+    public DateOnly AsOf { get; private set; }
+    public decimal Amount { get; private set; }
+    public decimal? DrawdownLevel { get; private set; }
+    public string? Note { get; private set; }
+    public DateTime RecordedAt { get; private set; }
+
+    private PropAccountBalance() { }
+
+    internal PropAccountBalance(DateOnly asOf, decimal amount, decimal? drawdownLevel, string? note, DateTime recordedAt)
+    {
+        AsOf = asOf;
+        Amount = amount;
+        DrawdownLevel = drawdownLevel;
         Note = note;
         RecordedAt = recordedAt;
     }

@@ -14,13 +14,19 @@ public partial class PropAccountRepository : IPropAccountRepository
     public PropAccountRepository(AppDbContext context) => _context = context;
 
     private IQueryable<PropFirmAccount> Accounts =>
-        _context.PropFirmAccounts.Include(a => a.Events).Include(a => a.RuleSets).AsSplitQuery();
+        _context.PropFirmAccounts.Include(a => a.Events).Include(a => a.RuleSets).Include(a => a.Balances).AsSplitQuery();
 
     public Task<PropFirmAccount?> GetForUserAsync(int id, int userId) =>
         Accounts.FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
 
     public Task<List<PropFirmAccount>> GetAllForUserAsync(int userId) =>
         Accounts.Where(a => a.UserId == userId).ToListAsync();
+
+    public Task<List<LinkedTrade>> GetLinkedTradesAsync(int userId) =>
+        _context.Trades.AsNoTracking()
+            .Where(t => t.UserId == userId && t.PropFirmAccountId != null)
+            .Select(t => new LinkedTrade(t.PropFirmAccountId!.Value, t.Id, t.Status, t.TradeDate, t.ExitDate, t.EntryTime, t.ExitTime, t.PnL))
+            .ToListAsync();
 
     public void Add(PropFirmAccount account) => _context.PropFirmAccounts.Add(account);
 

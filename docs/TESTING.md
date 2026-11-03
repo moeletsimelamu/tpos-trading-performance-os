@@ -49,6 +49,54 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-03 (branch `phase-8-2-prop-account-standing`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 317 passed, 0 failed |
+| `dotnet test` (Release): integration | 135 passed, 0 failed |
+| `ng test --watch=false` | 214 passed, 0 failed (30 files) |
+| `ng build` (production) | Succeeded; initial bundle 313.30 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | Generated for all 16 migrations; every step guarded |
+| `AddTradePropAccountLinkAndBalances` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+CI has not run on this branch, because it has not been pushed.
+
+**New tests**
+- **Unit (`PropAccountStandingTests`, each figure worked out by hand):**
+  - **Balance:** only trades closed in the run count, and a balance entered replaces the figure, with later trades moving on from it.
+  - **Drawdown:** a static level stays put, a trailing level rises and never falls, end of day sees the day's close while intraday sees each trade, and a lock stops at the starting balance. Near starts at exactly 80% of the limit and at the limit at all of it.
+  - **After a payout:** the balance alone looks like lost room, the level from the firm replaces the calculated one, and later highs move it up.
+  - **Daily loss:** a day's trades count together, a day past the limit stays listed after recovering, and only the current day can be near.
+  - **Target:** met only with the minimum days too.
+  - **Balances:** one per day, within the run, not in the future, below zero or in another currency. A closed account takes none, and a drawdown level needs a drawdown limit.
+  - **Linking:** a trade takes the account's name and currency, and another stated currency is refused.
+- **Integration (`PropAccountStandingEndpointTests`):**
+  - **Worked by hand:** three linked trades, an open one, a draft and an unlinked one come to 105,500 with a level of 95,500 and a day past the limit. A dashboard balance of 105,000 shows a difference of −500, and removing it goes back to the trades alone while the history keeps it.
+  - **Runs:** a trade counts on the day it closed, and a phase change or reset starts again with the older trades named as not counted.
+  - **Links:** renaming the account renames it on the trade, editing a trade moves the balance, and unlinking or deleting one takes it out and is in the trade's history.
+  - **Refusals:** someone else's account, one that does not exist, another currency, and a new trade on a closed account (one already on it can still be corrected).
+  - **Import:** a whole file onto one account, and without one nothing changes.
+  - **Analytics and the trade log:** both filter by the account's name.
+  - **Access:** another trader gets 404, and no session gets 401.
+- **Angular:** the trade form's account choice and locked currency, a closed account kept only for the trade already on it, the import choice, the trade log opening on an account, the list's figures and flags, the standing section with what is left out, entering and removing a balance, and the overview's warnings for active accounts only.
+- **Existing tests changed:** the trade form, import, overview and strategy specs answer the new request for accounts; the P8.1 list test reads the new columns. `TradeRepository.UpdateAsync` no longer marks what a tracked trade refers to as changed, so editing a trade does not rewrite its account.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Trade form:** choosing "Walkthrough 100k" hid the free-text account and locked the currency to USD. A trade saved as closed opened showing the account's name.
+- **Standing:** with +5,000, −3,500 and +4,000 on three days and one open trade, the page showed USD 105,500, room of USD 10,000 above USD 95,500, the 3,500 day past the 3,000 limit, USD 5,500 of USD 8,000, 3 of 3 days, and "1 open trade is not counted until closed", all matching the working by hand.
+- **Balance:** USD 105,000 entered through the form showed USD 105,500 from the trades and a difference of USD −500, with room down to USD 9,500.
+- **Import:** a two-row file put on the account took the balance to USD 108,000 and the target to met.
+- **Links:** "View its trades" opened the log with the filter set, and Performance showed 3 trades and +5,500.00 for the account.
+- **Overview:** it warned that the account passed its daily loss limit and that it has met its target. The breached account gave no warning.
+- **Phone width:** nothing extends past the 375 px page on the account page or the list.
+- **How it was driven:** the forms and links by page script, in a background tab, with three trades and the account created through the API.
+- **Not exercised in the browser:** near-the-limit warnings, a drawdown level entered, removing a balance through the page, and the intraday note. The unit, integration and Angular tests cover them.
+
 ## Results — 2026-11-03 (branch `phase-8-1-prop-accounts`)
 
 | Command | Result |

@@ -129,6 +129,14 @@ export class TradingApiService {
     return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/reset`, body);
   }
 
+  recordPropAccountBalance(id: number, body: { asOf: string; balance: number; drawdownLevel: number | null; note: string | null }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/balances`, body);
+  }
+
+  removePropAccountBalance(id: number, balanceId: number): Observable<PropAccount> {
+    return this.http.delete<PropAccount>(`${this.base}/prop-accounts/${id}/balances/${balanceId}`);
+  }
+
   // Adherence takes the same filter as every other figure (a strategy page passes its strategyId)
   getAdherence(filter: AnalyticsFilter = {}): Observable<AdherenceReport> {
     return this.http.get<AdherenceReport>(`${this.base}/analytics/adherence`, { params: filterParams(filter) });
@@ -160,9 +168,11 @@ export class TradingApiService {
   }
 
   // Upload
-  uploadCsv(file: File): Observable<UploadResult> {
+  // A whole file can be put on one prop firm account, because a CSV has no account column
+  uploadCsv(file: File, propAccountId: number | null = null): Observable<UploadResult> {
     const form = new FormData();
     form.append('file', file);
+    if (propAccountId !== null) form.append('propAccountId', String(propAccountId));
     return this.http.post<UploadResult>(`${this.base}/upload`, form);
   }
 

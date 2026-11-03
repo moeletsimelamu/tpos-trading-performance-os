@@ -293,6 +293,9 @@ export class TradesComponent {
     if (status && STATUSES.includes(status)) this.statusFilter.set(status);
     const date = query.get('date');
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) this.dateFilter.set(date);
+    // A prop account's page links here with its nickname
+    const account = query.get('account');
+    if (account) this.accountFilter.set(account);
     this.load();
   }
 

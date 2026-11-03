@@ -7,6 +7,7 @@ import { FinanceApiService } from '../finance/finance-api.service';
 import { Allocation, Balances, BudgetMonth, ContinuityReport, Investments, Money, Obligation, Payout, PlannedPurchase, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, UnrestrictedCashReport, fundStanding } from '../finance/finance.models';
 import { TradingApiService } from '../trading/trading-api.service';
 import { AnalyticsSummary, BehaviourSummary } from '../trading/models/analytics.model';
+import { PropAccount } from '../trading/models/prop-account.model';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { LoadErrorComponent } from '../../shared/load-error.component';
 import { describeHttpError } from '../../shared/http-error';
@@ -134,7 +135,7 @@ const RECENT_PAYOUTS = 5;
                     <li class="attention-item clear"><app-icon name="check" [size]="18" /><p>Nothing in the recorded data needs attention.</p></li>
                   }
                 </ul>
-                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations, obligations, continuity, investment valuations, budgets, planned purchases and trades.</p>
+                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations, obligations, continuity, investment valuations, budgets, planned purchases, prop accounts and trades.</p>
               </section>
             </div>
 
@@ -284,8 +285,9 @@ export class OverviewComponent {
   readonly investments = signal<Investments | null>(null);
   readonly budgets = signal<BudgetMonth | null>(null);
   readonly purchases = signal<PlannedPurchase[]>([]);
+  readonly propAccounts = signal<PropAccount[]>([]);
   readonly attention = computed(() => attentionItems(
-    this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations(), this.continuity(), this.investments(), this.budgets(), this.purchases()));
+    this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations(), this.continuity(), this.investments(), this.budgets(), this.purchases(), this.propAccounts()));
   // The latest payouts recorded, whatever their status
   readonly recentPayouts = computed(() => [...this.payouts()].sort((a, b) => b.id - a.id).slice(0, RECENT_PAYOUTS));
 
@@ -328,12 +330,13 @@ export class OverviewComponent {
 
   loadTrading(): void {
     this.tradingState.set('loading');
-    forkJoin({ summary: this.tradingApi.getSummary(), behaviour: this.tradingApi.getBehaviour() })
+    forkJoin({ summary: this.tradingApi.getSummary(), behaviour: this.tradingApi.getBehaviour(), propAccounts: this.tradingApi.getPropAccounts() })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ summary, behaviour }) => {
+        next: ({ summary, behaviour, propAccounts }) => {
           this.trading.set(summary);
           this.behaviour.set(behaviour);
+          this.propAccounts.set(propAccounts);
           this.tradingState.set('ready');
         },
         error: err => { this.tradingError.set(describeHttpError(err)); this.tradingState.set('error'); }
@@ -385,9 +388,29 @@ function formatMoney(m: Money): string {
 export function attentionItems(
   balances: Balances | null, behaviour: BehaviourSummary | null,
   payouts: Payout[] = [], allocations: Allocation[] = [], obligations: Obligation[] = [], continuity: ContinuityReport | null = null,
-  investments: Investments | null = null, budgets: BudgetMonth | null = null, purchases: PlannedPurchase[] = []
+  investments: Investments | null = null, budgets: BudgetMonth | null = null, purchases: PlannedPurchase[] = [], propAccounts: PropAccount[] = []
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
+
+  // Live prop firm accounts against their rules, from recorded trades; the firm's own figures decide
+  for (const a of propAccounts.filter(x => x.status === 'Active')) {
+    const f = a.standing.figures;
+    const money = (amount: number) => formatMoney({ currency: a.accountSize.currency, amount });
+    const action = { link: `/trading/prop-accounts/${a.id}`, action: 'View the account' };
+    if (f.drawdown?.standing === 'Reached') {
+      items.push({ tone: 'negative', title: `${a.nickname} is at its drawdown limit`, detail: `Recorded trades put it at ${money(f.balance)} against a level of ${money(f.drawdown.level)}. Check the firm's dashboard.`, ...action });
+    } else if (f.drawdown?.standing === 'Near') {
+      items.push({ tone: 'warning', title: `${a.nickname} is near its drawdown limit`, detail: `${money(f.drawdown.room)} of room left of ${money(f.drawdown.limit)}, from recorded trades.`, ...action });
+    }
+    if (f.dailyLoss?.standing === 'Reached') {
+      items.push({ tone: 'negative', title: `${a.nickname} passed its daily loss limit`, detail: `Recorded trades lost ${money(f.dailyLoss.limit)} or more on ${f.dailyLoss.daysPastLimit.join(', ')}. Check the firm's dashboard.`, ...action });
+    } else if (f.dailyLoss?.standing === 'Near') {
+      items.push({ tone: 'warning', title: `${a.nickname} is near its daily loss limit`, detail: `Recorded trades lost ${money(-f.dailyLoss.latestDayPnL!)} on ${f.dailyLoss.latestDay}, with a limit of ${money(f.dailyLoss.limit)}.`, ...action });
+    }
+    if (f.targetMet) {
+      items.push({ tone: 'info', title: `${a.nickname} has met its target`, detail: `${money(f.target!.profit)} of ${money(f.target!.target)} from recorded trades${f.minimumDays ? `, on ${f.minimumDays.done} trading days` : ''}. Check with the firm before changing its phase.`, ...action });
+    }
+  }
 
   // Bills: late ones first, then those due within the warning window, then payments whose expense was reversed
   for (const o of obligations.filter(x => x.standing === 'Overdue')) {

@@ -15,6 +15,7 @@ public partial class TradeRepository : BaseRepository<Trade>, ITradeRepository
     public async Task<IEnumerable<Trade>> GetByUserIdAsync(int userId) =>
         await _context.Trades
             .Include(t => t.Strategy)
+            .Include(t => t.PropFirmAccount)
             .Where(t => t.UserId == userId)
             .OrderByDescending(t => t.TradeDate)
             .ThenByDescending(t => t.EntryTime)
@@ -24,6 +25,7 @@ public partial class TradeRepository : BaseRepository<Trade>, ITradeRepository
         int userId, DateOnly from, DateOnly to) =>
         await _context.Trades
             .Include(t => t.Strategy)
+            .Include(t => t.PropFirmAccount)
             .Where(t => t.UserId == userId
                      && t.TradeDate >= from
                      && t.TradeDate <= to)
@@ -39,6 +41,7 @@ public partial class TradeRepository : BaseRepository<Trade>, ITradeRepository
     public async Task<Trade?> GetForUserAsync(int tradeId, int userId) =>
         await _context.Trades
             .Include(t => t.Strategy)
+            .Include(t => t.PropFirmAccount)
             .FirstOrDefaultAsync(t => t.Id == tradeId && t.UserId == userId);
 
     public async Task<bool> ExistsAsync(int tradeId, int userId) =>
@@ -48,7 +51,13 @@ public partial class TradeRepository : BaseRepository<Trade>, ITradeRepository
     public async Task<Trade?> GetByIdempotencyKeyAsync(int userId, string idempotencyKey) =>
         await _context.Trades
             .Include(t => t.Strategy)
+            .Include(t => t.PropFirmAccount)
             .FirstOrDefaultAsync(t => t.UserId == userId && t.IdempotencyKey == idempotencyKey);
+
+    // A trade read here is already tracked and its changes are found on save. Update would also mark what it refers to
+    // as changed, rewriting a prop firm account and bumping its rowversion whenever one of its trades is edited.
+    public override Task UpdateAsync(Trade entity) =>
+        _context.Entry(entity).State == EntityState.Detached ? base.UpdateAsync(entity) : Task.CompletedTask;
 
     // A duplicate idempotency key becomes UniqueConstraintViolationException, so the service can return the original
     public override async Task<int> SaveChangesAsync()

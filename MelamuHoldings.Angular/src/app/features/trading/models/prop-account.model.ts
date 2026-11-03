@@ -5,7 +5,7 @@ export interface MoneyAmount {
 
 export type PropAccountPhase = 'Evaluation' | 'Verification' | 'Funded';
 export type PropAccountStatus = 'Active' | 'Pending' | 'Breached' | 'Closed';
-export type PropAccountEventKind = 'Opened' | 'PhaseChanged' | 'StatusChanged' | 'Reset' | 'RulesChanged' | 'DetailsChanged';
+export type PropAccountEventKind = 'Opened' | 'PhaseChanged' | 'StatusChanged' | 'Reset' | 'RulesChanged' | 'DetailsChanged' | 'BalanceRecorded' | 'BalanceRemoved';
 export type DrawdownModel = 'None' | 'Static' | 'TrailingEndOfDay' | 'TrailingIntraday';
 
 export const PHASES: PropAccountPhase[] = ['Evaluation', 'Verification', 'Funded'];
@@ -34,7 +34,9 @@ export const EVENT_LABELS: Record<PropAccountEventKind, string> = {
   StatusChanged: 'Status changed',
   Reset: 'Reset',
   RulesChanged: 'Rules changed',
-  DetailsChanged: 'Details corrected'
+  DetailsChanged: 'Details corrected',
+  BalanceRecorded: 'Balance recorded',
+  BalanceRemoved: 'Balance removed'
 };
 
 // Limits are in the account's currency; empty means the firm sets none
@@ -72,6 +74,49 @@ export interface PropAccountEvent {
   recordedAt: string;
 }
 
+export type RuleStanding = 'Clear' | 'Near' | 'Reached';
+
+export const RULE_STANDING: Record<RuleStanding, { label: string; tag: string }> = {
+  Clear: { label: 'Clear', tag: 'tag tag-positive' },
+  Near: { label: 'Near the limit', tag: 'tag tag-warning' },
+  Reached: { label: 'At the limit', tag: 'tag tag-negative' }
+};
+
+// The app's figures for the current run, from linked closed trades and balances entered. Not the firm's figures.
+export interface PropAccountFigures {
+  balance: number;
+  profit: number;
+  tradesCounted: number;
+  tradingDays: number;
+  drawdown?: { model: DrawdownModel; limit: number; level: number; room: number; standing: RuleStanding } | null;
+  dailyLoss?: {
+    limit: number; latestDay?: string | null; latestDayPnL?: number | null; worstDay?: string | null; worstLoss?: number | null;
+    daysPastLimit: string[]; standing: RuleStanding;
+  } | null;
+  target?: { target: number; profit: number; remaining: number; reached: boolean } | null;
+  minimumDays?: { required: number; done: number; remaining: number; reached: boolean } | null;
+  targetMet: boolean;
+}
+
+export interface PropAccountStanding {
+  figures: PropAccountFigures;
+  linkedTrades: number;
+  openTrades: number;
+  tradesBeforeRun: number;
+}
+
+// Expected and difference: what the recorded trades came to on that date, for a balance in the current run
+export interface PropAccountBalance {
+  id: number;
+  asOf: string;
+  balance: MoneyAmount;
+  drawdownLevel?: MoneyAmount | null;
+  note?: string | null;
+  expected?: number | null;
+  difference?: number | null;
+  recordedAt: string;
+}
+
 export interface PropAccount {
   id: number;
   firm: string;
@@ -87,6 +132,8 @@ export interface PropAccount {
   rules: PropAccountRuleSet;
   ruleHistory: PropAccountRuleSet[];
   history: PropAccountEvent[];
+  standing: PropAccountStanding;
+  balances: PropAccountBalance[];
   createdAt: string;
   updatedAt?: string | null;
 }

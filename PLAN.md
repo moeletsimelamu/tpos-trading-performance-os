@@ -33,7 +33,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Unrestricted cash (P7.6, decision D9) is complete on branch `phase-7-6-unrestricted-cash`, cut from `phase-7-5-verification`.
 - PR #5 (Phase 7) was merged into `main` on 2026-11-03.
 - Phase 8 is staged (§7c; decisions D10–D12). P8.1 (prop firm accounts, their rules and their history) is complete on branch `phase-8-1-prop-accounts`, cut from `main`. The rules as built are in `docs/PROP_ACCOUNTS.md`.
-- Next: P8.2 (trades linked to accounts, and calculating against the rules).
+- P8.2 (trades linked to accounts, balances from the firm's dashboard, and each account's standing against its rules, with warnings) is complete on branch `phase-8-2-prop-account-standing`, cut from `phase-8-1-prop-accounts`.
+- Next: P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report).
 
 ---
 
@@ -389,7 +390,7 @@ Phase 8 is delivered in stages, each on its own branch cut from the previous one
 | Stage | Scope |
 |---|---|
 | **P8.1** ✅ | Prop firm accounts (D10, D11): one record per attempt, phases and statuses with an append-only history, rules that change by adding a version, resets. No link to trades or the ledger yet |
-| **P8.2** | Trades linked to accounts. Balances entered from the firm's dashboard. Balance, drawdown room, daily loss, target progress and trading days calculated from linked trades and those balances, labelled as from recorded trades (D12). Warnings near a limit, which never block anything |
+| **P8.2** ✅ | Trades linked to accounts. Balances entered from the firm's dashboard. Balance, drawdown room, daily loss, target progress and trading days calculated from linked trades and those balances, labelled as from recorded trades (D12). Warnings near a limit, which never block anything |
 | **P8.3** | Payouts linked to accounts. Fees and resets linked by choosing an expense already in the ledger, as obligations and purchases do. The report answering "which trading accounts consume fees without producing payouts?", per currency and unconverted |
 | **P8.4** | Analytics definition fixes: profit factor with no losses becomes undefined instead of gross profit, and equity-curve drawdown becomes an amount instead of a percentage of cumulative P&L. Tests prove nothing else moves |
 | **P8.5** | Verification and documentation: full regression, Phase 8 traced requirement by requirement, the items already delivered confirmed, and whether CSV import is atomic checked (`ARCHITECTURE_REVIEW` W11) |
