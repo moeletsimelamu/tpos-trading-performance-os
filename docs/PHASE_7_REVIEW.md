@@ -22,7 +22,7 @@ The rules as built are in [`FINANCIAL_DOMAIN.md`](FINANCIAL_DOMAIN.md). Test res
 | `dotnet ef migrations has-pending-model-changes` | No changes |
 | `dotnet ef migrations script --idempotent` | All 14 migrations, each guarded by a migrations-history check |
 | Migrations applied | 14 of 14 on both `MelamuHoldings_Scratch` and dev `MelamuHoldings` (read from their history tables). P7.5 adds none. |
-| CI | **Not run on Phase 7.** P7.1 to P7.5 have not been pushed, so these results are from this Windows machine only. |
+| CI | Passed on `develop` at `7c15487`, the first push of Phase 7 (backend and frontend). That run also includes P7.6. |
 
 ## Exit criterion
 

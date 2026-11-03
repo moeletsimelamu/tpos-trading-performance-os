@@ -29,7 +29,7 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - P7.2 (continuity and trading restoration) is complete on branch `phase-7-2-continuity`, cut from `phase-7-1-funds-obligations`.
 - P7.3 (investments: brokerage valuations and unrealised gain or loss) is complete on branch `phase-7-3-investments`, cut from `phase-7-2-continuity`.
 - P7.4 (budgets, planned purchases and the affordability check) is complete on branch `phase-7-4-budgets-purchases`, cut from `phase-7-3-investments`.
-- P7.5 (verification and documentation) is complete on branch `phase-7-5-verification`, cut from `phase-7-4-budgets-purchases`: full regression, Phase 7 traced requirement by requirement in `docs/PHASE_7_REVIEW.md`, the formulas moved to Domain with unit tests, defects fixed, gaps listed. - Unrestricted cash (P7.6, decision D9) is complete on branch `phase-7-6-unrestricted-cash`, cut from `phase-7-5-verification`. Phase 7 is complete and awaiting review; it has not been pushed.
+- P7.5 (verification and documentation) is complete on branch `phase-7-5-verification`, cut from `phase-7-4-budgets-purchases`: full regression, Phase 7 traced requirement by requirement in `docs/PHASE_7_REVIEW.md`, the formulas moved to Domain with unit tests, defects fixed, gaps listed. - Unrestricted cash (P7.6, decision D9) is complete on branch `phase-7-6-unrestricted-cash`, cut from `phase-7-5-verification`. Phase 7 is complete and on `develop`, with CI passing, awaiting review in a pull request to `main`.
 - Next: Phase 8 (trading integration).
 
 ---

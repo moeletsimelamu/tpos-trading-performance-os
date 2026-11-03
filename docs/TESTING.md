@@ -62,7 +62,7 @@ CI (`.github/workflows/ci.yml`) runs:
 | `npm audit --omit=dev` | 0 vulnerabilities |
 | `dotnet ef migrations has-pending-model-changes` | No changes |
 
-No migration: unrestricted cash reads existing records. CI has not run on Phase 7, because nothing has been pushed.
+No migration: unrestricted cash reads existing records. CI passed on `develop` at `7c15487`, the first push of Phase 7 (backend and frontend).
 
 **New tests**
 - **Unit (`Phase7FormulaTests`):** the formula, including exactly at the minimum and below zero; bills shown and not deducted; only the two funds count; only company bank and cash accounts count.
@@ -95,7 +95,7 @@ No migration: unrestricted cash reads existing records. CI has not run on Phase 
 | `dotnet ef migrations has-pending-model-changes` | No changes |
 | `dotnet ef migrations script --idempotent` | All 14 migrations, each guarded |
 
-No migration: P7.5 changes no schema. The same checks, run before any change, passed at 198 unit, 111 integration and 187 Angular tests. CI has not run on Phase 7, because P7.1 to P7.5 have not been pushed.
+No migration: P7.5 changes no schema. The same checks, run before any change, passed at 198 unit, 111 integration and 187 Angular tests. CI first ran on Phase 7 with the push of P7.6, and passed.
 
 The requirement-by-requirement check of Phase 7 is in [`PHASE_7_REVIEW.md`](PHASE_7_REVIEW.md).
 
