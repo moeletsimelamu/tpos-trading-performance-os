@@ -107,6 +107,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITradeRepository, TradeRepository>();
 builder.Services.AddScoped<IStrategyRepository, StrategyRepository>();
+builder.Services.AddScoped<IPropAccountRepository, PropAccountRepository>();
 builder.Services.AddScoped<IUploadLogRepository, UploadLogRepository>();
 builder.Services.AddScoped<IFinanceRepository, FinanceRepository>();
 
@@ -144,6 +145,7 @@ builder.Services.AddSingleton<IAttachmentStore>(services => new FileSystemAttach
         : Path.Combine(services.GetRequiredService<IWebHostEnvironment>().ContentRootPath, "App_Data", "attachments")));
 builder.Services.AddScoped<TradeChecklists>();
 builder.Services.AddScoped<StrategyService>();
+builder.Services.AddScoped<PropAccountService>();
 builder.Services.AddScoped<AdherenceService>();
 builder.Services.AddScoped<JournalAnswerAnalytics>();
 builder.Services.AddScoped<JournalTemplateService>();

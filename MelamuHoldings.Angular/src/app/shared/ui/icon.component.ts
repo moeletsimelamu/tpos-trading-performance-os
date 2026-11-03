@@ -8,6 +8,7 @@ const PATHS = {
   trades: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
   template: 'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5',
   strategy: 'M5 21V4M5 4h11l-2 4 2 4H5',
+  propAccount: 'M4 7h16v12H4zM9 7V4h6v3M4 12h16M12 11v2',
   journal: 'M6 4h11a1 1 0 0 1 1 1v15H7a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1zM5 18a2 2 0 0 1 2-2h11M9 8h6',
   paperclip: 'M20 11.5l-8.2 8.2a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8',
   'chevron-left': 'M15 6l-6 6 6 6',

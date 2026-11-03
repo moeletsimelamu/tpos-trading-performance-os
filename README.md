@@ -8,7 +8,7 @@ A unified operating system for managing trading operations, financial performanc
 > - the trading module;
 > - **Financial Management**: accounts, funds, an auditable ledger and balances.
 >
-> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets, planned purchases and unrestricted cash** work too (Phase 7). Prop-firm accounts and business planning are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
+> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets, planned purchases and unrestricted cash** work too (Phase 7). **Prop firm accounts** can be recorded with their rules and history (Phase 8, in progress); linking them to trades, payouts and fees is next. Business planning is **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
 
 ![Executive overview](docs/images/executive-overview.jpg)
 
@@ -27,6 +27,13 @@ The landing page shows the business as recorded:
 - what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, funds below their minimum, obligations overdue or due within 14 days, continuity below its target or not measured, brokerage accounts not valued or moved since their valuation, budgets exceeded, purchases that would breach a fund's minimum, ownership not stated, critical trading-behaviour alerts;
 - recent payouts with their status, and recent ledger activity;
 - a trading summary, labelled as not business cash until a payout is recorded.
+
+## What works today: prop firm accounts
+
+- **One record per attempt:** evaluation, verification and funded are phases of one record. A paid reset stays on it; a new challenge after a breach is a new record.
+- **Rules:** drawdown model and limit, daily loss limit, profit target, minimum trading days, payout split and the firm's stated fees. They change by adding a version, so earlier rules stay readable.
+- **History:** every phase, status, reset, rule change and correction is kept with its date. A breach says which rule.
+- **Not yet:** trades, payouts and fees are not linked to an account, and nothing is calculated against the rules. Nothing on these pages touches the ledger. The rules as built are in [`docs/PROP_ACCOUNTS.md`](docs/PROP_ACCOUNTS.md).
 
 ## What works today: budgets and planned purchases
 
@@ -262,6 +269,11 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/strategies` | Create a strategy with its rules |
 | PUT | `/api/strategies/{id}` | Update a strategy; rules left out are retired |
 | POST | `/api/strategies/{id}/archive` · `/restore` · `/rules/{ruleId}/restore` | Strategy actions |
+| GET | `/api/prop-accounts?includeClosed=` | List your prop firm accounts with their rules and history |
+| GET | `/api/prop-accounts/{id}` · `/api/prop-accounts/currencies` | Get one account; the currencies an account can be in |
+| POST | `/api/prop-accounts` | Add an account with its first rules |
+| PUT | `/api/prop-accounts/{id}` | Correct the firm, nickname, size, login or notes |
+| POST | `/api/prop-accounts/{id}/rules` · `/phase` · `/status` · `/reset` | Add a rule version, change phase (with that phase's rules), change status, record a reset |
 | DELETE | `/api/trades/{id}` | Delete a trade |
 | POST | `/api/upload` | Import a CSV journal (max 10 MB) |
 | GET | `/api/upload/logs` | Upload history (imported, skipped, matched and failed rows) |

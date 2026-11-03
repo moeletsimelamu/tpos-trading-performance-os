@@ -49,6 +49,52 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-03 (branch `phase-8-1-prop-accounts`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 289 passed, 0 failed |
+| `dotnet test` (Release): integration | 128 passed, 0 failed |
+| `ng test --watch=false` | 204 passed, 0 failed (30 files) |
+| `ng build` (production) | Succeeded; initial bundle 313.30 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | Generated for all 15 migrations; every step guarded |
+| `AddPropFirmAccounts` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+CI has not run on this branch, because it has not been pushed.
+
+**New tests**
+- **Unit (`PropFirmAccountTests`):**
+  - **Opening:** a new account's balance, rules and first history entry, and the limits on its size, dates and text.
+  - **Rules:** each rule that cannot apply is refused with its reason, every limit is optional, and a lock only applies to a trailing model.
+  - **Phases:** passing one stays on the record, restarts the balance and adds that phase's rules. Going back needs a reason, and limits are checked against the new starting balance.
+  - **Status:** a breach says which rule, leaving a breach or a close needs a reason, and dates stay in order.
+  - **Resets:** a breached account becomes active in the same phase, and a closed one cannot be reset until reopened.
+  - **Rule versions:** a change adds a version and keeps the old one, while unchanged rules add nothing.
+  - **Corrections:** they record what changed, and correcting the size corrects the starting balance.
+- **Integration (`PropAccountEndpointTests`):**
+  - **The whole story:** an account from evaluation to funded, breached and reset, read back from the database in order with what it was at each step.
+  - **Access:** another trader gets 404 and can use the same nickname, and no session gets 401.
+  - **Nicknames:** open ones are unique ignoring case. A closed one's is free, and reopening it is then refused with a 409.
+  - **Refusals:** 400, 422 and 404 cases, none of which leave a history entry.
+  - **The ledger:** the transaction count does not change.
+- **Angular (`prop-accounts.spec`):** the counts and list, the empty state, closed accounts on request, the bodies sent, no limit or lock sent for a model that does not use it, what the status allows, a phase change starting from the current rules, when a reason is required, a refusal shown with the API's message, and earlier rule versions.
+- **Existing tests changed:** none.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Created:** "100k attempt 1" through the form, which opened on its page with the rules and first history entry as entered.
+- **Phase change:** the form started at Verification with the current rules, and saving restarted the run and added version 2.
+- **Reasons:** saving stayed disabled for a breach and for reopening a closed account until a reason was given.
+- **Refusal:** a reset dated before the last change showed "The reset date cannot be before the last change (2026-10-20)", and the form stayed open.
+- **Everything else:** a reset, a rule change to trailing end of day (the lock option appeared), a firm correction, closing and reopening. The history and earlier versions showed each one, and a closed account offered only Change status.
+- **Phone width:** nothing extends past the 375 px page on the account page or the list.
+- **How it was driven:** the first form with real input through the browser tools, the rest by setting fields and clicking through a page script, because the pane was hidden. No screenshot of the full width was possible for the same reason, so desktop layout was checked by the page not overflowing at 1280 px and by the part of the page captured.
+- **After the check:** two labels changed ("Balance since" on the list, and the date moved from the phase to the starting balance on the account page). The Angular specs cover the second; the first was not looked at again in the browser.
+- **Not exercised in the browser:** a nickname conflict and going back a phase. The integration, unit and Angular tests cover them.
+
 ## Results — 2026-11-03 (branch `phase-7-6-unrestricted-cash`)
 
 | Command | Result |

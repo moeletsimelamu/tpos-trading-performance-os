@@ -1,6 +1,6 @@
 # Architecture
 
-How the code is organised today (after Phase 7 and the trading journal). Plans for modules that aren't built yet are in [`../PLAN.md`](../PLAN.md); the original audit is in [`ARCHITECTURE_REVIEW.md`](ARCHITECTURE_REVIEW.md).
+How the code is organised today (after Phase 7, the trading journal and P8.1). Plans for modules that aren't built yet are in [`../PLAN.md`](../PLAN.md); the original audit is in [`ARCHITECTURE_REVIEW.md`](ARCHITECTURE_REVIEW.md).
 
 ## Backend (.NET 10)
 
@@ -46,7 +46,7 @@ tests/
 **Rules**
 
 - **Layers point inwards.** API → Application → Domain. Infrastructure implements Application's interfaces and is wired up in `Program.cs`.
-- **Modules depend in one direction.** Trading and finance records reference their `User`, but Identity knows nothing about either. Finance depends on nothing in Trading; the only planned link is an optional reference from payouts to prop accounts (Phase 8).
+- **Modules depend in one direction.** Trading and finance records reference their `User`, but Identity knows nothing about either. Finance depends on nothing in Trading; the only planned link is an optional reference from payouts to prop accounts (P8.3). Prop firm accounts are in Trading and use `Money` and `Currency` from Finance, a dependency in the permitted direction.
 - **Namespaces follow folders.** For example, `MelamuHoldings.Application.Trading`.
 - **Money rules live in Domain.** `Money`, `Currency` and the ledger factories are unit-tested without a database. See [`FINANCIAL_DOMAIN.md`](FINANCIAL_DOMAIN.md).
 - **Finance writes are use cases, not CRUD.** Each money movement has its own endpoint and service method, and every ledger transaction is saved through `LedgerPosting`, together with whatever depends on it (a payout receipt, an allocation settlement) and its audit event, in one database transaction. No endpoint edits a transaction or sets a balance.

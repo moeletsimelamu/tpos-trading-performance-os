@@ -12,6 +12,7 @@ import { AdherenceReport, AdherenceTrend, AnswerBreakdown, SaveStrategy, Strateg
 import { AnalyticsFilter, AnalyticsFilterOptions, filterParams } from './models/analytics-filter.model';
 import { AiJournalAnswer, AiReviewDraft, AiReviewStatus } from './models/ai-review.model';
 import { CalendarMonth, ImportMatch, JournalOverview, LinkResult, MatchDecision, TradeAttachment } from './models/journal-view.model';
+import { CreatePropAccount, PropAccount, PropAccountPhase, PropAccountRules, PropAccountStatus, UpdatePropAccount } from './models/prop-account.model';
 
 @Injectable({ providedIn: 'root' })
 export class TradingApiService {
@@ -87,6 +88,45 @@ export class TradingApiService {
 
   restoreRule(id: number, ruleId: number): Observable<Strategy> {
     return this.http.post<Strategy>(`${this.base}/strategies/${id}/rules/${ruleId}/restore`, {});
+  }
+
+  // ---- Prop firm accounts ----
+
+  getPropAccounts(includeClosed = false): Observable<PropAccount[]> {
+    const params = includeClosed ? new HttpParams().set('includeClosed', true) : undefined;
+    return this.http.get<PropAccount[]>(`${this.base}/prop-accounts`, { params });
+  }
+
+  getPropAccount(id: number): Observable<PropAccount> {
+    return this.http.get<PropAccount>(`${this.base}/prop-accounts/${id}`);
+  }
+
+  getPropAccountCurrencies(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/prop-accounts/currencies`);
+  }
+
+  createPropAccount(body: CreatePropAccount): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts`, body);
+  }
+
+  updatePropAccount(id: number, body: UpdatePropAccount): Observable<PropAccount> {
+    return this.http.put<PropAccount>(`${this.base}/prop-accounts/${id}`, body);
+  }
+
+  changePropAccountRules(id: number, body: { effectiveFrom: string; rules: PropAccountRules }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/rules`, body);
+  }
+
+  movePropAccountPhase(id: number, body: { phase: PropAccountPhase; date: string; startingBalance: number | null; login: string | null; rules: PropAccountRules; reason: string | null }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/phase`, body);
+  }
+
+  changePropAccountStatus(id: number, body: { status: PropAccountStatus; date: string; reason: string | null }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/status`, body);
+  }
+
+  resetPropAccount(id: number, body: { date: string; startingBalance: number | null; note: string | null }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/reset`, body);
   }
 
   // Adherence takes the same filter as every other figure (a strategy page passes its strategyId)
