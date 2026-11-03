@@ -49,6 +49,239 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-03 (branch `phase-7-6-unrestricted-cash`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 254 passed, 0 failed |
+| `dotnet test` (Release): integration | 122 passed, 0 failed |
+| `ng test --watch=false` | 194 passed, 0 failed (29 files) |
+| `ng build` (production) | Succeeded; initial bundle 311.01 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+
+No migration: unrestricted cash reads existing records. CI passed on `develop` at `7c15487`, the first push of Phase 7 (backend and frontend).
+
+**New tests**
+- **Unit (`Phase7FormulaTests`):** the formula, including exactly at the minimum and below zero; bills shown and not deducted; only the two funds count; only company bank and cash accounts count.
+- **Integration (`UnrestrictedCashEndpointTests`, in a database of its own, worked out by hand):**
+  - **ZAR:** 70,000 held, less a 5,000 minimum and a 4,000 committed purchase, is 61,000. A proposed purchase and a committed purchase from the Wealth Fund do not come off. ZAR 8,000 due today is shown, with 53,000 left after it, and a bill due in 31 days is left out.
+  - **USD:** a 1,350 payout allocated 40/30/20/10 with continuity's 405 earmarked, a 500 payout not allocated, and a 100 payout whose allocation was cancelled. That is 1,545 held, less 405 still owed to other funds and 600 not allocated, leaving 540: Operating Capital's share. The rand minimum does not touch USD.
+  - **Not counted:** money in brokerage, personal and ownership-not-stated accounts is listed with the reason, and a payout allocated from a personal account takes nothing off.
+- **Integration (`FinanceAccessTests`):** the endpoint is in the 401 and 403 checks.
+- **Angular:** the page's working line by line, bills beside the figure, currencies kept apart, the below-zero note, the not-counted list and the empty state. The overview shows one metric per currency with a link to the working.
+- **Existing tests changed:** the overview specs answer the new request.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Overview:** it showed Unrestricted · USD 345.00 and Unrestricted · ZAR 11,132.50, and "See the working" opened the page.
+- **The working:** ZAR 7,250.50 Unallocated + 8,882.00 Operating Capital = 16,132.50 held, less the 5,000 minimum = 11,132.50, matching the direct ledger query from P7.5. ZAR 9,000 of obligations was shown beside it, with ZAR 2,132.50 left after them. The broker's ZAR 5,975 was listed as not counted.
+- **A commitment:** committing Monitor through the API moved the figure to ZAR 8,132.50, and withdrawing it moved it back.
+- **Phone width:** nothing extends past the 375 px page.
+- **Not exercised in the browser, because scratch has no such records:** a below-zero figure, an unsettled allocation, a payout not allocated, and personal accounts. The integration and Angular tests cover them.
+
+## Results — 2026-11-03 (branch `phase-7-5-verification`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 238 passed, 0 failed |
+| `dotnet test` (Release): integration | 120 passed, 0 failed, on three consecutive runs |
+| `ng test --watch=false` | 191 passed, 0 failed (28 files), on two consecutive runs |
+| `ng build` (production) | Succeeded; initial bundle 311.01 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | All 14 migrations, each guarded |
+
+No migration: P7.5 changes no schema. The same checks, run before any change, passed at 198 unit, 111 integration and 187 Angular tests. CI first ran on Phase 7 with the push of P7.6, and passed.
+
+The requirement-by-requirement check of Phase 7 is in [`PHASE_7_REVIEW.md`](PHASE_7_REVIEW.md).
+
+**New tests**
+- **Unit (`Phase7FormulaTests`):** the affordability answer, coverage, shortfall, restoration progress, budget figures, unrealised gain or loss, and the group each brokerage entry falls in, at their edges: exactly at a minimum and a cent below, exactly on budget and a cent over, 1.25 months reading 1.2, a fund below zero. Also the largest amount that fits and the next one up, the last first due date, and audit amounts under a comma-decimal culture.
+- **Integration (`FinanceInputLimitTests`, in a database of its own):** a budget month of `9999-12` or `0001-01`, an obligation first due in 9999, and an amount too large to store on budgets, obligations, purchases and the ledger are each refused with a 422, and the largest amount that fits is accepted. Run before the fixes, four of these failed: two 500s, a 200 and a 201.
+- **Integration (`FinanceAccessTests`):** obligations, continuity, investments, budgets and planned purchases are now in the 401 and 403 checks. These passed before any change.
+- **Angular:**
+  - **Overview:** it asks for paid obligations too, warns about a reversed payment on a paid one-off with a link that opens the closed ones, and skips a cancelled obligation.
+  - **Obligations and Purchases:** each opens with the closed ones showing when linked with `closed=true`. A committed purchase has the info tag.
+- **Existing tests changed:** the overview specs expect `includeClosed=true` on the obligations request. No integration test changed apart from the access list.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Later reversals:** expense 18, already linked to the bought Monitor, was reversed through the API. A new one-off "Licence (scratch)", ZAR 500, was paid by a linked expense, and that expense was reversed too. The overview then warned "A payment of Licence (scratch) was reversed" and "The expense for Monitor (scratch) was reversed", with links ending `?closed=true`.
+- **Undoing a payment:** "Review the payment" opened Obligations with the paid one showing and the box ticked. "Undo this payment" returned the licence to due today.
+- **Undoing a purchase:** "Undo this purchase" returned Monitor to Committed. Operating Capital read ZAR 8,882 again (5,932 + the 2,950 returned by the reversal). Monitor showed "leaves 5,882" and Server "would leave 882", with the obligations beside them now ZAR 9,000 (8,500 + 500).
+- **Withdrawing a commitment:** "Back to proposed" put Monitor back, and Server moved to "would leave 3,882".
+- **Deleting a budget line:** "Delete", then "Delete it", removed the fibre line, and its ZAR 900 moved to "Spent outside the budget".
+- **Audit log:** it held `purchase.undone`, `purchase.commitment-withdrawn`, `obligation.payment-undone` and `budget.deleted` in order.
+- **Against the database:** a direct query of the scratch ledger gave Operating Capital ZAR 8,882, cash USD 1,149 and ZAR 21,132.50, Business Continuity ZAR 3,000 in a shared account and ZAR 2,000 in its own, and November's fibre ZAR 900. Each matches the app. Both databases have all 14 migrations (dev was only read).
+- **Bad input against the running API:** an amount of 1e15, month `9999-12` and a first due date in 9999 each returned 422 with a reason.
+- **Tag and layout:** the Committed tag has the info colour, and the "Over budget" tag sits 8 px from its label (the gap added in P7.4, unseen until now). Purchases and Obligations with the closed ones showing do not overflow at 375 px.
+- **Console:** the only errors were my own: two refused connections and a failed chunk from opening the page before the dev server was ready, and three 422s from the bad-input probes. Nothing new appeared in the final check.
+- **Final check, after the last two changes:** the overview's warnings rendered in order, and a budget line created and deleted through the API was audited as `ZAR 800.00` on this comma-decimal machine.
+- **Not done in the browser:** the two reversals and the expenses were sent through the API; the ledger's reversal form is covered by existing tests. Two warnings sharing a title were not produced, as that needs two over-budget lines of one category in different currencies.
+- **My own slip:** the first licence expense was recorded against the USD account by mistake. It was reversed and recorded again in ZAR, so the scratch ledger has that extra pair (transactions 20 and 21).
+
+## Results — 2026-11-03 (branch `phase-7-4-budgets-purchases`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 198 passed, 0 failed |
+| `dotnet test` (Release): integration | 111 passed, 0 failed |
+| `ng test --watch=false` | 187 passed, 0 failed (28 files) |
+| `ng build` (production) | Succeeded; initial bundle 311.01 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddBudgetsAndPlannedPurchases` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+**New tests**
+- **Unit (`BudgetAndPurchaseTests`):**
+  - **Budget lines:** a whole month, a required category, a positive amount and a fixed currency. Categories match whatever their case or surrounding spaces.
+  - **Purchases:** the stages run in order, and what it cost is recorded even when it differs from the plan. Undo returns it to committed. Another currency, a reversed expense and an income are refused, and nothing refused is kept. The system fund, a blank name and a zero amount are refused.
+- **Integration (`BudgetEndpointTests`):** an expense in another case counts against its line, and over budget is reported (8,500 of 8,000: −500, 106.2%). A reversed expense counts for nothing, and other months are left out. A dollar expense does not count against a rand budget and is listed outside the budget, with expenses of other categories and those with none. Totals are per currency, and with no month given the report is for this month.
+- **Integration (`BudgetRuleTests`):** bad months, a zero or fractional-cent amount and an unknown currency are refused. A second line for a month, category and currency is 409 in any case, while another currency or month is allowed. Changing and deleting work and are audited, and with no token the request is 401.
+- **Integration (`PlannedPurchaseEndpointTests`):**
+  - **Affordable or not:** brokerage money is not counted. Exactly at the minimum is affordable, and a cent below breaches it.
+  - **Commitments:** a commitment reserves its money from the others and not from itself. Committing is allowed even when it breaches the minimum.
+  - **No minimum:** no minimum in the currency gives "no minimum" or "not enough money", and a minimum in another currency is shown and not converted.
+  - **Obligations:** those due within 30 days are shown and not deducted; other currencies and later dates are left out.
+- **Integration (`PlannedPurchaseLifecycleTests`):**
+  - **Candidates:** other currencies, reversed expenses and expenses that paid an obligation are left out.
+  - **Buying:** it is refused before committing, and creates no ledger transaction. It records what the purchase cost and ends the check.
+  - **One expense, one thing:** a second purchase is 409, and an obligation is refused it and does not offer it.
+  - **Reversal and undo:** a later reversal is flagged, and undo returns it to committed with the expense still in the ledger.
+  - **Names and refusals:** open names are unique, and cancelling frees the name. Refusals, 404, 401 and the audit events are checked.
+- **Angular:**
+  - **Budgets page:** budget versus actual, the over-budget tag with the bar stopping at full, totals, spending outside the budget, choosing a month, "Budget it" filling the form, a fixed currency when editing, and asking before deleting.
+  - **Purchases page:** the answer in words for all four results with the figures behind it, the stages with a reload after each change, linking an expense, the operating fund as the default with no system fund offered, asking before cancelling, and closed ones only when asked.
+  - **Overview:** warnings for a budget exceeded, a committed purchase that breaches (a note while proposed), and a reversed expense. The overview specs answer the new requests.
+- **Existing tests changed:** none beyond the overview specs answering the new requests.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Budgets:** November started empty. A scratch ZAR 900 expense with category "fibre", created through the API, showed outside the budget. "Budget it" filled the form, and a ZAR 800 budget then showed 112.5% used, over budget, ZAR −100. October showed only the uncategorised ZAR 25 fee, because its Rent and Software expenses were reversed.
+- **Affordability:** Operating Capital held ZAR 8,882 with a ZAR 5,000 minimum. Through the form, "Monitor" at ZAR 3,000 was affordable (leaves 5,882) and "Server" at ZAR 5,000 breached the minimum (leaves 3,882, 1,118 below). The overdue ZAR 8,500 rent was shown beside both and not deducted.
+- **Commitment:** committing Monitor moved Server to "would leave 882".
+- **Buying:** a ZAR 2,950 expense was created through the API and linked from the page. The purchase recorded 2,950, and Server then showed 932 (8,882 − 2,950 − 5,000), so the reservation ended and the real cost applied.
+- **Overview:** it warned "fibre is over budget" and "Server (scratch) would breach the Operating Capital minimum". The coverage note no longer says budgets are not tracked.
+- **Phone width and console:** at 375 px nothing extends past the page on Budgets or Planned purchases, with or without their forms; the budget table scrolls inside its card. The console had no errors after a fresh load of Planned purchases.
+- **Not exercised in the browser:** undoing a purchase, a later reversal, withdrawing a commitment and deleting a budget line. Those are covered by the integration and Angular tests.
+
+## Results — 2026-10-30 (branch `phase-7-3-investments`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 193 passed, 0 failed |
+| `dotnet test` (Release): integration | 107 passed, 0 failed |
+| `ng test --watch=false` | 178 passed, 0 failed (26 files), three runs |
+| `ng build` (production) | Succeeded; initial bundle 310.77 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddInvestmentValuations` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+**New tests**
+- **Unit (`InvestmentValuationTests`):** a valuation takes the account's currency and a trimmed note. Bank and cash accounts, closed accounts, dates more than a day ahead, negative values, fractions of a cent and over-long notes are refused.
+- **Integration (`InvestmentEndpointTests`):**
+  - **Figures:** a ZAR brokerage account has an opening balance of 10,000, a transfer in of 20,000, a 500 dividend, a 50 fee and a withdrawal of 5,000. A 1,000 transfer in was reversed. Its net contributions are 25,000 (the reversal cancels as a contribution), the recorded balance 25,450, and a 27,000 valuation is +1,550 unrealised and +2,000 on contributions.
+  - **Later movement:** a 3,000 transfer dated after the valuation is counted apart (1 transaction, +3,000) and is not in the gain.
+  - **Exchange:** a USD account funded by a currency exchange has 1,000 contributed, and a valuation of 950 is −50.
+  - **Totals and scope:** totals are per currency (USD and ZAR apart), of valued accounts only. An unvalued account has no gain or loss, and only brokerage accounts are listed.
+  - **Balances:** the account's ledger balance is unchanged by valuations.
+- **Integration (`InvestmentValuationRuleTests`, in a database of its own):** a bank account, a future date, a negative or fractional-cent value and a missing date are refused, and an unknown account is 404. A second valuation on a day is 409, and deleting another account's valuation is 404. Deleting frees the day. Recorded, deleted and recorded again are audited in order, and with no token the request is 401.
+- **Angular:**
+  - **Investments page:** totals per currency, the figures for each account with the gain labelled unrealised and signed, the warning about transactions since the valuation, and the "Not valued yet" state.
+  - **Recording and deleting:** recording sends the trimmed body and reloads. The history table shows each valuation against the ledger, and deleting asks first.
+  - **Overview:** it asks for a valuation of an account never valued or moved since its valuation, and skips accounts that are up to date, empty or closed. The overview specs answer the new investments request.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Setup:** the page showed the empty state with no brokerage account. A scratch brokerage account "Scratch broker ZAR" was then created through the API, with a ZAR 5,000 transfer in and a ZAR 25 platform fee. The page showed 5,000 contributed, 4,975 recorded and "Not valued yet".
+- **Recording a valuation:** ZAR 5,300 dated today was recorded through the form. It showed +325 unrealised and +300 on contributions, and the totals strip showed ZAR 5,300 valued and +325 unrealised.
+- **Deleting and re-dating:** the valuation was deleted from the history table after confirming. ZAR 4,900 was then recorded for the day before, and a ZAR 1,000 transfer was made today.
+  - **Investments page:** it showed −75 unrealised and "1 transaction since this valuation (ZAR +1,000.00)".
+  - **Overview:** it showed "Scratch broker ZAR moved since its valuation". Cash went down by the 6,000 moved to the broker, because brokerage money is not cash.
+- **Fixes found and made:**
+  - **Grammar:** the overview text said "1 transaction … are"; it now says "is".
+  - **Phone width:** the valuation history table overflowed its card at phone width; it now scrolls inside the card, as other tables do.
+- **Phone width and console:** after the fix, nothing extends past the 375 px page, and the console had no errors.
+- **Not checked visually:** the browser pane would not draw while the app window was behind another window, so a screenshot could not be taken; layout was checked by measuring element positions.
+
+## Results — 2026-10-30 (branch `phase-7-2-continuity`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 191 passed, 0 failed |
+| `dotnet test` (Release): integration | 105 passed, 0 failed |
+| `ng test --watch=false` | 175 passed, 0 failed (25 files), twice in a row |
+| `ng build` (production) | Succeeded; initial bundle 310.65 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddContinuitySettings` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+**New tests**
+- **Unit (`ContinuitySettingsTests`):** the target is months × the entered expense, and none without it. Continuity and restoration must differ, neither can be the system fund, months stay within 1–120, and the expense is positive in whole cents. Nothing refused is kept.
+- **Integration (`ContinuityEndpointTests`):**
+  - **Seeded settings:** Business Continuity, 24 months, ZAR, and the Trading Restoration fund; nothing measured before the expense is entered.
+  - **Counting:** ZAR 30,000 earmarked in a shared account and ZAR 40,000 in an account of its own count (70,000). Coverage against 24 × 10,000 is 7.0 months, with a shortfall of 170,000.
+  - **Not counted:** ZAR 5,000 at a broker, USD 100, and the USD 405 a confirmed allocation still owes the fund are listed apart with their reasons.
+  - **Restoration:** USD 1,000 against a USD 5,000 target is 20.0%, with a shortfall of 4,000.
+  - **Settings:** the change is audited, and the same fund twice, Unallocated, a negative or fractional-cent expense and an unknown fund are refused (422). Months outside 1–120 are 400, and with no token the request is 401.
+- **Angular:**
+  - **Continuity page:** coverage, counted, target and shortfall; holdings tagged earmarked or separated; the not-counted list; and restoration progress. With no expense entered it shows "Not measured" rather than a zero. The settings form offers no system fund, refuses the same fund twice and sends the body.
+  - **Overview:** a below-target warning with the figures, an "is not measured" item, and nothing when the target is met. The cash strip shows the coverage.
+- **Existing tests changed:**
+  - **Seeded funds:** the expected list now includes Trading Restoration, which the migration adds.
+  - **Overview specs:** they answer the new continuity request.
+  - **Route tests:** they allow 20 s. They load the real lazy pages, and with a 25th spec file running alongside, the first navigation went past the default 5 s. The full suite passed on P7.1, and passed again without the new spec, so the cause was load, not a fault.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Before the expense:** the page counted ZAR 5,000, as ZAR 3,000 earmarked in "Operating ZAR" and ZAR 2,000 separated in "Reserve ZAR". It showed USD 402 as not counted and said "Not measured". These figures match a direct query of the scratch ledger's fund positions. The overview showed "Continuity is not measured".
+- **After the expense:** a monthly essential expense of ZAR 4,000 was entered through the form. Coverage became 1.2 months (5,000 ÷ 4,000 = 1.25, rounded down), the target ZAR 96,000 and the shortfall ZAR 91,000.
+  - **Overview:** it then warned "Continuity covers 1.2 of 24 months", after the overdue obligation.
+  - **Audit:** the `continuity.updated` event was recorded.
+- **Restoration:** Trading Restoration was given a USD 2,000 target on the Funds page, and the page then showed USD 0.00 held, 0% of the target.
+- **Phone width and console:** the Continuity page, its settings form and the overview have no horizontal overflow at 375 px. The console had no errors after a fresh load of the Continuity page.
+- **Known limit:** audit summaries format amounts with the server's culture (`ZAR 4000,00` on this machine), as the payout and obligation summaries already do. The structured before/after data is unaffected.
+
+## Results — 2026-10-29 (branch `phase-7-1-funds-obligations`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 189 passed, 0 failed |
+| `dotnet test` (Release): integration | 103 passed, 0 failed |
+| `ng test --watch=false` | 171 passed, 0 failed (24 files) |
+| `ng build` (production) | Succeeded; initial bundle 310.51 kB; no budget warnings |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `AddFundThresholdsAndObligations` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+**New tests**
+- **Unit (`ObligationTests`):**
+  - **Due dates:** a monthly obligation first due on 31 January is due on 28 February and on 31 March. Quarterly and leap-year yearly dates are also checked.
+  - **Payments:** a payment records what was actually paid. Another currency, a reversed expense and an income are refused, and nothing refused is kept.
+  - **One-offs and undo:** a one-off is completed by its payment, and undoing restores it and the due date. There must be something to undo.
+  - **Standing:** overdue, due soon (today to 14 days), upcoming and cancelled.
+  - **Changes:** the schedule and currency are fixed once paid, and the next date is still counted from the first. Names, amounts and recurrence are validated.
+  - **Fund thresholds:** one currency, valid levels, whole minor units, none on the system fund, and clearing both clears the currency.
+- **Integration (`ObligationEndpointTests`):**
+  - **Candidates:** only unlinked, unreversed expenses in the obligation's currency are offered.
+  - **Paying:** a payment moves the due date on a month and is no longer a candidate. Reusing its expense is 409; a reversed or dollar expense is 422.
+  - **Later reversal and undo:** reversing the expense afterwards marks the payment reversed, and undo restores the date. The audit log holds created, paid and undone.
+  - **Names:** active names are unique (409), and a cancelled obligation frees its name and is listed only with `includeClosed`.
+  - **Refusals:** fractions of a cent, an unknown currency and an unknown recurrence are refused, as are an unknown id (404) and no token (401).
+  - **Fund thresholds:** saved, returned on the list, validated (422 without a currency, target below minimum, or on Unallocated), and cleared.
+- **Angular:**
+  - **Obligations page:** due within 30 days per currency (USD and ZAR apart) and the overdue count. A payment is recorded from a candidate, and the page then offers to record the next expense first. A new obligation's body, and the currency and schedule locked once paid.
+  - **Funds:** standing and progress (capped 0–100, other currencies ignored), the Funds page's below-minimum tag and progress, the save body always carrying the levels, and no levels on the system fund.
+  - **Overview warnings:** overdue, due soon and reversed-payment warnings, and below-minimum without a duplicate below-zero warning. The existing specs answer the new obligations request.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Overdue:** "Office rent", ZAR 8,500 monthly, first due 25 Oct, was added through the form. It showed as overdue, 4 days late, and the 30-day total as ZAR 8,500.00 for one payment.
+- **Paying it:** a scratch ZAR 8,500 rent expense (transaction 12) was recorded through the API. It was the only candidate offered (the scratch ledger's reversed ZAR 3,000 expense was left out). Linking it moved the due date to 25 Nov ("in 27 days") and set the overdue count to 0.
+- **Fund levels:** Operating Capital got a minimum of ZAR 5,000 and a target of ZAR 20,000 through the form. It showed "Below minimum" and "6.4% of the target" (1,282 ÷ 20,000), and the overview warned "Operating Capital is below its minimum".
+- **Later reversal:** reversing transaction 12 brought the overview's "A payment of Office rent was reversed" warning. The below-minimum warning went, because the reversal returned the money to the fund.
+- **Undo:** undoing the payment on the page put the due date back to 25 Oct, overdue, and the overview then warned "Office rent is overdue".
+- **Phone width and console:** the Obligations page has no overflow at phone width. The console had no errors after a fresh load.
+
 ## Results — 2026-10-29 (branch `phase-6-executive-overview`)
 
 | Command | Result |

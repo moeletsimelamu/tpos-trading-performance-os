@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { OverviewComponent, attentionItems } from './overview.component';
-import { Account, Allocation, Balances, Fund, Payout } from '../finance/finance.models';
+import { Account, Allocation, Balances, BudgetMonth, ContinuityReport, Fund, InvestmentAccount, Obligation, Payout, PlannedPurchase } from '../finance/finance.models';
 import { BehaviourSummary } from '../trading/models/analytics.model';
 import { environment } from '../../../environments/environment';
 
@@ -31,7 +31,76 @@ const balances: Balances = {
   cashTotals: [{ amount: 350, currency: 'USD' }, { amount: 16250.5, currency: 'ZAR' }]
 };
 
+const zar = (amount: number) => ({ amount, currency: 'ZAR' });
+const continuity: ContinuityReport = {
+  settings: { continuityFundId: 3, continuityFundName: 'Business Continuity', months: 24, currency: 'ZAR', monthlyEssentialExpense: 10000 },
+  cash: zar(70000), target: zar(240000), coverageMonths: 7, shortfall: zar(170000), belowTarget: true,
+  earmarked: zar(30000), separated: zar(40000), holdings: [], notCounted: []
+};
+
 describe('attentionItems', () => {
+  it('warns about a budget exceeded this month, and leaves the others alone', () => {
+    const line = (category: string, actual: number, exceeded: boolean) => ({
+      id: 1, month: '2026-11', category, budget: zar(8000), actual: zar(actual), remaining: zar(8000 - actual), usedPercent: 0, exceeded, transactions: 1
+    });
+    const budgets: BudgetMonth = { month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [line('Rent', 8500, true), line('Fibre', 100, false)], unbudgeted: [], totals: [] };
+    const items = attentionItems(null, null, [], [], [], null, null, budgets);
+
+    expect(items.map(i => [i.tone, i.title])).toEqual([['warning', 'Rent is over budget']]);
+    expect(items[0].detail).toBe('ZAR 8,500.00 spent of ZAR 8,000.00 in 2026-11; ZAR 500.00 over.');
+  });
+
+  it('warns about a committed purchase the fund cannot carry, notes a proposed one, and flags a reversed expense', () => {
+    const purchase = (name: string, status: PlannedPurchase['status'], verdict: 'Affordable' | 'BreachesMinimum' | 'NotEnoughMoney' | null, reversed = false): PlannedPurchase => ({
+      id: 1, name, amount: zar(16000), fundId: 2, fundName: 'Operating Capital', status, expenseReversed: reversed, createdAt: '',
+      affordability: verdict && { verdict, available: zar(20000), committedElsewhere: zar(0), purchase: zar(16000), after: zar(4000), shortfall: zar(1000), obligationsDue: zar(0) }
+    });
+    const items = attentionItems(null, null, [], [], [], null, null, null, [
+      purchase('Server', 'Committed', 'BreachesMinimum'), purchase('Desk', 'Proposed', 'NotEnoughMoney'), purchase('Laptop', 'Proposed', 'Affordable'), purchase('Chair', 'Purchased', null, true)
+    ]);
+
+    expect(items.map(i => [i.tone, i.title])).toEqual([
+      ['warning', 'Server would breach the Operating Capital minimum'],
+      ['info', 'Operating Capital cannot pay for Desk'],
+      ['warning', 'The expense for Chair was reversed']
+    ]);
+    expect(items[0].detail).toBe('ZAR 16,000.00, committed, would leave ZAR 4,000.00; ZAR 1,000.00 short.');
+  });
+
+  it('asks for a valuation of a brokerage account never valued, or moved since its valuation', () => {
+    const inv = (overrides: Partial<InvestmentAccount>): InvestmentAccount => ({
+      accountId: 1, accountName: 'Broker', currency: 'ZAR', ownership: 'Company', status: 'Active', asOf: '2026-10-25',
+      netContributions: zar(1000), recordedIncome: zar(0), recordedCosts: zar(0), recordedBalance: zar(1000),
+      transactionsSinceValuation: 0, movedSinceValuation: zar(0), currentRecordedBalance: zar(1000), ...overrides
+    });
+    const valued = { id: 1, accountId: 1, valuedOn: '2026-10-25', value: zar(1100), recordedAt: '', recordedBalance: zar(1000), unrealised: zar(100) };
+    const accounts = [
+      inv({ accountName: 'Never valued' }),
+      inv({ accountId: 2, accountName: 'Moved', latest: valued, transactionsSinceValuation: 2, movedSinceValuation: zar(500) }),
+      inv({ accountId: 3, accountName: 'Up to date', latest: valued }),
+      inv({ accountId: 4, accountName: 'Empty', currentRecordedBalance: zar(0) }),
+      inv({ accountId: 5, accountName: 'Closed', status: 'Closed' })
+    ];
+    const items = attentionItems(null, null, [], [], [], null, { accounts, totals: [] });
+
+    expect(items.map(i => [i.tone, i.title])).toEqual([['info', 'Never valued is not valued'], ['info', 'Moved moved since its valuation']]);
+    expect(items[1].detail).toBe('2 transactions after 2026-10-25 are not in its unrealised gain or loss.');
+  });
+
+  it('warns when continuity is below its target, and asks for the essential expense when it cannot be measured', () => {
+    const below = attentionItems(null, null, [], [], [], continuity);
+    expect(below.map(i => [i.tone, i.title])).toEqual([['warning', 'Continuity covers 7.0 of 24 months']]);
+    expect(below[0].detail).toBe('ZAR 70,000.00 counted against a target of ZAR 240,000.00; ZAR 170,000.00 short.');
+
+    const met = { ...continuity, cash: zar(250000), coverageMonths: 25, shortfall: zar(0), belowTarget: false };
+    expect(attentionItems(null, null, [], [], [], met)).toEqual([]);
+
+    const unmeasured: ContinuityReport = {
+      ...continuity, settings: { ...continuity.settings, monthlyEssentialExpense: null }, target: null, coverageMonths: null, shortfall: null, belowTarget: false
+    };
+    expect(attentionItems(null, null, [], [], [], unmeasured).map(i => [i.tone, i.title])).toEqual([['info', 'Continuity is not measured']]);
+  });
+
   it('asks for accounts when none are set up', () => {
     const items = attentionItems({ accounts: [], funds: [fund(1, 'Unallocated')], cashTotals: [] }, null);
 
@@ -47,6 +116,44 @@ describe('attentionItems', () => {
     const item = items.find(i => i.title === 'Money not assigned to a fund')!;
     expect(item.detail).toContain('USD 350.00 and ZAR 13,250.50');
     expect(item.queryParams).toEqual({ type: 'reallocation' });
+  });
+
+  it('flags overdue obligations, those due within 14 days, and payments whose expense was reversed', () => {
+    const ob = (id: number, name: string, standing: Obligation['standing'], reversed = false): Obligation => ({
+      id, name, amount: { amount: 8500, currency: 'ZAR' }, recurrence: 'Monthly', firstDueDate: '2026-10-01', dueDate: '2026-10-25',
+      status: 'Active', standing, daysUntilDue: -4, createdAt: '',
+      payments: reversed ? [{ id: 1, transactionId: 9, dueDate: '2026-09-25', paidOn: '2026-09-24', amount: { amount: 8500, currency: 'ZAR' }, reversed: true }] : []
+    });
+    const items = attentionItems(null, null, [], [], [ob(1, 'Rent', 'Overdue'), ob(2, 'Insurance', 'DueSoon'), ob(3, 'Fibre', 'DueSoon'), ob(4, 'Software', 'Upcoming', true)]);
+
+    expect(items.map(i => i.title)).toEqual(['Rent is overdue', '2 obligations due within 14 days', 'A payment of Software was reversed']);
+    expect(items[0].tone).toBe('negative');
+    expect(items[1].detail).toContain('Insurance ZAR 8,500.00 on 2026-10-25');
+  });
+
+  it('flags a reversed payment on a paid one-off and opens the closed ones, but not on a cancelled obligation', () => {
+    const closed = (name: string, status: Obligation['status'], standing: Obligation['standing']): Obligation => ({
+      id: 1, name, amount: { amount: 900, currency: 'ZAR' }, recurrence: 'None', firstDueDate: '2026-10-01', dueDate: '2026-10-01',
+      status, standing, daysUntilDue: -30, createdAt: '',
+      payments: [{ id: 1, transactionId: 9, dueDate: '2026-10-01', paidOn: '2026-10-01', amount: { amount: 900, currency: 'ZAR' }, reversed: true }]
+    });
+    const items = attentionItems(null, null, [], [], [closed('Licence', 'Completed', 'Completed'), closed('Old lease', 'Cancelled', 'Cancelled')]);
+
+    expect(items.map(i => i.title)).toEqual(['A payment of Licence was reversed']);
+    expect(items[0].queryParams).toEqual({ closed: 'true' });
+  });
+
+  it('flags a fund below its minimum, but leaves a fund below zero to its own warning', () => {
+    const withMinimum = (id: number, name: string, amount: number): Fund =>
+      ({ ...fund(id, name, amount === 0 ? [] : [{ amount, currency: 'ZAR' }]), minimum: { amount: 20000, currency: 'ZAR' } });
+    const items = attentionItems({
+      accounts: [account({})], cashTotals: [],
+      funds: [withMinimum(2, 'Operating Capital', 15000), withMinimum(4, 'Wealth Fund', 0), withMinimum(5, 'Owner\'s Distribution', -10), { ...withMinimum(6, 'Healthy', 25000) }]
+    }, null);
+
+    expect(items.filter(i => i.title.endsWith('below its minimum')).map(i => i.title)).toEqual(['Operating Capital is below its minimum', 'Wealth Fund is below its minimum']);
+    expect(items.find(i => i.title === 'Operating Capital is below its minimum')!.detail).toBe('ZAR 15,000.00 against a minimum of ZAR 20,000.00.');
+    expect(items.some(i => i.title === 'Owner\'s Distribution is below zero')).toBe(true);
   });
 
   it('flags a fund below zero in each currency where it is, with a link to its transactions', () => {
@@ -147,6 +254,11 @@ describe('OverviewComponent', () => {
     http.verify();
   });
 
+  const figures = (currency: string, amount: number) => ({
+    currency, held: 0, operatingMinimum: 0, owedToOtherFunds: 0, payoutsNotAllocated: 0, committedPurchases: 0, amount, obligationsDue: 0, afterObligations: amount, holdings: []
+  });
+  const unrestricted = { currencies: [figures('USD', -400), figures('ZAR', 61000)], notCounted: [] };
+
   async function render() {
     const fixture = TestBed.createComponent(OverviewComponent);
     await fixture.whenStable();
@@ -158,6 +270,12 @@ describe('OverviewComponent', () => {
     http.expectOne(r => r.url === `${api}/transactions`).flush({ items: [], page: 1, pageSize: 6, totalCount: 0, totalPages: 0 });
     http.expectOne(`${api}/payouts`).flush([]);
     http.expectOne(`${api}/allocations`).flush([]);
+    http.expectOne(r => r.url === `${api}/obligations` && r.params.get('includeClosed') === 'true').flush([]);
+    http.expectOne(`${api}/continuity`).flush(continuity);
+    http.expectOne(`${api}/unrestricted-cash`).flush(unrestricted);
+    http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
+    http.expectOne(`${api}/budgets`).flush({ month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [], unbudgeted: [], totals: [] });
+    http.expectOne(r => r.url === `${api}/planned-purchases`).flush([]);
   }
 
   function flushTrading(totalTrades: number) {
@@ -178,6 +296,10 @@ describe('OverviewComponent', () => {
     expect(strip).toContain('USD 350.00');
     expect(strip).toContain('ZAR 16,250.50');
     expect(strip).not.toContain('16,600.50');
+    const metrics = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.metric-strip .metric')].map(m => [...m.children].map(c => c.textContent!.trim()));
+    expect(metrics).toContainEqual(['Continuity', '7.0 months', 'of 24 months covered']);
+    expect(metrics).toContainEqual(['Unrestricted · ZAR', 'ZAR 61,000.00', 'See the working']);
+    expect(metrics).toContainEqual(['Unrestricted · USD', 'USD -400.00', 'See the working']);
   });
 
   it('lists the latest payouts with their status, and says which are not cash yet', async () => {
@@ -193,6 +315,12 @@ describe('OverviewComponent', () => {
       ...[3, 4, 5, 6].map(id => payout(id, 'Rejected', { rejectedOn: '2026-10-02' }))
     ]);
     http.expectOne(`${api}/allocations`).flush([]);
+    http.expectOne(r => r.url === `${api}/obligations` && r.params.get('includeClosed') === 'true').flush([]);
+    http.expectOne(`${api}/continuity`).flush(continuity);
+    http.expectOne(`${api}/unrestricted-cash`).flush(unrestricted);
+    http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
+    http.expectOne(`${api}/budgets`).flush({ month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [], unbudgeted: [], totals: [] });
+    http.expectOne(r => r.url === `${api}/planned-purchases`).flush([]);
     flushTrading(0);
     await fixture.whenStable();
 
@@ -217,8 +345,8 @@ describe('OverviewComponent', () => {
     const fixture = await render();
     http.expectOne(`${api}/balances`).flush(null, { status: 403, statusText: 'Forbidden' });
     // forkJoin abandons the other finance requests once the balances fail
-    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`].includes(r.url));
-    expect(others.length).toBe(3);
+    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`, `${api}/continuity`, `${api}/unrestricted-cash`, `${api}/investments`, `${api}/budgets`, `${api}/planned-purchases`].includes(r.url));
+    expect(others.length).toBe(9);
     expect(others.every(r => r.cancelled)).toBe(true);
     flushTrading(0);
     await fixture.whenStable();

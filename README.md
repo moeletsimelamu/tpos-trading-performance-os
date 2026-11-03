@@ -8,7 +8,7 @@ A unified operating system for managing trading operations, financial performanc
 > - the trading module;
 > - **Financial Management**: accounts, funds, an auditable ledger and balances.
 >
-> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. Business continuity, wealth management and planning are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
+> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets, planned purchases and unrestricted cash** work too (Phase 7). Prop-firm accounts and business planning are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
 
 ![Executive overview](docs/images/executive-overview.jpg)
 
@@ -18,14 +18,45 @@ A unified operating system for managing trading operations, financial performanc
 
 The landing page shows the business as recorded:
 - cash by currency (never added across currencies);
+- **unrestricted cash** per currency: Unallocated and Operating Capital in company bank and cash accounts, less Operating Capital's minimum, what confirmed allocations still owe other funds, received payouts not allocated yet, and committed purchases. Its own page shows the working, the bills due within 30 days beside it (not deducted), and what is not counted and why;
 - **money in and out for a period** (this month, last month, this quarter, year to date, the last 12 months or any dates), per currency, from bank and cash accounts:
   - **The cash movement:** cash at the start, then income received (gross and fees deducted), expenses, currency exchanges, transfers and reversals. Then the net cash movement (labelled as cash movement, not profit), opening balances recorded and cash at the end.
   - **Totals:** income, expenses and net cash movement month by month, and the payouts received.
   - **Every figure links** to the ledger list it is summed from, with the same dates and type;
 - fund positions;
-- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, ownership not stated, critical trading-behaviour alerts;
+- what needs attention, derived from records: unallocated money, payouts not allocated or allocations not settled, accounts or funds below zero, funds below their minimum, obligations overdue or due within 14 days, continuity below its target or not measured, brokerage accounts not valued or moved since their valuation, budgets exceeded, purchases that would breach a fund's minimum, ownership not stated, critical trading-behaviour alerts;
 - recent payouts with their status, and recent ledger activity;
 - a trading summary, labelled as not business cash until a payout is recorded.
+
+## What works today: budgets and planned purchases
+
+- **Budgets:** an amount per category per month, against the expenses recorded with that category. Reversed expenses count for nothing, and spending with no budget line is listed apart. A budget never blocks an expense.
+- **Planned purchases:** proposed, then committed, then purchased by linking an expense from the ledger, or cancelled. Nothing here records or moves money.
+- **Can it be afforded?** Each open purchase answers from recorded balances: the fund's money in bank and cash accounts, less its other commitments and the purchase, against the fund's minimum. It warns and never blocks. Obligations due within 30 days are shown beside the answer, not deducted.
+- **Warnings:** the overview flags a budget exceeded this month, a purchase that would breach a minimum, and a purchase whose expense was reversed.
+
+## What works today: investments
+
+- **Brokerage accounts:** what you put in comes from the ledger: transfers, currency exchanges and opening balances, less withdrawals. Dividends and fees recorded in the account are shown separately.
+- **Valuations:** you record what the broker reports the account is worth, on a date. A valuation never moves money and never counts as cash.
+- **Unrealised gain or loss:** the valuation less what the ledger recorded up to that date, always labelled unrealised. Money moved after the valuation is flagged rather than counted as a gain or loss.
+- **Totals:** per currency, never converted. The overview asks for a valuation when an account has none, or has moved since its last one.
+
+## What works today: continuity
+
+- **Coverage:** how many months of essential expenses the Business Continuity fund covers, against a target of 24 months (you choose the months and enter the monthly expense yourself), with the shortfall.
+- **Only what is really there:** rand in bank and cash accounts counts. Dollars, money at a broker, and allocations not yet earmarked are listed with the reason they do not count; nothing is converted.
+- **Earmarked or separated:** the page shows how much sits in an account of its own and how much shares an account with other funds.
+- **Trading restoration:** a separate Trading Restoration fund, measured against its own target, so no money counts twice.
+- **Warnings:** the overview shows the coverage and warns when continuity is below its target or cannot be measured yet.
+
+## What works today: obligations and fund levels
+
+- **Obligations:** rent, subscriptions, insurance and anything else the business has to pay, once or monthly, quarterly or yearly.
+  - **Due dates:** each due date is counted from the first, so the 31st never drifts.
+  - **Paying:** you link an expense already in the ledger; nothing records or moves money for you. Only unlinked, unreversed expenses in the obligation's currency are offered, and the latest payment can be undone.
+  - **Coming due:** the page totals what is due in the next 30 days per currency and counts what is overdue.
+- **Fund minimum and target:** set in one currency. The Funds page shows a fund below its minimum and its progress towards the target, and the overview warns about it.
 
 ## What works today: trading operations
 
@@ -259,7 +290,26 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | Method | Endpoint | Description |
 |---|---|---|
 | GET / POST | `/api/funds` | List funds with per-currency balances / create a fund |
-| PUT | `/api/funds/{id}` | Rename or describe a fund (not the system fund's name) |
+| PUT | `/api/funds/{id}` | Rename or describe a fund (not the system fund's name), and set its minimum and target in one currency |
+| GET / POST | `/api/obligations` | List obligations (`includeClosed` for paid and cancelled ones) / add one |
+| GET / PUT | `/api/obligations/{id}` | One obligation with its payments / change it (the schedule is fixed once paid) |
+| POST | `/api/obligations/{id}/cancel` | Cancel an obligation |
+| GET | `/api/obligations/{id}/payment-candidates` | Recent expenses that could pay it: same currency, not reversed, not linked |
+| POST | `/api/obligations/{id}/payments` | Record a payment by linking an expense (`{ transactionId }`) |
+| POST | `/api/obligations/{id}/payments/undo` | Remove the latest payment link; the expense stays in the ledger |
+| GET | `/api/unrestricted-cash` | Cash free to use per currency, with the working, obligations due within 30 days (not deducted), and what is not counted and why |
+| GET | `/api/continuity` | Continuity coverage, shortfall, where the counted money is, what is not counted and why, and restoration progress |
+| PUT | `/api/continuity/settings` | Continuity fund, months to cover, monthly essential expense and restoration fund |
+| GET | `/api/investments` | Brokerage accounts with net contributions, recorded income and costs, the latest valuation and the unrealised gain or loss, and totals per currency |
+| GET / POST | `/api/investments/{accountId}/valuations` | An account's valuations, each against the ledger on its date / record one (`{ valuedOn, value, note }`) |
+| DELETE | `/api/investments/{accountId}/valuations/{id}` | Delete a wrong valuation (audited) |
+| GET / POST | `/api/budgets` | Budget versus actual for a month (`month=yyyy-MM`, this month by default), with spending outside the budget / add a line |
+| PUT / DELETE | `/api/budgets/{id}` | Change a line's category or amount / delete it |
+| GET / POST | `/api/planned-purchases` | List planned purchases with the affordability answer (`includeClosed` for purchased and cancelled ones) / propose one |
+| GET / PUT | `/api/planned-purchases/{id}` | One purchase / change a proposal |
+| POST | `/api/planned-purchases/{id}/commit`, `/withdraw-commitment`, `/cancel` | Move it between stages |
+| GET | `/api/planned-purchases/{id}/expense-candidates` | Recent expenses that could be the purchase: same currency, not reversed, not linked |
+| POST | `/api/planned-purchases/{id}/purchase`, `/purchase/undo` | Link an expense as the purchase (`{ transactionId }`) / remove the link; the expense stays in the ledger |
 | GET / POST | `/api/financial-accounts` | List accounts with balances / create an account |
 | GET / PUT | `/api/financial-accounts/{id}` | One account / update name, ownership, institution, notes |
 | POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |
@@ -301,6 +351,7 @@ The integration tests need SQL Server. Details and the latest results are in [`d
 - [`docs/FINANCIAL_DOMAIN.md`](docs/FINANCIAL_DOMAIN.md): money and currency rules
 - [`docs/TRADING_JOURNAL_DESIGN.md`](docs/TRADING_JOURNAL_DESIGN.md): the journal's audit, design and phases
 - [`docs/JOURNAL_REVIEW.md`](docs/JOURNAL_REVIEW.md): the journal brief checked requirement by requirement, with gaps
+- [`docs/PHASE_7_REVIEW.md`](docs/PHASE_7_REVIEW.md): continuity and wealth checked requirement by requirement, with gaps
 - [`docs/DATABASE_MIGRATION.md`](docs/DATABASE_MIGRATION.md): migration, backup and restore procedure, and the migration log
 - [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md): brand identity, tokens, components and UI conventions
 - [`docs/UI_AUDIT.md`](docs/UI_AUDIT.md): the frontend audit behind the redesign

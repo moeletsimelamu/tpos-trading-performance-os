@@ -67,7 +67,8 @@ public class LedgerRuleTests : IClassFixture<ApiFactory>
         var funds = await (await (await Owner()).GetAsync("/api/funds")).JsonAsync();
 
         var names = funds.EnumerateArray().Select(f => f.GetProperty("name").GetString()).ToList();
-        Assert.Equal(["Unallocated", "Operating Capital", "Business Continuity", "Wealth Fund", "Owner's Distribution"], names);
+        // Trading Restoration is added by the AddContinuitySettings migration (PLAN.md D6)
+        Assert.Equal(["Unallocated", "Operating Capital", "Business Continuity", "Wealth Fund", "Owner's Distribution", "Trading Restoration"], names);
         Assert.True(funds[0].GetProperty("isSystem").GetBoolean());
     }
 
@@ -275,6 +276,12 @@ public class FinanceAccessTests : IClassFixture<ApiFactory>
     [InlineData("/api/payouts")]
     [InlineData("/api/allocations")]
     [InlineData("/api/allocation-policies")]
+    [InlineData("/api/obligations")]
+    [InlineData("/api/continuity")]
+    [InlineData("/api/investments")]
+    [InlineData("/api/budgets")]
+    [InlineData("/api/planned-purchases")]
+    [InlineData("/api/unrestricted-cash")]
     public async Task Finance_endpoints_reject_anonymous_requests(string path)
     {
         Assert.Equal(HttpStatusCode.Unauthorized, (await _factory.CreateClient().GetAsync(path)).StatusCode);
@@ -289,6 +296,8 @@ public class FinanceAccessTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/balances")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/payouts")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/allocations/preview", new { payoutId = 1 })).StatusCode);
+        foreach (var path in new[] { "/api/obligations", "/api/continuity", "/api/investments", "/api/budgets", "/api/planned-purchases", "/api/unrestricted-cash" })
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/trades")).StatusCode);
     }
 

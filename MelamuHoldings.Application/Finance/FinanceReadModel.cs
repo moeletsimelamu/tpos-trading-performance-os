@@ -47,7 +47,10 @@ public class FinanceReadModel
             .Where(m => m.Amount != 0)
             .OrderBy(m => m.Currency)
             .ToList();
-        return new FundDto(fund.Id, fund.Name, fund.Description, fund.IsSystem, balances);
+        var currency = fund.ThresholdCurrency?.Code;
+        return new FundDto(fund.Id, fund.Name, fund.Description, fund.IsSystem, balances,
+            fund.Minimum is { } minimum ? new MoneyDto(minimum, currency!) : null,
+            fund.Target is { } target ? new MoneyDto(target, currency!) : null);
     }
 
     public IReadOnlyList<FundDto> Funds() => _funds.Values.OrderBy(f => f.Id).Select(Fund).ToList();

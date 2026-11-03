@@ -111,11 +111,11 @@ A calm, institutional workspace for running a business's money:
 
   | Meaning | Tag | Used for |
   |---|---|---|
-  | Not yet money / not yet acted on | neutral `tag` | Payout *Requested*, allocation *Cancelled*, policy *Not in use*, Proposed (later phases) |
-  | Committed, nothing moved yet | `tag-info` | Payout *Approved*, allocation *Confirmed* |
-  | Part done, needs attention | `tag-warning` | Allocation *Partially settled*, Pending (later phases), *Not assigned* (Unallocated money), fee entries |
-  | Done and reconciled | `tag-positive` | Payout *Received*, allocation *Reconciled*, line *Settled*, policy *Active*, Completed (later phases) |
-  | Refused or overdue | `tag-negative` | Payout *Rejected*, Overdue (later phases) |
+  | Not yet money / not yet acted on | neutral `tag` | Payout *Requested*, allocation *Cancelled*, policy *Not in use*, purchase *Proposed* and *Cancelled* |
+  | Committed, nothing moved yet | `tag-info` | Payout *Approved*, allocation *Confirmed*, purchase *Committed* |
+  | Part done, needs attention | `tag-warning` | Allocation *Partially settled*, obligation *Due soon*, Pending (later phases), *Not assigned* (Unallocated money), fee entries |
+  | Done and reconciled | `tag-positive` | Payout *Received*, allocation *Reconciled*, line *Settled*, policy *Active*, obligation *Paid*, purchase *Purchased* |
+  | Refused or overdue | `tag-negative` | Payout *Rejected*, obligation *Overdue*, *Expense reversed* |
 
   Expected amounts (requested or approved payouts) always carry the words "not cash".
 - **Progress pages** (a payout) show the steps as a vertical timeline beside a single "Next step" panel that offers only the actions the current status allows.

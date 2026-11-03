@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { FinanceApiService } from '../finance/finance-api.service';
-import { Allocation, Balances, Money, Payout, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID } from '../finance/finance.models';
+import { Allocation, Balances, BudgetMonth, ContinuityReport, Investments, Money, Obligation, Payout, PlannedPurchase, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, UnrestrictedCashReport, fundStanding } from '../finance/finance.models';
 import { TradingApiService } from '../trading/trading-api.service';
 import { AnalyticsSummary, BehaviourSummary } from '../trading/models/analytics.model';
 import { MoneyPipe } from '../../shared/money.pipe';
@@ -67,6 +67,20 @@ const RECENT_PAYOUTS = 5;
                     <span class="metric-value">{{ activeAccounts() }}</span>
                     <span class="metric-note"><a routerLink="/finance/accounts">View accounts</a></span>
                   </div>
+                  @for (u of unrestricted()?.currencies ?? []; track u.currency) {
+                    <div class="metric">
+                      <span class="metric-label">Unrestricted · {{ u.currency }}</span>
+                      <span class="metric-value" [class.text-negative]="u.amount < 0">{{ u.amount | money: u.currency }}</span>
+                      <span class="metric-note"><a routerLink="/finance/unrestricted-cash">See the working</a></span>
+                    </div>
+                  }
+                  @if (continuity(); as c) {
+                    <div class="metric">
+                      <span class="metric-label">Continuity</span>
+                      <span class="metric-value" [class.text-negative]="c.belowTarget">{{ c.coverageMonths != null ? (c.coverageMonths | number: '1.1-1') + ' months' : 'Not measured' }}</span>
+                      <span class="metric-note"><a routerLink="/finance/continuity">{{ c.coverageMonths != null ? 'of ' + c.settings.months + ' months covered' : 'Enter essential expenses' }}</a></span>
+                    </div>
+                  }
                 </div>
               } @else {
                 <div class="card empty-state">
@@ -107,7 +121,7 @@ const RECENT_PAYOUTS = 5;
               <section class="card attention" aria-labelledby="attention-heading">
                 <div class="card-header"><h2 id="attention-heading">Needs attention</h2></div>
                 <ul class="attention-list">
-                  @for (item of attention(); track item.title) {
+                  @for (item of attention(); track $index) {
                     <li [class]="'attention-item ' + item.tone">
                       <app-icon [name]="iconFor(item)" [size]="18" />
                       <div>
@@ -120,7 +134,7 @@ const RECENT_PAYOUTS = 5;
                     <li class="attention-item clear"><app-icon name="check" [size]="18" /><p>Nothing in the recorded data needs attention.</p></li>
                   }
                 </ul>
-                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations and trades. Obligations, budgets and reserve targets are not tracked yet.</p>
+                <p class="coverage">As of today, whatever the period above. Checks cover recorded accounts, funds, payouts, allocations, obligations, continuity, investment valuations, budgets, planned purchases and trades.</p>
               </section>
             </div>
 
@@ -264,7 +278,14 @@ export class OverviewComponent {
   readonly behaviour = signal<BehaviourSummary | null>(null);
 
   readonly activeAccounts = computed(() => this.balances()?.accounts.filter(a => a.status === 'Active').length ?? 0);
-  readonly attention = computed(() => attentionItems(this.balances(), this.behaviour(), this.payouts(), this.allocations()));
+  readonly obligations = signal<Obligation[]>([]);
+  readonly continuity = signal<ContinuityReport | null>(null);
+  readonly unrestricted = signal<UnrestrictedCashReport | null>(null);
+  readonly investments = signal<Investments | null>(null);
+  readonly budgets = signal<BudgetMonth | null>(null);
+  readonly purchases = signal<PlannedPurchase[]>([]);
+  readonly attention = computed(() => attentionItems(
+    this.balances(), this.behaviour(), this.payouts(), this.allocations(), this.obligations(), this.continuity(), this.investments(), this.budgets(), this.purchases()));
   // The latest payouts recorded, whatever their status
   readonly recentPayouts = computed(() => [...this.payouts()].sort((a, b) => b.id - a.id).slice(0, RECENT_PAYOUTS));
 
@@ -279,9 +300,22 @@ export class OverviewComponent {
       balances: this.finance.getBalances(),
       recent: this.finance.getTransactions({ page: 1, pageSize: RECENT_COUNT }),
       payouts: this.finance.getPayouts(),
-      allocations: this.finance.getAllocations()
+      allocations: this.finance.getAllocations(),
+      // Paid ones too: a one-off is closed by its payment, and that expense can still be reversed later
+      obligations: this.finance.getObligations(true),
+      continuity: this.finance.getContinuity(),
+      unrestricted: this.finance.getUnrestrictedCash(),
+      investments: this.finance.getInvestments(),
+      budgets: this.finance.getBudgets(),
+      purchases: this.finance.getPlannedPurchases(true)
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: ({ balances, recent, payouts, allocations }) => {
+      next: ({ balances, recent, payouts, allocations, obligations, continuity, unrestricted, investments, budgets, purchases }) => {
+        this.unrestricted.set(unrestricted);
+        this.budgets.set(budgets);
+        this.purchases.set(purchases);
+        this.obligations.set(obligations);
+        this.continuity.set(continuity);
+        this.investments.set(investments);
         this.balances.set(balances);
         this.recent.set(recent.items);
         this.payouts.set(payouts);
@@ -350,9 +384,96 @@ function formatMoney(m: Money): string {
 // Derives what needs looking at from recorded data only; nothing here is a forecast or a guess
 export function attentionItems(
   balances: Balances | null, behaviour: BehaviourSummary | null,
-  payouts: Payout[] = [], allocations: Allocation[] = []
+  payouts: Payout[] = [], allocations: Allocation[] = [], obligations: Obligation[] = [], continuity: ContinuityReport | null = null,
+  investments: Investments | null = null, budgets: BudgetMonth | null = null, purchases: PlannedPurchase[] = []
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
+
+  // Bills: late ones first, then those due within the warning window, then payments whose expense was reversed
+  for (const o of obligations.filter(x => x.standing === 'Overdue')) {
+    items.push({
+      tone: 'negative', title: `${o.name} is overdue`,
+      detail: `${formatMoney(o.amount)} was due on ${o.dueDate} and no payment is recorded.`,
+      link: '/finance/obligations', action: 'Record the payment'
+    });
+  }
+  const soon = obligations.filter(x => x.standing === 'DueSoon');
+  if (soon.length > 0) {
+    items.push({
+      tone: 'info', title: `${soon.length} ${soon.length === 1 ? 'obligation' : 'obligations'} due within 14 days`,
+      detail: soon.map(o => `${o.name} ${formatMoney(o.amount)} on ${o.dueDate}`).join('; ') + '.',
+      link: '/finance/obligations', action: 'View obligations'
+    });
+  }
+  // A cancelled obligation cannot be changed, so nothing could clear its warning
+  for (const o of obligations.filter(x => x.status !== 'Cancelled' && x.payments.some(p => p.reversed))) {
+    items.push({
+      tone: 'warning', title: `A payment of ${o.name} was reversed`,
+      detail: 'The expense linked as its payment has since been reversed in the ledger, so that date may not be paid.',
+      link: '/finance/obligations', queryParams: { closed: 'true' }, action: 'Review the payment'
+    });
+  }
+
+  // The reserve for setbacks, in months of essential expenses; only what is counted (see the Continuity page)
+  if (continuity?.belowTarget && continuity.target && continuity.shortfall) {
+    items.push({
+      tone: 'warning', title: `Continuity covers ${continuity.coverageMonths!.toFixed(1)} of ${continuity.settings.months} months`,
+      detail: `${formatMoney(continuity.cash)} counted against a target of ${formatMoney(continuity.target)}; ${formatMoney(continuity.shortfall)} short.`,
+      link: '/finance/continuity', action: 'View continuity'
+    });
+  } else if (continuity && continuity.settings.monthlyEssentialExpense == null) {
+    items.push({
+      tone: 'info', title: 'Continuity is not measured',
+      detail: 'Enter the monthly essential expense so the reserve can be measured in months.',
+      link: '/finance/continuity', action: 'Enter it'
+    });
+  }
+
+  // This month's spending past its budget; a budget warns and never blocks
+  for (const line of budgets?.lines.filter(l => l.exceeded) ?? []) {
+    items.push({
+      tone: 'warning', title: `${line.category} is over budget`,
+      detail: `${formatMoney(line.actual)} spent of ${formatMoney(line.budget)} in ${line.month}; ${formatMoney({ ...line.remaining, amount: -line.remaining.amount })} over.`,
+      link: '/finance/budgets', action: 'View budgets'
+    });
+  }
+
+  // A purchase the fund cannot carry: a warning once committed, a note while it is only proposed
+  for (const p of purchases) {
+    const a = p.affordability;
+    if (a && (a.verdict === 'BreachesMinimum' || a.verdict === 'NotEnoughMoney')) {
+      items.push({
+        tone: p.status === 'Committed' ? 'warning' : 'info',
+        title: a.verdict === 'BreachesMinimum' ? `${p.name} would breach the ${p.fundName} minimum` : `${p.fundName} cannot pay for ${p.name}`,
+        detail: `${formatMoney(p.amount)}, ${p.status.toLowerCase()}, would leave ${formatMoney(a.after)}; ${formatMoney(a.shortfall!)} short.`,
+        link: '/finance/purchases', action: 'Review the purchase'
+      });
+    }
+    if (p.expenseReversed) {
+      items.push({
+        tone: 'warning', title: `The expense for ${p.name} was reversed`,
+        detail: 'The expense linked as this purchase has since been reversed in the ledger, so it may not have been bought.',
+        link: '/finance/purchases', queryParams: { closed: 'true' }, action: 'Review the purchase'
+      });
+    }
+  }
+
+  // A gain or loss can only be shown against a valuation that covers what the ledger recorded
+  for (const a of investments?.accounts.filter(x => x.status === 'Active') ?? []) {
+    if (!a.latest && a.currentRecordedBalance.amount !== 0) {
+      items.push({
+        tone: 'info', title: `${a.accountName} is not valued`,
+        detail: `${formatMoney(a.currentRecordedBalance)} recorded in the ledger and no valuation, so there is no gain or loss to show.`,
+        link: '/finance/investments', action: 'Record a valuation'
+      });
+    } else if (a.latest && a.transactionsSinceValuation > 0) {
+      items.push({
+        tone: 'info', title: `${a.accountName} moved since its valuation`,
+        detail: `${a.transactionsSinceValuation === 1 ? '1 transaction after ' + a.latest.valuedOn + ' is' : a.transactionsSinceValuation + ' transactions after ' + a.latest.valuedOn + ' are'} not in its unrealised gain or loss.`,
+        link: '/finance/investments', action: 'Record a valuation'
+      });
+    }
+  }
 
   // Money has arrived but nobody has decided where it goes
   for (const payout of payouts.filter(p => p.status === 'Received' && !p.allocationId && p.credited)) {
@@ -403,6 +524,16 @@ export function attentionItems(
       });
     }
 
+    // A fund below the minimum set for it, in the minimum's currency
+    for (const fund of balances.funds) {
+      const standing = fundStanding(fund);
+      if (!standing?.belowMinimum || standing.balance.amount < 0) continue;   // below zero is its own warning
+      items.push({
+        tone: 'warning', title: `${fund.name} is below its minimum`,
+        detail: `${formatMoney(standing.balance)} against a minimum of ${formatMoney(fund.minimum!)}.`,
+        link: '/finance/funds', action: 'Review funds'
+      });
+    }
     // A fund can be spent below zero (the ledger records it rather than blocking it); say so per currency
     for (const fund of balances.funds) {
       const negative = fund.balances.filter(b => b.amount < 0);

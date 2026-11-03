@@ -34,6 +34,36 @@ export const financeRoutes: Routes = [
     loadComponent: () => import('./payouts/payout-detail.component').then(m => m.PayoutDetailComponent)
   },
   {
+    path: 'obligations',
+    title: 'Obligations',
+    loadComponent: () => import('./obligations/obligations.component').then(m => m.ObligationsComponent)
+  },
+  {
+    path: 'continuity',
+    title: 'Continuity',
+    loadComponent: () => import('./continuity/continuity.component').then(m => m.ContinuityComponent)
+  },
+  {
+    path: 'unrestricted-cash',
+    title: 'Unrestricted cash',
+    loadComponent: () => import('./unrestricted/unrestricted.component').then(m => m.UnrestrictedComponent)
+  },
+  {
+    path: 'investments',
+    title: 'Investments',
+    loadComponent: () => import('./investments/investments.component').then(m => m.InvestmentsComponent)
+  },
+  {
+    path: 'budgets',
+    title: 'Budgets',
+    loadComponent: () => import('./budgets/budgets.component').then(m => m.BudgetsComponent)
+  },
+  {
+    path: 'purchases',
+    title: 'Planned purchases',
+    loadComponent: () => import('./purchases/purchases.component').then(m => m.PurchasesComponent)
+  },
+  {
     path: 'allocations',
     title: 'Capital allocation',
     loadComponent: () => import('./allocations/allocations.component').then(m => m.AllocationsComponent)

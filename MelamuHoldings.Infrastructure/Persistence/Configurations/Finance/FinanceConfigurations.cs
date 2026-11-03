@@ -34,6 +34,9 @@ public class FundConfiguration : IEntityTypeConfiguration<Fund>
         builder.Property(f => f.Name).HasMaxLength(Fund.MaxNameLength).IsRequired();
         builder.HasIndex(f => f.Name).IsUnique();
         builder.Property(f => f.Description).HasMaxLength(Fund.MaxDescriptionLength);
+        builder.Property(f => f.ThresholdCurrency).HasConversion(FinanceSchema.OptionalCurrencyConverter).HasColumnType("char(3)");
+        builder.Property(f => f.Minimum).HasColumnType("decimal(19,4)");
+        builder.Property(f => f.Target).HasColumnType("decimal(19,4)");
 
         builder.HasData(
             new { Id = Fund.UnallocatedId, Name = "Unallocated", Description = (string?)"Money received but not yet earmarked for a purpose.", IsSystem = true, CreatedAt = SeededAt },

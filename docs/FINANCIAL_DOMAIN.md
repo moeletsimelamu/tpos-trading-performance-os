@@ -1,6 +1,6 @@
 # Financial Domain
 
-The rules for money in Melamu Holdings OS. This file records what is **implemented**: accounts, funds and the ledger (Phase 4); payouts, allocation policies and allocations (Phase 5). Later-phase designs (obligations, continuity, investments) are in [`../PLAN.md`](../PLAN.md) §3.6 and move here as they are built.
+The rules for money in Melamu Holdings OS. This file records what is **implemented**: accounts, funds and the ledger (Phase 4); payouts, allocation policies and allocations (Phase 5); the Executive Overview (Phase 6); and obligations, continuity, investments, budgets and planned purchases (Phase 7, reviewed in [`PHASE_7_REVIEW.md`](PHASE_7_REVIEW.md)). Later-phase designs are in [`../PLAN.md`](../PLAN.md) §3.6 and move here as they are built.
 
 ## Scope and limits
 
@@ -19,6 +19,7 @@ Code: `MelamuHoldings.Domain/Finance/Currency.cs`, `Money.cs`. Tests: `tests/Mel
 | Currency is always explicit | Every `Money` carries a `Currency`. There is no default currency. |
 | Only supported currencies | `ZAR`, `USD`, `EUR` and `GBP` (ISO 4217, 2 minor units each). An unknown or mistyped code is rejected rather than creating a new currency. |
 | Whole minor units | `Money.Of` rejects amounts finer than the currency allows: `10.005 USD` is a 422, not silently rounded. |
+| What fits | `Money.Of` also rejects an amount larger than the `decimal(19,4)` columns can hold (more than 999,999,999,999,999.99), with a 422 rather than a database error. |
 | Rounding is explicit | Calculated amounts go through `Money.Round(amount, currency, mode)`, so the rounding mode is visible where it happens. The allocation calculator works in whole minor units and distributes the leftover units by largest remainder (see "Allocation"). |
 | No implicit conversion | Adding, subtracting, summing or comparing different currencies throws `CurrencyMismatchException`. Converting requires a recorded **currency exchange** with its rate. |
 | Value equality | `10.5 USD == 10.50 USD`, but `10.5 USD != 10.5 ZAR`. |
@@ -224,13 +225,155 @@ Earmarks move money between funds inside one account, so they net to zero here a
 
 **Warnings.** "Needs attention" on the same page is derived from records as of today, whatever the period:
 - **Payouts and allocations:** received payouts not allocated, allocations not fully settled, and payouts on the way (not cash).
-- **Money:** money left in Unallocated, accounts below zero, and funds below zero in any currency.
+- **Money:** money left in Unallocated, accounts below zero, funds below zero in any currency, and funds below their minimum (Phase 7.1).
+- **Obligations (Phase 7.1):** overdue ones, those due within 14 days, and payments whose expense was reversed, on a paid one-off too (not on a cancelled obligation, which cannot be changed). The warning links to the page with the closed ones showing.
+- **Continuity (Phase 7.2):** below its target, or not measured because no monthly essential expense is entered. The cash strip also shows the coverage in months.
+- **Investments (Phase 7.3):** an active brokerage account holding a recorded balance with no valuation, or with transactions dated after its latest valuation.
+- **Budgets and purchases (Phase 7.4):** a budget line exceeded this month; an open purchase that would breach its fund's minimum or that the fund cannot pay for (a warning once committed, a note while proposed); and a purchase whose expense was reversed, which links to the page with the closed ones showing.
 - **Setup:** no accounts, and ownership not stated.
 - **Trading:** critical trading-behaviour alerts.
 
+## Fund minimums and targets (Phase 7.1: implemented)
+
+Code: `Domain/Finance/Fund.cs` (`SetThresholds`), set through `PUT /api/funds/{id}`. Tests: `ObligationTests.cs` (unit), `ObligationEndpointTests.cs` (integration).
+
+| Rule | Behaviour |
+|---|---|
+| One currency | A fund's minimum and target are in one stated currency (`ThresholdCurrency`). A fund can hold several currencies; only its balance in that currency is compared, and nothing is converted. |
+| Valid levels | Minimum ≥ 0, target > 0, target ≥ minimum, whole minor units. Giving neither clears both and the currency. |
+| Not on Unallocated | The system fund has none: money there is waiting to be allocated. |
+| Below minimum | Balance in the currency < minimum. Shown on the Funds page and as a warning. A fund below zero gets the below-zero warning instead, not both. |
+| Progress | Balance ÷ target, shown between 0 % and 100 %. |
+| Audited | Thresholds are part of the fund's audit snapshot (before and after). |
+
+## Obligations (Phase 7.1: implemented)
+
+Code: `Domain/Finance/Obligation.cs`, `Application/Finance/ObligationService.cs`, `/api/obligations`.
+
+| Rule | Behaviour |
+|---|---|
+| What it is | A name, an amount in one currency, an optional category and notes, and how often it is due: once, monthly, quarterly or yearly. **It never moves money and never creates a ledger entry.** |
+| Due dates | The n-th due date is the first one plus n periods (months, quarters or years), so a monthly obligation first due on the 31st is due on the 28th in February and the 31st again in March. The next due date is the one after the last recorded payment. A first due date after 2100 is refused. |
+| Paying | A payment is a **link** to an Expense transaction already in the ledger: same currency, not reversed, and not linked to another payment (unique index) or to a planned purchase. The amount actually paid is recorded, even if it differs from the obligation's amount. A one-off is Completed by its payment. |
+| Undoing | Only the latest payment can be undone. The link is removed and the due date goes back; the expense stays in the ledger. |
+| A later reversal | If an expense is reversed after it was linked, the payment is marked "expense reversed" and a warning asks for it to be reviewed. Nothing is changed automatically. |
+| Changing | Name, amount, category and notes can change. The currency never changes, and the schedule (how often and the first date) is fixed once a payment is recorded. Cancelled and completed obligations cannot be changed. Two active obligations cannot share a name. |
+| Standing | Against today: **Overdue** (due date passed), **due soon** (within 14 days), **upcoming**, or **completed** or **cancelled**. |
+| Coming due | The Obligations page totals active obligations due within 30 days per currency, overdue ones included, and never across currencies. |
+| Audited | Created, updated, paid, payment undone and cancelled are each an audit event. |
+
+## Continuity (Phase 7.2: implemented)
+
+Code: `Domain/Finance/ContinuitySettings.cs` (the target, coverage, shortfall and progress), `Application/Finance/ContinuityService.cs` (what is counted), `/api/continuity`. Decisions: PLAN.md D6–D8.
+Tests: `ContinuitySettingsTests.cs` and `Phase7FormulaTests.cs` (unit), `ContinuityEndpointTests.cs` (integration).
+
+| Rule | Behaviour |
+|---|---|
+| Settings | One record: the continuity fund (Business Continuity by default), the months to cover (default 24, 1 to 120), the currency (ZAR, D7), the monthly essential expense (entered by the owner, D8; none until it is), and the restoration fund. |
+| Target | Months × monthly essential expense. Without the expense there is no target, coverage or shortfall: the page says "Not measured" rather than showing a zero. |
+| Counted | The continuity fund's balance in ZAR in **bank and cash** accounts, from the ledger. |
+| Shown, not counted | The fund's money in another currency (never converted), in brokerage or other accounts, and what confirmed allocations still owe it but have not earmarked or transferred. Each is listed with its reason. |
+| Coverage | Counted ÷ monthly expense, rounded **down** to one decimal, so it never overstates. Shortfall: target − counted, never below zero. |
+| Earmarked or separated | A counted amount is **separated** when its account holds no other fund's money, and **earmarked** when the account is shared with other funds. Both count; the page shows the split. |
+| Restoration (D6) | A separate fund, Trading Restoration, added by the migration. It is measured against that fund's own target (set on the Funds page, in the target's currency), in bank and cash accounts, with the same not-counted rules. Continuity and restoration must be different funds, and neither can be Unallocated, so no money counts twice. |
+| Nothing moves | The settings and the report never create a ledger entry. Money reaches the funds through allocations, earmarks and transfers. |
+| Audited | Each change of settings is a `continuity.updated` event with before and after. |
+
+## Unrestricted cash (Phase 7.6: implemented)
+
+Code: `Domain/Finance/UnrestrictedCash.cs`, `Application/Finance/UnrestrictedCashService.cs`, `/api/unrestricted-cash`. Decision: PLAN.md D9.
+Tests: `Phase7FormulaTests.cs` (unit), `UnrestrictedCashEndpointTests.cs` (integration).
+
+Cash that is free to use, per currency:
+
+`Unrestricted = Held − Operating minimum − Owed to other funds − Payouts not allocated − Committed purchases`
+
+| Line | What it is |
+|---|---|
+| **Held** | Unallocated and Operating Capital, in that currency, in **company bank and cash** accounts. |
+| **Operating minimum** | Operating Capital's minimum, when it is in that currency. It comes off the total, so Unallocated money covers a fund below its minimum first. |
+| **Owed to other funds** | What confirmed allocations still owe funds other than Operating Capital, when the payout's money is in a counted account. A line owed to Operating Capital does not come off, because that money stays unrestricted once settled. Settlements whose transaction was reversed do not count as settled. |
+| **Payouts not allocated** | The credited amount of received payouts with no live allocation, in full, when received into a counted account. A cancelled allocation puts the payout back here. |
+| **Committed purchases** | Committed purchases paid from Operating Capital. Proposed ones reserve nothing, and a purchase from another fund has no claim on this money. |
+
+| Rule | Behaviour |
+|---|---|
+| Below zero | The figure can go below zero, when more is spoken for than is held, and it is shown that way. |
+| Obligations | Active obligations due within 30 days, overdue ones included, are shown beside the figure with what would be left if all were paid. They are **not deducted**: an expense lowers the balance as soon as it is recorded, and the obligation moves on only when that expense is linked, so one bill could come off twice. |
+| Shown, not counted | The two funds' money in brokerage and other accounts, personal accounts, and accounts with ownership not stated, each with the reason. |
+| Which fund | Operating Capital is found by its seeded id, so renaming it changes nothing. |
+| Currencies | Each stands alone. Nothing is converted. |
+| Nothing moves | The figure is worked out when asked for. It is never stored, and it never blocks or moves anything. |
+
+**A known limit:** payouts and allocations are counted in the currency they were credited in. If a payout is exchanged before it is allocated, its deduction stays in the old currency, so that figure reads too low and the new currency's too high, until it is allocated.
+
+## Investments (Phase 7.3: implemented)
+
+Code: `Domain/Finance/InvestmentValuation.cs` (the unrealised gain or loss, and which group an entry falls in), `Application/Finance/InvestmentService.cs`, `/api/investments`.
+Tests: `InvestmentValuationTests.cs` and `Phase7FormulaTests.cs` (unit), `InvestmentEndpointTests.cs` (integration).
+
+An investment account is a financial account of type **Brokerage**. Money reaches it through the ledger's own transactions; the owner records what the broker says it is worth.
+
+| Rule | Behaviour |
+|---|---|
+| Valuation | The observed value of one brokerage account on a date, in the account's currency, ≥ 0, in whole minor units, with an optional note. Never in the future (one day of slack, as in the ledger), not on a closed account, and one per account per day (unique index; a second is 409). **It is not a ledger movement, not income and not cash**: it never changes a balance. |
+| Correcting | A valuation is an observation, not a ledger record, so a wrong one is deleted and recorded again. Recording and deleting are both audited (`valuation.recorded`, `valuation.deleted`). |
+| Net contributions | From the ledger: the principal of opening balances, transfers and currency exchanges into the account, less those out. A reversal counts as the type it reverses, so a reversed contribution cancels. |
+| Recorded income and costs | Income recorded in the account (for example dividends), and expenses and fees (for example platform fees). |
+| Recorded balance | Net contributions + recorded income + recorded costs: the ledger balance of the account. |
+| As of the valuation | Every ledger figure is taken **up to the latest valuation's date**. Transactions dated after it are counted apart ("N transactions since this valuation") and are in neither the gain nor the loss. |
+| Unrealised gain or loss | Latest valuation − recorded balance on its date: the change in market value the ledger does not hold. Always labelled **unrealised**; it is not cash until sold and withdrawn. |
+| Gain on contributions | Latest valuation − net contributions: the unrealised gain plus recorded income and costs. |
+| Totals | Per currency, over accounts that have a valuation; never across currencies and never converted. Valuations in a total may be of different dates. |
+| Not cash | Brokerage balances were never in the cash totals (Phase 4), and valuations do not change that. |
+
+## Budgets (Phase 7.4: implemented)
+
+Code: `Domain/Finance/BudgetLine.cs` (remaining, used % and exceeded), `Application/Finance/BudgetService.cs`, `/api/budgets`. Tests: `BudgetAndPurchaseTests.cs` and `Phase7FormulaTests.cs` (unit), `BudgetAndPurchaseEndpointTests.cs` (integration).
+
+| Rule | Behaviour |
+|---|---|
+| Budget line | An amount for one category in one calendar month from 2000 to 2100, in one currency, in whole minor units. One line per month, category and currency (unique index; a second is 409). The month and currency of a line never change. |
+| Actual | The sum of **Expense** transactions dated in that month, in that currency, with that category, by transaction date. |
+| Matching | Categories are free text on the ledger, so they match whatever their case or surrounding spaces. |
+| Reversed expenses | Count for nothing, in the month of the original, whenever the reversal was dated. |
+| Not counted | Fees recorded inside an income or an exchange are not expenses and are in no budget. Actual covers expenses in every account type, including brokerage. |
+| Outside the budget | Expenses with no line for their category and currency are listed apart, with no category shown as such, so the month's spending is all accounted for. A rand budget does not cover dollars, and nothing is converted. |
+| Figures | Remaining = budget − actual, below zero when exceeded. Used % is actual ÷ budget, rounded down to one decimal and not capped. Totals are per currency. |
+| Never blocks | A budget never posts to the ledger and never stops an expense. A line can be changed or deleted, and each change is audited (`budget.created`, `budget.updated`, `budget.deleted`). |
+
+## Planned purchases (Phase 7.4: implemented)
+
+Code: `Domain/Finance/PlannedPurchase.cs`, `Domain/Finance/Affordability.cs`, `Application/Finance/PlannedPurchaseService.cs`, `/api/planned-purchases`. Tests: `BudgetAndPurchaseTests.cs` and `Phase7FormulaTests.cs` (unit), `BudgetAndPurchaseEndpointTests.cs` (integration).
+
+| Rule | Behaviour |
+|---|---|
+| Stages | **Proposed → Committed → Purchased**, or **Cancelled** from either open stage. Committed can go back to Proposed. Only a proposal can be edited. PLAN.md §3.6 sketched a further "Paid" stage; the linked expense already records payment, so there is none. |
+| What it is | A name, an amount in one currency, the fund it is paid from (not Unallocated), and an optional category, target date and notes. **It never moves money and never creates a ledger entry.** Two open purchases cannot share a name. |
+| Purchased | A **link** to an Expense already in the ledger: same currency, not reversed, not linked to another purchase (unique index) or to an obligation's payment. What it actually cost is recorded, even if it differs from the plan. The expense does not have to be from the same fund. |
+| Undoing | Removes the link and returns the purchase to Committed. The expense stays in the ledger. |
+| A later reversal | The purchase is marked "expense reversed" and a warning asks for it to be reviewed. Nothing is changed automatically. |
+| Audited | Proposed, updated, committed, commitment withdrawn, cancelled, bought and undone are each an audit event (`purchase.*`). |
+
+**Can it be afforded?** Worked out for each open purchase from recorded balances, today:
+
+`After = Available − Committed elsewhere − Purchase`
+
+- **Available:** the purchase's fund, in the purchase's currency, in **bank and cash** accounts. Brokerage money is not spendable.
+- **Committed elsewhere:** that fund's other Committed purchases in that currency. Proposals reserve nothing, and a commitment never reserves against itself. Once a purchase is bought, its reservation ends and the expense has already reduced the balance.
+
+| Answer | When |
+|---|---|
+| **Affordable** | The fund has a minimum in this currency and After ≥ minimum (exactly at the minimum is allowed). |
+| **Breaches the minimum** | After < minimum. The shortfall is minimum − After. |
+| **No minimum to compare** | No minimum in this currency, and After ≥ 0. A minimum in another currency is shown and never converted. |
+| **Not enough money** | No minimum in this currency, and After < 0. |
+
+The check **warns and never blocks**: a purchase can be committed even when it would breach the minimum, because the decision is the owner's. Active obligations due within 30 days in the same currency, overdue ones included, are shown beside the answer and **not deducted**, because obligations are not tied to a fund.
+
 ## Storage
 
-- Finance tables are in the SQL schema `finance`: `Funds`, `FinancialAccounts`, `LedgerTransactions`, `LedgerEntries`, `AuditEvents`, `Payouts`, `AllocationPolicies`, `AllocationPolicyLines`, `Allocations`, `AllocationLines`, `AllocationSettlements`.
+- Finance tables are in the SQL schema `finance`: `Funds`, `FinancialAccounts`, `LedgerTransactions`, `LedgerEntries`, `AuditEvents`, `Payouts`, `AllocationPolicies`, `AllocationPolicyLines`, `Allocations`, `AllocationLines`, `AllocationSettlements`, `Obligations`, `ObligationPayments`, `ContinuitySettings`, `InvestmentValuations`, `BudgetLines`, `PlannedPurchases`.
 - Trading tables stay in `dbo`.
 - Amounts: `decimal(19,4)`. Exchange rates: `decimal(18,8)`. Percentages: `decimal(9,6)`. Currency codes: `char(3)`. Enums are stored as their names.
 - `Payouts` and `Allocations` carry a `rowversion` for optimistic concurrency.

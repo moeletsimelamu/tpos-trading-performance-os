@@ -39,6 +39,11 @@ export const NAVIGATION: NavSection[] = [
       { label: 'Capital allocation', route: '/finance/allocations', icon: 'allocation' },
       { label: 'Accounts', route: '/finance/accounts', icon: 'accounts' },
       { label: 'Funds', route: '/finance/funds', icon: 'funds' },
+      { label: 'Obligations', route: '/finance/obligations', icon: 'calendar' },
+      { label: 'Continuity', route: '/finance/continuity', icon: 'shield' },
+      { label: 'Investments', route: '/finance/investments', icon: 'investments' },
+      { label: 'Budgets', route: '/finance/budgets', icon: 'budget' },
+      { label: 'Purchases', route: '/finance/purchases', icon: 'purchase' },
       { label: 'Transactions', route: '/finance/transactions', icon: 'transactions' },
       { label: 'Audit log', route: '/finance/audit', icon: 'audit' }
     ]

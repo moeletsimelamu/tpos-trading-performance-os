@@ -26,9 +26,10 @@ public class FinanceSetupService
             throw new ConflictException($"A fund named '{request.Name.Trim()}' already exists.");
 
         var fund = new Fund(request.Name, request.Description, Now);
+        fund.SetThresholds(ThresholdCurrency(request), request.Minimum, request.Target);
         await SaveWithAuditAsync(() => _repository.Add(fund), () => AuditLog.Event(
             Now, userId, "fund.created", nameof(Fund), fund.Id, $"Created fund '{fund.Name}'.",
-            new { fund.Name, fund.Description }), "IX_Funds_Name", $"A fund named '{fund.Name}' already exists.");
+            FundSnapshot(fund)), "IX_Funds_Name", $"A fund named '{fund.Name}' already exists.");
 
         return (await FinanceReadModel.LoadAsync(_repository)).Fund(fund);
     }
@@ -39,11 +40,12 @@ public class FinanceSetupService
         if (await _repository.FundNameExistsAsync(request.Name, excludingId: id))
             throw new ConflictException($"A fund named '{request.Name.Trim()}' already exists.");
 
-        var before = new { fund.Name, fund.Description };
+        var before = FundSnapshot(fund);
         fund.Update(request.Name, request.Description);
+        fund.SetThresholds(ThresholdCurrency(request), request.Minimum, request.Target);
         await SaveWithAuditAsync(() => { }, () => AuditLog.Event(
             Now, userId, "fund.updated", nameof(Fund), fund.Id, $"Updated fund '{fund.Name}'.",
-            new { before, after = new { fund.Name, fund.Description } }), "IX_Funds_Name", $"A fund named '{fund.Name}' already exists.");
+            new { before, after = FundSnapshot(fund) }), "IX_Funds_Name", $"A fund named '{fund.Name}' already exists.");
 
         return (await FinanceReadModel.LoadAsync(_repository)).Fund(fund);
     }
@@ -101,6 +103,12 @@ public class FinanceSetupService
 
         return (await FinanceReadModel.LoadAsync(_repository)).Account(account);
     }
+
+    private static Currency? ThresholdCurrency(CreateFundRequest request) =>
+        string.IsNullOrWhiteSpace(request.ThresholdCurrency) ? null : Currency.FromCode(request.ThresholdCurrency.Trim());
+
+    private static object FundSnapshot(Fund fund) =>
+        new { fund.Name, fund.Description, ThresholdCurrency = fund.ThresholdCurrency?.Code, fund.Minimum, fund.Target };
 
     // Saves the change, then the audit event that references its generated id, atomically
     private async Task SaveWithAuditAsync(Action change, Func<AuditEvent> audit, string? uniqueIndex = null, string? conflictMessage = null)

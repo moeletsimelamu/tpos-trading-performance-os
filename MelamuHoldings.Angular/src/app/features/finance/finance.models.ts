@@ -23,7 +23,104 @@ export interface Account {
   closedAt?: string | null;
 }
 
-export interface Fund { id: number; name: string; description?: string | null; isSystem: boolean; balances: Money[]; }
+// Minimum and target are in one currency and compared with the fund's balance in that currency only
+export interface Fund { id: number; name: string; description?: string | null; isSystem: boolean; balances: Money[]; minimum?: Money | null; target?: Money | null; }
+
+export interface SaveFund { name: string; description?: string; thresholdCurrency?: string | null; minimum?: number | null; target?: number | null; }
+
+// Where a fund stands against its minimum and target: its balance in their currency (0 when it holds none),
+// whether it is below the minimum, and how far it is towards the target (0 to 100)
+export function fundStanding(fund: Fund): { balance: Money; belowMinimum: boolean; progress: number | null } | null {
+  const currency = fund.minimum?.currency ?? fund.target?.currency;
+  if (!currency) return null;
+  const amount = fund.balances.find(b => b.currency === currency)?.amount ?? 0;
+  const target = fund.target?.amount;
+  return {
+    balance: { amount, currency },
+    belowMinimum: fund.minimum != null && amount < fund.minimum.amount,
+    progress: target ? Math.max(0, Math.min(100, Math.round(amount / target * 1000) / 10)) : null
+  };
+}
+
+// Obligations (Phase 7.1): what the business has to pay. Payments link expenses already in the ledger.
+export type Recurrence = 'None' | 'Monthly' | 'Quarterly' | 'Yearly';
+export const RECURRENCES: { value: Recurrence; label: string }[] = [
+  { value: 'None', label: 'Once' }, { value: 'Monthly', label: 'Monthly' }, { value: 'Quarterly', label: 'Quarterly' }, { value: 'Yearly', label: 'Yearly' }
+];
+export type ObligationStanding = 'Upcoming' | 'DueSoon' | 'Overdue' | 'Completed' | 'Cancelled';
+export interface ObligationPayment { id: number; transactionId: number; dueDate: string; paidOn: string; amount: Money; reversed: boolean; }
+export interface Obligation {
+  id: number; name: string; amount: Money; category?: string | null; recurrence: Recurrence; firstDueDate: string; dueDate: string;
+  status: 'Active' | 'Completed' | 'Cancelled'; standing: ObligationStanding; daysUntilDue: number; notes?: string | null;
+  payments: ObligationPayment[]; createdAt: string; updatedAt?: string | null;
+}
+export interface SaveObligation {
+  name: string; amount: number; currency: string; category?: string | null; recurrence: Recurrence; firstDueDate: string; notes?: string | null;
+}
+// Continuity (Phase 7.2): months of essential expenses the reserve covers, from recorded balances only.
+// Counted: the continuity fund's money in the settings currency in bank and cash accounts. Everything else is listed apart.
+export interface ContinuitySettings {
+  continuityFundId: number; continuityFundName: string; months: number; currency: string; monthlyEssentialExpense?: number | null;
+  restorationFundId?: number | null; restorationFundName?: string | null; updatedAt?: string | null;
+}
+export interface SaveContinuitySettings { continuityFundId: number; months: number; monthlyEssentialExpense: number | null; restorationFundId: number | null; }
+export interface ContinuityHolding { accountId: number; accountName: string; amount: Money; separated: boolean; }
+export interface NotCounted { reason: string; amount: Money; accountName?: string | null; }
+export interface Restoration {
+  fundId: number; fundName: string; target?: Money | null; cash?: Money | null; shortfall?: Money | null; progress?: number | null; notCounted: NotCounted[];
+}
+export interface ContinuityReport {
+  settings: ContinuitySettings; cash: Money; target?: Money | null; coverageMonths?: number | null; shortfall?: Money | null; belowTarget: boolean;
+  earmarked: Money; separated: Money; holdings: ContinuityHolding[]; notCounted: NotCounted[]; restoration?: Restoration | null;
+}
+
+// Cash free to use (PLAN.md D9), per currency. Obligations are shown beside the figure and not deducted.
+export interface UnrestrictedHolding { accountId: number; accountName: string; fundId: number; fundName: string; amount: Money; }
+export interface UnrestrictedCurrency {
+  currency: string; held: number; operatingMinimum: number; owedToOtherFunds: number; payoutsNotAllocated: number; committedPurchases: number;
+  amount: number; obligationsDue: number; afterObligations: number; holdings: UnrestrictedHolding[];
+}
+export interface UnrestrictedCashReport { currencies: UnrestrictedCurrency[]; notCounted: NotCounted[]; }
+
+// Investments (Phase 7.3): valuations of brokerage accounts against what the ledger recorded. A valuation never moves money;
+// unrealised is value − recorded balance on the valuation date, and is not cash or income.
+export interface Valuation {
+  id: number; accountId: number; valuedOn: string; value: Money; note?: string | null; recordedAt: string; recordedBalance: Money; unrealised: Money;
+}
+export interface InvestmentAccount {
+  accountId: number; accountName: string; currency: string; institution?: string | null; ownership: Ownership; status: 'Active' | 'Closed';
+  asOf: string; latest?: Valuation | null; netContributions: Money; recordedIncome: Money; recordedCosts: Money; recordedBalance: Money;
+  unrealised?: Money | null; gainOnContributions?: Money | null; transactionsSinceValuation: number; movedSinceValuation: Money; currentRecordedBalance: Money;
+}
+export interface InvestmentTotal { currency: string; value: number; netContributions: number; unrealised: number; accounts: number; }
+export interface Investments { accounts: InvestmentAccount[]; totals: InvestmentTotal[]; }
+export interface RecordValuation { valuedOn: string; value: number; note?: string | null; }
+
+// Budgets (Phase 7.4): budget versus actual per month and category. Actual comes from unreversed expenses with that category.
+export interface BudgetLine {
+  id: number; month: string; category: string; budget: Money; actual: Money; remaining: Money; usedPercent: number; exceeded: boolean; transactions: number;
+}
+export interface UnbudgetedSpend { category?: string | null; actual: Money; transactions: number; }
+export interface BudgetTotal { currency: string; budget: number; actualBudgeted: number; actualUnbudgeted: number; }
+export interface BudgetMonth { month: string; from: string; to: string; lines: BudgetLine[]; unbudgeted: UnbudgetedSpend[]; totals: BudgetTotal[]; }
+
+// Planned purchases (Phase 7.4): a purchase links an expense already in the ledger. The check warns and never blocks.
+export type PlannedPurchaseStatus = 'Proposed' | 'Committed' | 'Purchased' | 'Cancelled';
+export type AffordabilityVerdict = 'Affordable' | 'BreachesMinimum' | 'NoMinimum' | 'NotEnoughMoney';
+export interface Affordability {
+  verdict: AffordabilityVerdict; available: Money; committedElsewhere: Money; purchase: Money; after: Money; minimum?: Money | null; shortfall?: Money | null;
+  minimumInOtherCurrency?: Money | null; obligationsDue: Money;
+}
+export interface PlannedPurchase {
+  id: number; name: string; amount: Money; fundId: number; fundName: string; category?: string | null; targetDate?: string | null; notes?: string | null;
+  status: PlannedPurchaseStatus; transactionId?: number | null; paid?: Money | null; purchasedOn?: string | null; expenseReversed: boolean;
+  affordability?: Affordability | null; createdAt: string; updatedAt?: string | null;
+}
+export interface SavePlannedPurchase {
+  name: string; amount: number; currency: string; fundId: number; category?: string | null; targetDate?: string | null; notes?: string | null;
+}
+
+export interface PaymentCandidate { transactionId: number; date: string; description: string; category?: string | null; amount: Money; }
 
 // Principal entries move the money; fee entries record a charge taken along the way (kept visible, never netted)
 export type EntryRole = 'Principal' | 'Fee';

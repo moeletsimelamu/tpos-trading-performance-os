@@ -104,6 +104,52 @@ public partial class FinanceRepository : IFinanceRepository
         return rows.Select(r => new CashEntryRow(r.TransactionDate, r.Type, r.Role, r.Currency.Code, r.Amount, r.Transactions)).ToList();
     }
 
+    public async Task<List<ExpenseRow>> GetUnreversedExpensesAsync(DateOnly first, DateOnly last)
+    {
+        var rows = await (
+            from e in _context.LedgerEntries
+            join t in _context.LedgerTransactions on e.LedgerTransactionId equals t.Id
+            where t.Type == LedgerTransactionType.Expense && t.TransactionDate >= first && t.TransactionDate <= last
+                && !_context.LedgerTransactions.Any(r => r.ReversesTransactionId == t.Id)
+            select new { t.Id, t.TransactionDate, t.Category, e.Currency, e.Amount })
+            .ToListAsync();
+        return rows.Select(r => new ExpenseRow(r.Id, r.TransactionDate, r.Category, r.Currency.Code, -r.Amount)).ToList();
+    }
+
+    public Task<List<BudgetLine>> GetBudgetLinesAsync(DateOnly month) => _context.BudgetLines.Where(l => l.Month == month).ToListAsync();
+
+    public Task<BudgetLine?> GetBudgetLineAsync(int id) => _context.BudgetLines.FirstOrDefaultAsync(l => l.Id == id);
+
+    public Task<List<PlannedPurchase>> GetPlannedPurchasesAsync() => _context.PlannedPurchases.ToListAsync();
+
+    public Task<PlannedPurchase?> GetPlannedPurchaseAsync(int id) => _context.PlannedPurchases.FirstOrDefaultAsync(p => p.Id == id);
+
+    public async Task<HashSet<int>> GetLinkedPurchaseTransactionIdsAsync(IEnumerable<int> transactionIds)
+    {
+        var ids = transactionIds.Select(id => (int?)id).Distinct().ToList();
+        if (ids.Count == 0) return [];
+        return (await _context.PlannedPurchases.Where(p => ids.Contains(p.LedgerTransactionId)).Select(p => p.LedgerTransactionId!.Value).ToListAsync()).ToHashSet();
+    }
+
+    public async Task<List<InvestmentEntryRow>> GetBrokerageEntriesAsync()
+    {
+        var rows = await (
+            from e in _context.LedgerEntries
+            join t in _context.LedgerTransactions on e.LedgerTransactionId equals t.Id
+            join a in _context.FinancialAccounts on e.FinancialAccountId equals a.Id
+            where a.Type == FinancialAccountType.Brokerage
+            join o in _context.LedgerTransactions on t.ReversesTransactionId equals (int?)o.Id into originals
+            from o in originals.DefaultIfEmpty()
+            select new { e.FinancialAccountId, t.TransactionDate, t.Type, OriginalType = (LedgerTransactionType?)o.Type, e.Role, e.Amount, e.LedgerTransactionId })
+            .ToListAsync();
+        return rows.Select(r => new InvestmentEntryRow(r.FinancialAccountId, r.TransactionDate, r.OriginalType ?? r.Type, r.Role, r.Amount, r.LedgerTransactionId)).ToList();
+    }
+
+    public Task<List<InvestmentValuation>> GetValuationsAsync(int? accountId = null) =>
+        _context.InvestmentValuations.Where(v => accountId == null || v.FinancialAccountId == accountId).ToListAsync();
+
+    public Task<InvestmentValuation?> GetValuationAsync(int id) => _context.InvestmentValuations.FirstOrDefaultAsync(v => v.Id == id);
+
     public async Task<decimal> GetAccountBalanceAsync(int accountId) =>
         await _context.LedgerEntries.Where(e => e.FinancialAccountId == accountId).SumAsync(e => (decimal?)e.Amount) ?? 0m;
 
@@ -166,6 +212,34 @@ public partial class FinanceRepository : IFinanceRepository
     public void Add(AuditEvent auditEvent) => _context.AuditEvents.Add(auditEvent);
     public void Add(Payout payout) => _context.Payouts.Add(payout);
     public void Add(AllocationPolicy policy) => _context.AllocationPolicies.Add(policy);
+    public Task<ContinuitySettings?> GetContinuitySettingsAsync() =>
+        _context.ContinuitySettings.FirstOrDefaultAsync(s => s.Id == ContinuitySettings.SingletonId);
+
+    public Task<List<Obligation>> GetObligationsAsync() =>
+        _context.Obligations.Include(o => o.Payments).ToListAsync();
+
+    public Task<Obligation?> GetObligationAsync(int id) =>
+        _context.Obligations.Include(o => o.Payments).FirstOrDefaultAsync(o => o.Id == id);
+
+    public async Task<HashSet<int>> GetLinkedPaymentTransactionIdsAsync(IEnumerable<int> transactionIds)
+    {
+        var ids = transactionIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+        return (await _context.ObligationPayments.Where(p => ids.Contains(p.LedgerTransactionId)).Select(p => p.LedgerTransactionId).ToListAsync()).ToHashSet();
+    }
+
+    public void Add(Obligation obligation) => _context.Obligations.Add(obligation);
+
+    public void Add(InvestmentValuation valuation) => _context.InvestmentValuations.Add(valuation);
+
+    public void Add(BudgetLine line) => _context.BudgetLines.Add(line);
+
+    public void Remove(BudgetLine line) => _context.BudgetLines.Remove(line);
+
+    public void Add(PlannedPurchase purchase) => _context.PlannedPurchases.Add(purchase);
+
+    public void Remove(InvestmentValuation valuation) => _context.InvestmentValuations.Remove(valuation);
+
     public void Add(Allocation allocation) => _context.Allocations.Add(allocation);
 
     public async Task SaveChangesAsync()
