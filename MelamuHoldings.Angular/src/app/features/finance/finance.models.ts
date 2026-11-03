@@ -74,6 +74,14 @@ export interface ContinuityReport {
   earmarked: Money; separated: Money; holdings: ContinuityHolding[]; notCounted: NotCounted[]; restoration?: Restoration | null;
 }
 
+// Cash free to use (PLAN.md D9), per currency. Obligations are shown beside the figure and not deducted.
+export interface UnrestrictedHolding { accountId: number; accountName: string; fundId: number; fundName: string; amount: Money; }
+export interface UnrestrictedCurrency {
+  currency: string; held: number; operatingMinimum: number; owedToOtherFunds: number; payoutsNotAllocated: number; committedPurchases: number;
+  amount: number; obligationsDue: number; afterObligations: number; holdings: UnrestrictedHolding[];
+}
+export interface UnrestrictedCashReport { currencies: UnrestrictedCurrency[]; notCounted: NotCounted[]; }
+
 // Investments (Phase 7.3): valuations of brokerage accounts against what the ledger recorded. A valuation never moves money;
 // unrealised is value − recorded balance on the valuation date, and is not cash or income.
 export interface Valuation {

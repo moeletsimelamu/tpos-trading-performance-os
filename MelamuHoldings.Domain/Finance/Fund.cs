@@ -7,6 +7,9 @@ namespace MelamuHoldings.Domain.Finance;
 public class Fund
 {
     public const int UnallocatedId = 1;
+
+    // Seeded with this id, so unrestricted cash keeps finding it if the owner renames it
+    public const int OperatingCapitalId = 2;
     public const int MaxNameLength = 100;
     public const int MaxDescriptionLength = 300;
 

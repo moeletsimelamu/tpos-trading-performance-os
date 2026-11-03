@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, BudgetLine, BudgetMonth, ContinuityReport, ContinuitySettings, CurrencyInfo, Fund, Investments, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PlannedPurchase, PayoutStatus, RecordKind, RecordValuation, SaveContinuitySettings, SaveFund, SaveObligation, SavePlannedPurchase, Transaction, TransactionFilter, Valuation } from './finance.models';
+import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, BudgetLine, BudgetMonth, ContinuityReport, UnrestrictedCashReport, ContinuitySettings, CurrencyInfo, Fund, Investments, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PlannedPurchase, PayoutStatus, RecordKind, RecordValuation, SaveContinuitySettings, SaveFund, SaveObligation, SavePlannedPurchase, Transaction, TransactionFilter, Valuation } from './finance.models';
 
 export interface CreateAccountRequest {
   name: string; type: AccountType; currency: string; ownership: Ownership; institution?: string; notes?: string;
@@ -175,6 +175,10 @@ export class FinanceApiService {
   }
 
   // Continuity: coverage measured from recorded balances, and the settings it is measured by
+  getUnrestrictedCash(): Observable<UnrestrictedCashReport> {
+    return this.http.get<UnrestrictedCashReport>(`${this.base}/unrestricted-cash`);
+  }
+
   getContinuity(): Observable<ContinuityReport> {
     return this.http.get<ContinuityReport>(`${this.base}/continuity`);
   }

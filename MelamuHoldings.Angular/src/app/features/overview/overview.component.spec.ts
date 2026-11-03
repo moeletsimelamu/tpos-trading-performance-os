@@ -254,6 +254,11 @@ describe('OverviewComponent', () => {
     http.verify();
   });
 
+  const figures = (currency: string, amount: number) => ({
+    currency, held: 0, operatingMinimum: 0, owedToOtherFunds: 0, payoutsNotAllocated: 0, committedPurchases: 0, amount, obligationsDue: 0, afterObligations: amount, holdings: []
+  });
+  const unrestricted = { currencies: [figures('USD', -400), figures('ZAR', 61000)], notCounted: [] };
+
   async function render() {
     const fixture = TestBed.createComponent(OverviewComponent);
     await fixture.whenStable();
@@ -267,6 +272,7 @@ describe('OverviewComponent', () => {
     http.expectOne(`${api}/allocations`).flush([]);
     http.expectOne(r => r.url === `${api}/obligations` && r.params.get('includeClosed') === 'true').flush([]);
     http.expectOne(`${api}/continuity`).flush(continuity);
+    http.expectOne(`${api}/unrestricted-cash`).flush(unrestricted);
     http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
     http.expectOne(`${api}/budgets`).flush({ month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [], unbudgeted: [], totals: [] });
     http.expectOne(r => r.url === `${api}/planned-purchases`).flush([]);
@@ -292,6 +298,8 @@ describe('OverviewComponent', () => {
     expect(strip).not.toContain('16,600.50');
     const metrics = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.metric-strip .metric')].map(m => [...m.children].map(c => c.textContent!.trim()));
     expect(metrics).toContainEqual(['Continuity', '7.0 months', 'of 24 months covered']);
+    expect(metrics).toContainEqual(['Unrestricted · ZAR', 'ZAR 61,000.00', 'See the working']);
+    expect(metrics).toContainEqual(['Unrestricted · USD', 'USD -400.00', 'See the working']);
   });
 
   it('lists the latest payouts with their status, and says which are not cash yet', async () => {
@@ -309,6 +317,7 @@ describe('OverviewComponent', () => {
     http.expectOne(`${api}/allocations`).flush([]);
     http.expectOne(r => r.url === `${api}/obligations` && r.params.get('includeClosed') === 'true').flush([]);
     http.expectOne(`${api}/continuity`).flush(continuity);
+    http.expectOne(`${api}/unrestricted-cash`).flush(unrestricted);
     http.expectOne(`${api}/investments`).flush({ accounts: [], totals: [] });
     http.expectOne(`${api}/budgets`).flush({ month: '2026-11', from: '2026-11-01', to: '2026-11-30', lines: [], unbudgeted: [], totals: [] });
     http.expectOne(r => r.url === `${api}/planned-purchases`).flush([]);
@@ -336,8 +345,8 @@ describe('OverviewComponent', () => {
     const fixture = await render();
     http.expectOne(`${api}/balances`).flush(null, { status: 403, statusText: 'Forbidden' });
     // forkJoin abandons the other finance requests once the balances fail
-    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`, `${api}/continuity`, `${api}/investments`, `${api}/budgets`, `${api}/planned-purchases`].includes(r.url));
-    expect(others.length).toBe(8);
+    const others = http.match(r => [`${api}/transactions`, `${api}/payouts`, `${api}/allocations`, `${api}/obligations`, `${api}/continuity`, `${api}/unrestricted-cash`, `${api}/investments`, `${api}/budgets`, `${api}/planned-purchases`].includes(r.url));
+    expect(others.length).toBe(9);
     expect(others.every(r => r.cancelled)).toBe(true);
     flushTrading(0);
     await fixture.whenStable();

@@ -118,6 +118,7 @@ builder.Services.AddScoped<LedgerService>();
 builder.Services.AddScoped<OverviewService>();
 builder.Services.AddScoped<ObligationService>();
 builder.Services.AddScoped<ContinuityService>();
+builder.Services.AddScoped<UnrestrictedCashService>();
 builder.Services.AddScoped<InvestmentService>();
 builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<PlannedPurchaseService>();

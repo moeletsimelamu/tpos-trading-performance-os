@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { FinanceApiService } from '../finance/finance-api.service';
-import { Allocation, Balances, BudgetMonth, ContinuityReport, Investments, Money, Obligation, Payout, PlannedPurchase, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, fundStanding } from '../finance/finance.models';
+import { Allocation, Balances, BudgetMonth, ContinuityReport, Investments, Money, Obligation, Payout, PlannedPurchase, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, UnrestrictedCashReport, fundStanding } from '../finance/finance.models';
 import { TradingApiService } from '../trading/trading-api.service';
 import { AnalyticsSummary, BehaviourSummary } from '../trading/models/analytics.model';
 import { MoneyPipe } from '../../shared/money.pipe';
@@ -67,6 +67,13 @@ const RECENT_PAYOUTS = 5;
                     <span class="metric-value">{{ activeAccounts() }}</span>
                     <span class="metric-note"><a routerLink="/finance/accounts">View accounts</a></span>
                   </div>
+                  @for (u of unrestricted()?.currencies ?? []; track u.currency) {
+                    <div class="metric">
+                      <span class="metric-label">Unrestricted · {{ u.currency }}</span>
+                      <span class="metric-value" [class.text-negative]="u.amount < 0">{{ u.amount | money: u.currency }}</span>
+                      <span class="metric-note"><a routerLink="/finance/unrestricted-cash">See the working</a></span>
+                    </div>
+                  }
                   @if (continuity(); as c) {
                     <div class="metric">
                       <span class="metric-label">Continuity</span>
@@ -273,6 +280,7 @@ export class OverviewComponent {
   readonly activeAccounts = computed(() => this.balances()?.accounts.filter(a => a.status === 'Active').length ?? 0);
   readonly obligations = signal<Obligation[]>([]);
   readonly continuity = signal<ContinuityReport | null>(null);
+  readonly unrestricted = signal<UnrestrictedCashReport | null>(null);
   readonly investments = signal<Investments | null>(null);
   readonly budgets = signal<BudgetMonth | null>(null);
   readonly purchases = signal<PlannedPurchase[]>([]);
@@ -296,11 +304,13 @@ export class OverviewComponent {
       // Paid ones too: a one-off is closed by its payment, and that expense can still be reversed later
       obligations: this.finance.getObligations(true),
       continuity: this.finance.getContinuity(),
+      unrestricted: this.finance.getUnrestrictedCash(),
       investments: this.finance.getInvestments(),
       budgets: this.finance.getBudgets(),
       purchases: this.finance.getPlannedPurchases(true)
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: ({ balances, recent, payouts, allocations, obligations, continuity, investments, budgets, purchases }) => {
+      next: ({ balances, recent, payouts, allocations, obligations, continuity, unrestricted, investments, budgets, purchases }) => {
+        this.unrestricted.set(unrestricted);
         this.budgets.set(budgets);
         this.purchases.set(purchases);
         this.obligations.set(obligations);

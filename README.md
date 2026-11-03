@@ -8,7 +8,7 @@ A unified operating system for managing trading operations, financial performanc
 > - the trading module;
 > - **Financial Management**: accounts, funds, an auditable ledger and balances.
 >
-> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets and planned purchases** work too (Phase 7). Prop-firm accounts and business planning are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
+> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets, planned purchases and unrestricted cash** work too (Phase 7). Prop-firm accounts and business planning are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
 
 ![Executive overview](docs/images/executive-overview.jpg)
 
@@ -18,6 +18,7 @@ A unified operating system for managing trading operations, financial performanc
 
 The landing page shows the business as recorded:
 - cash by currency (never added across currencies);
+- **unrestricted cash** per currency: Unallocated and Operating Capital in company bank and cash accounts, less Operating Capital's minimum, what confirmed allocations still owe other funds, received payouts not allocated yet, and committed purchases. Its own page shows the working, the bills due within 30 days beside it (not deducted), and what is not counted and why;
 - **money in and out for a period** (this month, last month, this quarter, year to date, the last 12 months or any dates), per currency, from bank and cash accounts:
   - **The cash movement:** cash at the start, then income received (gross and fees deducted), expenses, currency exchanges, transfers and reversals. Then the net cash movement (labelled as cash movement, not profit), opening balances recorded and cash at the end.
   - **Totals:** income, expenses and net cash movement month by month, and the payouts received.
@@ -296,6 +297,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/obligations/{id}/payment-candidates` | Recent expenses that could pay it: same currency, not reversed, not linked |
 | POST | `/api/obligations/{id}/payments` | Record a payment by linking an expense (`{ transactionId }`) |
 | POST | `/api/obligations/{id}/payments/undo` | Remove the latest payment link; the expense stays in the ledger |
+| GET | `/api/unrestricted-cash` | Cash free to use per currency, with the working, obligations due within 30 days (not deducted), and what is not counted and why |
 | GET | `/api/continuity` | Continuity coverage, shortfall, where the counted money is, what is not counted and why, and restoration progress |
 | PUT | `/api/continuity/settings` | Continuity fund, months to cover, monthly essential expense and restoration fund |
 | GET | `/api/investments` | Brokerage accounts with net contributions, recorded income and costs, the latest valuation and the unrealised gain or loss, and totals per currency |

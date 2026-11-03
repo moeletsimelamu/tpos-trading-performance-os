@@ -111,6 +111,50 @@ public class Phase7FormulaTests
         Assert.Equal(flow, InvestmentValuation.FlowOf(type, role));
     }
 
+    [Theory]
+    [InlineData(70000, 5000, 0, 0, 4000, 61000)]
+    [InlineData(1445, 0, 405, 500, 0, 540)]         // what remains of a payout is Operating Capital's share
+    [InlineData(5000, 5000, 0, 0, 0, 0)]            // exactly at the minimum: nothing is free
+    [InlineData(1000, 5000, 0, 0, 0, -4000)]        // below zero: more is spoken for than is held
+    [InlineData(0, 0, 0, 0, 0, 0)]
+    public void Unrestricted_cash_is_what_is_held_less_what_is_spoken_for(double held, double minimum, double owed, double payouts, double committed, double amount)
+    {
+        var cash = new UnrestrictedCash((decimal)held, (decimal)minimum, (decimal)owed, (decimal)payouts, (decimal)committed);
+
+        Assert.Equal((decimal)amount, cash.Amount);
+    }
+
+    [Fact]
+    public void Obligations_are_shown_beside_unrestricted_cash_and_not_deducted_from_it()
+    {
+        var cash = new UnrestrictedCash(70000, 5000, 0, 0, 4000);
+
+        Assert.Equal(53000m, cash.AfterObligations(8000));
+        Assert.Equal(61000m, cash.Amount);
+    }
+
+    [Theory]
+    [InlineData(Fund.UnallocatedId, true)]
+    [InlineData(Fund.OperatingCapitalId, true)]
+    [InlineData(3, false)]                          // Business Continuity
+    [InlineData(4, false)]                          // Wealth Fund
+    public void Only_unallocated_and_operating_money_can_be_unrestricted(int fundId, bool counts)
+    {
+        Assert.Equal(counts, UnrestrictedCash.CountsFund(fundId));
+    }
+
+    [Theory]
+    [InlineData(FinancialAccountType.Bank, Ownership.Company, true)]
+    [InlineData(FinancialAccountType.Cash, Ownership.Company, true)]
+    [InlineData(FinancialAccountType.Bank, Ownership.Personal, false)]
+    [InlineData(FinancialAccountType.Bank, Ownership.Unspecified, false)]
+    [InlineData(FinancialAccountType.Brokerage, Ownership.Company, false)]
+    [InlineData(FinancialAccountType.Other, Ownership.Company, false)]
+    public void Only_company_bank_and_cash_accounts_can_hold_unrestricted_cash(FinancialAccountType type, Ownership ownership, bool counts)
+    {
+        Assert.Equal(counts, UnrestrictedCash.CountsAccount(type, ownership));
+    }
+
     [Fact]
     public void An_amount_too_large_to_store_is_refused()
     {

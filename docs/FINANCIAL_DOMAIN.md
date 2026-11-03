@@ -279,6 +279,34 @@ Tests: `ContinuitySettingsTests.cs` and `Phase7FormulaTests.cs` (unit), `Continu
 | Nothing moves | The settings and the report never create a ledger entry. Money reaches the funds through allocations, earmarks and transfers. |
 | Audited | Each change of settings is a `continuity.updated` event with before and after. |
 
+## Unrestricted cash (Phase 7.6: implemented)
+
+Code: `Domain/Finance/UnrestrictedCash.cs`, `Application/Finance/UnrestrictedCashService.cs`, `/api/unrestricted-cash`. Decision: PLAN.md D9.
+Tests: `Phase7FormulaTests.cs` (unit), `UnrestrictedCashEndpointTests.cs` (integration).
+
+Cash that is free to use, per currency:
+
+`Unrestricted = Held − Operating minimum − Owed to other funds − Payouts not allocated − Committed purchases`
+
+| Line | What it is |
+|---|---|
+| **Held** | Unallocated and Operating Capital, in that currency, in **company bank and cash** accounts. |
+| **Operating minimum** | Operating Capital's minimum, when it is in that currency. It comes off the total, so Unallocated money covers a fund below its minimum first. |
+| **Owed to other funds** | What confirmed allocations still owe funds other than Operating Capital, when the payout's money is in a counted account. A line owed to Operating Capital does not come off, because that money stays unrestricted once settled. Settlements whose transaction was reversed do not count as settled. |
+| **Payouts not allocated** | The credited amount of received payouts with no live allocation, in full, when received into a counted account. A cancelled allocation puts the payout back here. |
+| **Committed purchases** | Committed purchases paid from Operating Capital. Proposed ones reserve nothing, and a purchase from another fund has no claim on this money. |
+
+| Rule | Behaviour |
+|---|---|
+| Below zero | The figure can go below zero, when more is spoken for than is held, and it is shown that way. |
+| Obligations | Active obligations due within 30 days, overdue ones included, are shown beside the figure with what would be left if all were paid. They are **not deducted**: an expense lowers the balance as soon as it is recorded, and the obligation moves on only when that expense is linked, so one bill could come off twice. |
+| Shown, not counted | The two funds' money in brokerage and other accounts, personal accounts, and accounts with ownership not stated, each with the reason. |
+| Which fund | Operating Capital is found by its seeded id, so renaming it changes nothing. |
+| Currencies | Each stands alone. Nothing is converted. |
+| Nothing moves | The figure is worked out when asked for. It is never stored, and it never blocks or moves anything. |
+
+**A known limit:** payouts and allocations are counted in the currency they were credited in. If a payout is exchanged before it is allocated, its deduction stays in the old currency, so that figure reads too low and the new currency's too high, until it is allocated.
+
 ## Investments (Phase 7.3: implemented)
 
 Code: `Domain/Finance/InvestmentValuation.cs` (the unrealised gain or loss, and which group an entry falls in), `Application/Finance/InvestmentService.cs`, `/api/investments`.

@@ -49,6 +49,38 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-03 (branch `phase-7-6-unrestricted-cash`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 254 passed, 0 failed |
+| `dotnet test` (Release): integration | 122 passed, 0 failed |
+| `ng test --watch=false` | 194 passed, 0 failed (29 files) |
+| `ng build` (production) | Succeeded; initial bundle 311.01 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+
+No migration: unrestricted cash reads existing records. CI has not run on Phase 7, because nothing has been pushed.
+
+**New tests**
+- **Unit (`Phase7FormulaTests`):** the formula, including exactly at the minimum and below zero; bills shown and not deducted; only the two funds count; only company bank and cash accounts count.
+- **Integration (`UnrestrictedCashEndpointTests`, in a database of its own, worked out by hand):**
+  - **ZAR:** 70,000 held, less a 5,000 minimum and a 4,000 committed purchase, is 61,000. A proposed purchase and a committed purchase from the Wealth Fund do not come off. ZAR 8,000 due today is shown, with 53,000 left after it, and a bill due in 31 days is left out.
+  - **USD:** a 1,350 payout allocated 40/30/20/10 with continuity's 405 earmarked, a 500 payout not allocated, and a 100 payout whose allocation was cancelled. That is 1,545 held, less 405 still owed to other funds and 600 not allocated, leaving 540: Operating Capital's share. The rand minimum does not touch USD.
+  - **Not counted:** money in brokerage, personal and ownership-not-stated accounts is listed with the reason, and a payout allocated from a personal account takes nothing off.
+- **Integration (`FinanceAccessTests`):** the endpoint is in the 401 and 403 checks.
+- **Angular:** the page's working line by line, bills beside the figure, currencies kept apart, the below-zero note, the not-counted list and the empty state. The overview shows one metric per currency with a link to the working.
+- **Existing tests changed:** the overview specs answer the new request.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Overview:** it showed Unrestricted · USD 345.00 and Unrestricted · ZAR 11,132.50, and "See the working" opened the page.
+- **The working:** ZAR 7,250.50 Unallocated + 8,882.00 Operating Capital = 16,132.50 held, less the 5,000 minimum = 11,132.50, matching the direct ledger query from P7.5. ZAR 9,000 of obligations was shown beside it, with ZAR 2,132.50 left after them. The broker's ZAR 5,975 was listed as not counted.
+- **A commitment:** committing Monitor through the API moved the figure to ZAR 8,132.50, and withdrawing it moved it back.
+- **Phone width:** nothing extends past the 375 px page.
+- **Not exercised in the browser, because scratch has no such records:** a below-zero figure, an unsettled allocation, a payout not allocated, and personal accounts. The integration and Angular tests cover them.
+
 ## Results — 2026-11-03 (branch `phase-7-5-verification`)
 
 | Command | Result |

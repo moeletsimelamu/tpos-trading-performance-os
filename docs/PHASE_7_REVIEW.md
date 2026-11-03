@@ -110,7 +110,7 @@ Added beyond the plan: a payment or purchase whose expense was later reversed, a
 | Can a purchase be afforded without breaching the operating minimum? | Built | Planned purchases |
 | How much of a payout is still unallocated? | Built | Payout and allocation pages; the overview's "not allocated" and "not fully settled" warnings |
 | Which confirmed allocations are not yet transferred? | Built | Capital allocation page; the overview warning |
-| How much unrestricted cash is there? | **Not built** | See gap 1 |
+| How much unrestricted cash is there? | Built (after P7.5) | Overview, per currency, with the working on `/finance/unrestricted-cash` (D9) |
 | How close is continuity to its target? | Built | Continuity page; the overview's cash strip and warning |
 | What is coming due? | Built | Obligations page (30 days per currency); the overview warning (14 days) |
 | Which trading accounts consume fees without producing payouts? | Not built | Needs prop-firm accounts, which are Phase 8 |
@@ -150,7 +150,7 @@ Each was a decision made while building, recorded here so that §3.6 and the cod
 
 ## Gaps and recommendations
 
-1. **Unrestricted cash is not answered.** The records could answer it, but "unrestricted" has no agreed meaning here, and guessing would put a confident wrong number on the overview. **This needs your decision.** A suggested definition: per currency, bank and cash money in Unallocated and Operating Capital, less Operating Capital's minimum and committed purchases.
+1. **Unrestricted cash.** *Closed after P7.5 (2026-11-03).* The owner defined it (PLAN.md D9) and it is built; the rules are in `FINANCIAL_DOMAIN.md`. The regression table above is P7.5's; the latest results are in `TESTING.md`.
 2. **Obligations are shown beside the affordability answer, not deducted.** They are not tied to a fund, so a purchase can read "Affordable" with a larger bill listed beside it. If that proves too easy to overlook, an obligation could name the fund that pays it, and the check could then deduct it.
 3. **Budgets match on free-text categories.** "Rent" and "Rental" are different categories. The difference is visible, because the second appears outside the budget, but nothing prevents it. A category list would. Budgets also do not carry over: each month's lines are entered again.
 4. **A committed purchase from the continuity fund still counts as continuity cash** until it is bought, because a commitment moves nothing. The purchase page shows the reservation; the continuity page does not.

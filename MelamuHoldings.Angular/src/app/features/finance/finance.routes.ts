@@ -44,6 +44,11 @@ export const financeRoutes: Routes = [
     loadComponent: () => import('./continuity/continuity.component').then(m => m.ContinuityComponent)
   },
   {
+    path: 'unrestricted-cash',
+    title: 'Unrestricted cash',
+    loadComponent: () => import('./unrestricted/unrestricted.component').then(m => m.UnrestrictedComponent)
+  },
+  {
     path: 'investments',
     title: 'Investments',
     loadComponent: () => import('./investments/investments.component').then(m => m.InvestmentsComponent)

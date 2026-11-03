@@ -29,8 +29,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - P7.2 (continuity and trading restoration) is complete on branch `phase-7-2-continuity`, cut from `phase-7-1-funds-obligations`.
 - P7.3 (investments: brokerage valuations and unrealised gain or loss) is complete on branch `phase-7-3-investments`, cut from `phase-7-2-continuity`.
 - P7.4 (budgets, planned purchases and the affordability check) is complete on branch `phase-7-4-budgets-purchases`, cut from `phase-7-3-investments`.
-- P7.5 (verification and documentation) is complete on branch `phase-7-5-verification`, cut from `phase-7-4-budgets-purchases`: full regression, Phase 7 traced requirement by requirement in `docs/PHASE_7_REVIEW.md`, the formulas moved to Domain with unit tests, defects fixed, gaps listed. Phase 7 is complete and awaiting review; it has not been pushed.
-- Next: the owner's decision on unrestricted cash (`docs/PHASE_7_REVIEW.md`, gap 1), then Phase 8.
+- P7.5 (verification and documentation) is complete on branch `phase-7-5-verification`, cut from `phase-7-4-budgets-purchases`: full regression, Phase 7 traced requirement by requirement in `docs/PHASE_7_REVIEW.md`, the formulas moved to Domain with unit tests, defects fixed, gaps listed. - Unrestricted cash (P7.6, decision D9) is complete on branch `phase-7-6-unrestricted-cash`, cut from `phase-7-5-verification`. Phase 7 is complete and awaiting review; it has not been pushed.
+- Next: Phase 8 (trading integration).
 
 ---
 
@@ -376,6 +376,7 @@ Phase 7 is delivered in stages, each on its own branch cut from the previous one
 | **P7.3** ✅ | Investments: valuation snapshots on brokerage accounts; net contributions from the ledger; unrealised gain or loss, labelled unrealised |
 | **P7.4** ✅ | Budgets per month and category with budget versus actual from expense categories; planned purchases (Proposed → Committed → Purchased with a linked expense, or Cancelled) and the "can it be afforded without breaching the operating minimum" check; warnings for an exceeded budget and a purchase that would breach the minimum |
 | **P7.5** ✅ | Verification and documentation: `docs/PHASE_7_REVIEW.md` |
+| **P7.6** ✅ | Unrestricted cash, once the owner defined it (D9): the figure per currency on the overview, and its working on its own page |
 
 ### 7a. Trading journal and AI-assisted review (owner brief, 2026-10-27)
 
@@ -500,3 +501,4 @@ Melamu Holdings OS stays fully usable on its own. No integration code is written
 | D6 | Where trading-restoration capital is held (2026-10-29) | A new **Trading Restoration** fund, separate from Business Continuity, so no money counts towards both targets. |
 | D7 | Continuity currency (2026-10-29) | **ZAR.** The 24-month target and the monthly essential expense are in rand. Continuity money held in another currency is shown beside it, unconverted, and not counted towards coverage. |
 | D8 | Monthly essential expense (2026-10-29) | **Entered by the owner.** It is not derived from flagged expenses (that can be added later without changing the target). |
+| D9 | What unrestricted cash means (2026-11-03) | **Per currency, Unallocated and Operating Capital in company bank and cash accounts, less** Operating Capital's minimum, what confirmed allocations still owe other funds, received payouts not allocated yet (in full), and committed purchases. Obligations due within 30 days are **shown beside it, not deducted**. Money in personal accounts, accounts with ownership not stated, and brokerage accounts is listed apart. |
