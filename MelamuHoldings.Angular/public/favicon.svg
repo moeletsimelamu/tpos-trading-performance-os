@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Melamu Holdings monogram: M and H share their middle stem; the brass bridge is the H crossbar -->
-  <rect width="32" height="32" rx="7" fill="#102036"/>
-  <path d="M7 23V9l5 7 5-7v14M25 9v14" fill="none" stroke="#f6f2e9" stroke-width="2.6"/>
-  <path d="M17 16h8" stroke="#c9a35a" stroke-width="2.6"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><title>Melamu Holdings</title><rect width="32" height="32" rx="6" fill="#102036"/><g transform="translate(-12.7037 -2.0138) scale(0.06614)"><path d="M255 108 L333 108 L422.7 277 L515 109 L580 109 C572 112 562 122 562 138 L562 182 L527 215 L513 219 L511 216 L511 166 L402 360 L304.4 175 L304 360 C304 374 312 385 328 387 L328 390 L255 390 L255 387 C268 384 278 376 278 362 L278 138 C278 124 270 113 255 111 Z" fill="#E9EAEC"/><rect x="505.5" y="230" width="14" height="207.5" fill="#C4C6CB"/><rect x="490" y="250" width="43" height="121" fill="#C4C6CB"/><rect x="533" y="275" width="42" height="17" fill="#D6BF8C"/><rect x="588" y="190" width="14" height="155" fill="#D6BF8C"/><rect x="575" y="212" width="41" height="104" fill="#D6BF8C"/></g></svg>

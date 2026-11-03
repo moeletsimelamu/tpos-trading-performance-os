@@ -4,21 +4,18 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { describeHttpError } from '../../shared/http-error';
-import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
+import { BrandMarkComponent, BrandNameComponent } from '../../shared/ui/brand-mark.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule, BrandMarkComponent],
+  imports: [FormsModule, BrandMarkComponent, BrandNameComponent],
   template: `
     <div class="auth-shell">
       <aside class="brand-panel">
         <div class="lockup">
-          <app-brand-mark [size]="44" tone="on-dark" />
-          <div>
-            <div class="wordmark">Melamu Holdings</div>
-            <div class="product">Operating System</div>
-          </div>
+          <img class="logo" src="brand/melamu-logo-full-dark.svg" width="280" alt="Melamu Holdings (Pty) Ltd. Trading expansions. Building freedom" />
+          <div class="product">Operating System</div>
         </div>
         <p class="statement">Trading operations, financial management and capital allocation for Melamu Holdings, kept in one auditable record.</p>
         <p class="footnote">Private system. Access is limited to the operator.</p>
@@ -26,7 +23,7 @@ import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
 
       <main class="form-panel">
         <form class="auth-form" (ngSubmit)="login()">
-          <div class="mobile-lockup"><app-brand-mark [size]="32" /><span class="wordmark">Melamu Holdings</span></div>
+          <div class="mobile-lockup"><app-brand-mark [size]="36" /><app-brand-name [height]="15" /></div>
           <h1>Sign in</h1>
           <p class="sub">Use the operator account created on the server.</p>
 
@@ -57,9 +54,9 @@ import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
       background: var(--navy-900); color: var(--sidebar-text); padding: 48px;
       display: flex; flex-direction: column; gap: 24px;
     }
-    .lockup { display: flex; align-items: center; gap: 14px; }
-    .wordmark { font-weight: 600; font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sidebar-text-strong); }
-    .product { font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--sidebar-muted); margin-top: 2px; }
+    .lockup { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+    .logo { display: block; max-width: 100%; height: auto; }
+    .product { font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--sidebar-muted); }
     .statement { margin-top: auto; max-width: 30ch; font-size: 22px; line-height: 1.4; color: var(--sidebar-text-strong); }
     .footnote { font-size: 12.5px; color: var(--sidebar-muted); }
 
@@ -75,7 +72,7 @@ import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
     @media (max-width: 799px) {
       .auth-shell { grid-template-columns: 1fr; }
       .brand-panel { display: none; }
-      .mobile-lockup { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; .wordmark { color: var(--text-primary); } }
+      .mobile-lockup { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; color: var(--text-primary); }
     }
   `]
 })

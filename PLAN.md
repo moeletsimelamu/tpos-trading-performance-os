@@ -34,7 +34,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - PR #5 (Phase 7) was merged into `main` on 2026-11-03.
 - Phase 8 is staged (§7c; decisions D10–D12). P8.1 (prop firm accounts, their rules and their history) is complete on branch `phase-8-1-prop-accounts`, cut from `main`. The rules as built are in `docs/PROP_ACCOUNTS.md`.
 - P8.2 (trades linked to accounts, balances from the firm's dashboard, and each account's standing against its rules, with warnings) is complete on branch `phase-8-2-prop-account-standing`, cut from `phase-8-1-prop-accounts`.
-- Next: P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report).
+- The company's logo replaced the proposed mark (decision D13) on branch `brand-melamu-logo`, cut from `phase-8-2-prop-account-standing`; the rest of the owner's business-structure addendum of 2026-11-04 is still to be sequenced.
+- Next: P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report), unless the owner reorders.
 
 ---
 
@@ -522,3 +523,4 @@ Melamu Holdings OS stays fully usable on its own. No integration code is written
 | D10 | How a prop firm account is recorded (2026-11-03) | **One record per attempt.** Evaluation, verification and funded are phases of one record, and each phase and reset restarts the balance. A new challenge after a breach is a new record. Fees and payouts stay together, so the fees-versus-payouts question has a direct answer. |
 | D11 | Which trading accounts get a record (2026-11-03) | **Prop firm accounts only.** Trades on any other account keep the free-text account field. |
 | D12 | How far the app goes with an account's rules (2026-11-03) | **Calculate and warn.** Balance, drawdown room, daily loss, target progress and trading days come from linked trades and balances entered from the firm's dashboard. Figures are labelled as from recorded trades, because the firm's own numbers decide. The app warns and never blocks. |
+| D13 | The company logo (2026-11-04) | **The supplied M with its candlesticks forming the H**, joined by a gold bar. Name in **Playfair Display Bold**, tagline in Lato, with no closing full stop. It replaces the proposed mark from §6a. Details in `docs/DESIGN_SYSTEM.md`. |

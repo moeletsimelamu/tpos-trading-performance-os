@@ -3,14 +3,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
-import { BrandMarkComponent } from '../../shared/ui/brand-mark.component';
+import { BrandMarkComponent, BrandNameComponent } from '../../shared/ui/brand-mark.component';
 import { IconComponent } from '../../shared/ui/icon.component';
 import { NAVIGATION } from './navigation';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, BrandMarkComponent, IconComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, BrandMarkComponent, BrandNameComponent, IconComponent],
   host: { '(document:keydown.escape)': 'menuOpen.set(false)' },
   template: `
     <div class="shell" [class.menu-open]="menuOpen()">
@@ -21,14 +21,14 @@ import { NAVIGATION } from './navigation';
           <app-icon [name]="menuOpen() ? 'close' : 'menu'" [size]="20" />
           <span class="visually-hidden">{{ menuOpen() ? 'Close navigation' : 'Open navigation' }}</span>
         </button>
-        <a class="topbar-brand" routerLink="/"><app-brand-mark [size]="26" /><span class="wordmark">Melamu Holdings</span></a>
+        <a class="topbar-brand" routerLink="/"><app-brand-mark [size]="30" /><app-brand-name [height]="13" /></a>
       </header>
 
       <nav id="app-nav" class="sidebar" aria-label="Main">
         <a class="brand" routerLink="/">
-          <app-brand-mark [size]="34" tone="on-dark" />
+          <app-brand-mark [size]="48" tone="on-dark" />
           <span class="brand-text">
-            <span class="wordmark">Melamu Holdings</span>
+            <app-brand-name layout="stacked" [height]="31" />
             <span class="brand-product">Operating System</span>
           </span>
         </a>
@@ -78,10 +78,10 @@ import { NAVIGATION } from './navigation';
       width: var(--sidebar-width); flex-shrink: 0; display: flex; flex-direction: column;
       background: var(--sidebar-bg); color: var(--sidebar-text);
     }
-    .brand { display: flex; align-items: center; gap: 12px; padding: 20px 18px 18px; text-decoration: none; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px 16px; text-decoration: none; }
     .brand-text { display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
-    .wordmark { font-weight: 600; font-size: 12.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sidebar-text-strong); }
-    .brand-product { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--sidebar-muted); }
+    .brand app-brand-name { color: var(--sidebar-text-strong); }
+    .brand-product { font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--sidebar-muted); margin-top: 2px; }
 
     .nav-scroll { flex: 1; overflow-y: auto; padding: 6px 10px 16px; }
     .nav-section { margin-top: 18px; }
@@ -133,7 +133,7 @@ import { NAVIGATION } from './navigation';
         background: var(--surface); border-bottom: 1px solid var(--border-subtle);
       }
       .topbar-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-      .topbar .wordmark { color: var(--text-primary); }
+      .topbar app-brand-name { color: var(--text-primary); }
       .menu-button {
         width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
         border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);

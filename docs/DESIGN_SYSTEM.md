@@ -23,15 +23,28 @@ A calm, institutional workspace for running a business's money:
 
 ## Identity
 
-<img src="images/brand-mark.svg" width="64" alt="MH monogram">
+<img src="images/brand-mark.svg" width="64" alt="Melamu Holdings mark on the navy tile">
 
-- **Mark:** an M and an H that share their middle stem, joined by a brass bridge, the H's crossbar. It is drawn on a navy tile with rounded corners on a 32-unit grid. Strokes are 2.6 units; the M's V meets the bridge at mid-height.
-  - Drawn once, in `BrandMarkComponent` (`<app-brand-mark>`) and `public/favicon.svg`.
-  - `tone="on-dark"` lightens the tile so it stays visible on the navy sidebar.
-  - It reads at 16 px, the favicon size.
-- **Wordmark:** `MELAMU HOLDINGS` in IBM Plex Sans semibold, uppercase, tracked +0.14em. The secondary label `OPERATING SYSTEM` is 10 px with +0.2em tracking.
-- **Where it appears:** sidebar, phone top bar, sign-in page, favicon, `theme-color`.
-- **Status:** a proposed digital product identity created for this application. It is not a registered or previously approved corporate logo.
+The owner chose this design on 2026-11-04 (decision D13). It starts from the logo they supplied, [`images/brand-reference.jpg`](images/brand-reference.jpg).
+
+- **Mark:** the supplied M, redrawn as a vector from measurements of the image, with two candlesticks. The owner asked for an H, so the candlesticks are its stems: the gold one moved slightly right, and a gold bar joins them. The silver M is otherwise unchanged. The brushed-metal texture and embossing became a plain silver gradient, because they do not scale down.
+- **Lettering:** `MELAMU HOLDINGS` and `(PTY) LTD` in Playfair Display Bold, and `TRADING EXPANSIONS. BUILDING FREEDOM` in Lato Regular, with no closing full stop, as in the supplied image. Both fonts are under the SIL Open Font License. The lettering is converted to outlines, so the logo needs no web font. The application's own text is still IBM Plex Sans until the Phase 10 typography pass.
+- **Colours:** on light backgrounds, the silver and champagne sampled from the supplied image. On navy, a lighter silver and a stronger gold (`#D6BF8C`). The small mark on white uses a deeper silver, because the supplied tones are too pale at that size.
+- **Files**, in `MelamuHoldings.Angular/public/`:
+
+  | File | Use |
+  |---|---|
+  | `brand/melamu-logo-full-light.svg`, `-dark.svg` | The full logo with the company designation and tagline, for formal surfaces |
+  | `brand/melamu-mark-light.svg`, `-dark.svg` | The compact mark |
+  | `brand/melamu-lockup-light.svg`, `-dark.svg` | The mark beside the name on two lines |
+  | `favicon.svg`, `brand/icon-32.png`, `icon-180.png`, `icon-512.png` | Browser and application icons: the mark on the navy tile, with candles, wicks and bar thickened so they survive at 16 px |
+
+- **In the application:** `<app-brand-mark>` and `<app-brand-name>` draw the mark and the name inline, from `shared/ui/brand-art.ts`. Each mark has its own gradient, because a gradient defined in a hidden copy would leave a visible one unfilled.
+- **Where it appears:** sidebar, phone top bar, sign-in page (the full logo on the navy panel, the mark and name on a phone), favicon, `theme-color`.
+- **Known limits:**
+  - The H is subtle: some people will first read an M with candlesticks.
+  - The original design file does not exist in the repository, so the M is a measured redraw from an 828 px image. Its edges match the image, but fine curves on the serifs were judged by eye.
+  - `(PTY) LTD` states a legal form. Check that the company is registered before using the full logo outside this private system.
 
 ## Colour
 
@@ -84,6 +97,7 @@ A calm, institutional workspace for running a business's money:
 | Component | Where | Use |
 |---|---|---|
 | `<app-brand-mark>` | `shared/ui/brand-mark.component.ts` | The mark. Inputs: `size`, `tone` |
+| `<app-brand-name>` | `shared/ui/brand-mark.component.ts` | The company name as drawn lettering, in the surrounding colour. Inputs: `layout` (`line`, `stacked`), `height` |
 | `<app-icon>` | `shared/ui/icon.component.ts` | The product's own stroke icon set (24-unit grid, 1.6 stroke, round ends). Decorative (`aria-hidden`); the surrounding control carries the label |
 | `<app-page-header>` | `shared/ui/page-header.component.ts` | Every page: `section` label, `title`, `description`, with action buttons projected to the right |
 | `<app-load-error>` | `shared/load-error.component.ts` | An error state with Retry |

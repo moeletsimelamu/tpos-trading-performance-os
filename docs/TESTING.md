@@ -49,6 +49,25 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-04 (branch `brand-melamu-logo`)
+
+Angular only: no .NET code, schema or migration changed, so the .NET suites were not rerun.
+
+| Command | Result |
+|---|---|
+| `ng test --watch=false` | 218 passed, 0 failed (31 files) |
+| `ng build` (production) | Succeeded; initial bundle 339.81 kB, up from 313.30 kB because the lettering is drawn inline; no budget warnings |
+
+**New tests:** `brand-mark.component.spec`: the mark's parts, a separate gradient per instance, the tones, and the name's label and two layouts.
+
+**Browser check (scratch database)**
+- **Sidebar, 1280 px:** the mark and two-line name fit the 248 px sidebar with "Operating System" under them, and the gradient resolves.
+- **Phone top bar, 375 px:** the mark and one-line name fit, with nothing past the page edge.
+- **Sign-in:** the full logo shows on the navy panel at desktop width, and the mark and name at phone width.
+- **Files:** the favicon, the three PNG icons and the logo files are served with the right types and render at 96, 48, 32 and 16 px.
+- **Not checked:** the favicon in a real browser tab, because the app's browser pane shows no tab icons. The icon links are in `index.html`, and the files load when opened directly.
+- **Not updated:** `docs/images/executive-overview.jpg` and the other screenshots still show the old mark.
+
 ## Results — 2026-11-03 (branch `phase-8-2-prop-account-standing`)
 
 | Command | Result |
