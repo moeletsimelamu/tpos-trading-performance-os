@@ -113,7 +113,7 @@ Added beyond the plan: a payment or purchase whose expense was later reversed, a
 | How much unrestricted cash is there? | Built (after P7.5) | Overview, per currency, with the working on `/finance/unrestricted-cash` (D9) |
 | How close is continuity to its target? | Built | Continuity page; the overview's cash strip and warning |
 | What is coming due? | Built | Obligations page (30 days per currency); the overview warning (14 days) |
-| Which trading accounts consume fees without producing payouts? | Not built | Needs prop-firm accounts, which are Phase 8 |
+| Which trading accounts consume fees without producing payouts? | Not built in Phase 7 | *Built in P8.3:* see `PHASE_8_REVIEW.md` |
 
 ### Integrity and security
 

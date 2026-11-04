@@ -63,6 +63,21 @@ public class UploadService
         await _uploadLogRepository.AddAsync(uploadLog);
         await _uploadLogRepository.SaveChangesAsync();
 
+        // The log above stays so a failure can be seen. Everything below is one unit: if any of it fails, no trade,
+        // match or new strategy from this file remains, and the same file can simply be uploaded again.
+        try
+        {
+            return await _uploadLogRepository.InTransactionAsync(() => ImportAsync(fileStream, uploadLog, userId, account));
+        }
+        catch
+        {
+            await _uploadLogRepository.MarkFailedAsync(uploadLog.Id);
+            throw;
+        }
+    }
+
+    private async Task<UploadResultDto> ImportAsync(Stream fileStream, UploadLog uploadLog, int userId, PropFirmAccount? account)
+    {
         // Parse the CSV
         var parseResult = _csvParser.Parse(fileStream);
 
@@ -77,7 +92,7 @@ public class UploadService
             return BuildResult(uploadLog, parseResult.Errors);
         }
 
-        // A row already imported (or already decided on) is skipped. A row matching a trade journaled by hand is
+        // A row already imported (or already decided on, or seen earlier in this file) is skipped. A row matching a trade journaled by hand is
         // held back as a match for the trader to link, import separately or leave out; it never duplicates the trade.
         var existing = (await _tradeRepository.GetByUserIdAsync(userId)).ToList();
         var decided = await _matchRepository.GetForUserAsync(userId);
@@ -95,7 +110,9 @@ public class UploadService
 
             if (existing.Where(t => row.Matches(t) && !linkedTrades.Contains(t.Id)).OrderBy(t => t.Id).FirstOrDefault() is { } manual)
             {
-                _matchRepository.Add(new ImportMatch(userId, uploadLog.Id, manual.Id, row, DateTime.UtcNow));
+                var match = new ImportMatch(userId, uploadLog.Id, manual.Id, row, DateTime.UtcNow);
+                _matchRepository.Add(match);
+                decided.Add(match);
                 uploadLog.MatchedRows++;
                 continue;
             }
@@ -105,6 +122,7 @@ public class UploadService
             var trade = ImportReconciliationService.ToTrade(row, userId, uploadLog.Id, strategy?.Id, DateTime.UtcNow);
             trade.LinkTo(account);
             await _tradeRepository.AddAsync(trade);
+            existing.Add(trade);
             imported++;
         }
 

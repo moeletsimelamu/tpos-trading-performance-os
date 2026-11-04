@@ -249,7 +249,9 @@ RiskAmount, PnL, RR, Strategy, Session, DayOfWeek, TradeDuration,
 Notes, IsManualOverride, DeviationNotes
 ```
 
-`Direction` is `Long` or `Short`, and entry and exit prices must be greater than zero.
+`Direction` is `Long` or `Short`, `EntryTime` must be a valid time, and entry and exit prices must be greater than zero. Use ISO dates such as `2026-11-03`: other formats are read in the server's language settings.
+
+A row that breaks these rules, or holds a value too large to store, is listed by row number, and the other rows are imported. If the import itself fails, nothing from the file is kept, so it can simply be uploaded again. The same row twice is imported once.
 
 ## API endpoints
 

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MelamuHoldings.Application.Finance;
+using MelamuHoldings.Application.Trading;
 using MelamuHoldings.Domain.Finance;
 using MelamuHoldings.Domain.Trading;
 using MelamuHoldings.Domain.Identity;

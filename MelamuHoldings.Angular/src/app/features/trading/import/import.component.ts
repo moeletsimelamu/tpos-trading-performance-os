@@ -137,7 +137,7 @@ const FIELD_NAMES: Record<string, string> = {
 
       <section class="card format" aria-labelledby="format-heading">
         <h2 id="format-heading">Expected columns</h2>
-        <p class="secondary small">The file needs a header row with these names. <code>Direction</code> is Long or Short; prices must be above zero.</p>
+        <p class="secondary small">The file needs a header row with these names. <code>Direction</code> is Long or Short; <code>EntryTime</code> must be a valid time; prices must be above zero.</p>
         <div class="columns">
           @for (col of expectedColumns; track col) { <code>{{ col }}</code> }
         </div>

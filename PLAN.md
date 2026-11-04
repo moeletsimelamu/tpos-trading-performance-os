@@ -39,7 +39,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Account panels and payment cards (the third step of that addendum) are complete on branch `accounts-panels`, cut from `accounts-business-structure`.
 - P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report) is complete on branch `phase-8-3-prop-fees-and-payouts`, cut from `accounts-panels`, with bank cards drawn on account panels at the owner's request (decisions D15 and D16).
 - P8.4 (profit factor with no losses is undefined, and equity-curve drawdown is an amount) is complete on branch `phase-8-4-analytics-definitions`, cut from `phase-8-3-prop-fees-and-payouts`.
-- Next: P8.5 (verification and documentation).
+- P8.5 (verification) is complete on branch `phase-8-5-verification`, cut from `phase-8-4-analytics-definitions`: `docs/PHASE_8_REVIEW.md` traces Phase 8 requirement by requirement. CSV import was not atomic and now is. Phase 8 is complete, and CI has not yet run on it.
+- Next: push Phase 8 for CI, then Phase 9 with the Scaling Plan, once the owner supplies it.
 
 ---
 
@@ -138,7 +139,7 @@ Angular src/app/
 Rules:
 
 - **Financial rules live in Domain** (`Money` arithmetic, allocation calculation and rounding, ledger invariants) and are unit-tested without a database. Controllers only translate HTTP. Angular never computes an authoritative balance.
-- **Finance does not depend on Trading.** The single integration point is a `Payout`, which may optionally reference a prop firm account (Phase 8). The trading module never writes ledger entries.
+- **Finance does not depend on Trading.** The integration points are a `Payout`, which may optionally reference a prop firm account, and a `PropAccountFee`, which names an existing expense as an account's cost (Phase 8). Both are links that move no money, and the service reading both sides lives in Trading. The trading module never writes ledger entries.
 - **One `AppDbContext`, separate SQL schemas** (`dbo` for the existing trading tables, `finance` for new ones). This gives clear boundaries without distributed transactions.
 - **Use-case services, not generic CRUD**, for anything that moves money (`RecordIncome`, `RecordTransfer`, `ConfirmAllocation`, …). The generic `BaseRepository<T>` remains for trading data only.
 
@@ -371,7 +372,7 @@ Each phase ends with a build, all tests green, a browser check of the touched pa
 | **5 — Payouts and allocation (first milestone)** ✅ | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. Outstanding allocations added to the Executive overview (cash and fund positions are already there). | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
 | **6 — Executive Overview** ✅ | Period filters; income and expenses by period; net cash movement (labelled as cash movement, not profit); recent payouts; drill-down links to records; warnings panel. | Every figure traceable to a record list |
 | **7 — Continuity and wealth** ✅ | Obligations, continuity targets (24-month essential cover plus a separate restoration target), coverage months, earmarked versus physically separated view; investment accounts, contributions, valuation snapshots, unrealised gain/loss; budgets and planned purchases with budget-versus-actual. | Formulas documented in `FINANCIAL_DOMAIN.md` and unit-tested |
-| **8 — Trading integration** (stages in §7c) | Prop firm accounts with configurable rules and status history; trades linked to accounts; fees and resets as expenses; payouts linked to accounts; per-user strategies with CRUD; CSV duplicate detection; analytics fixes (profit factor, drawdown, date filters). | Existing analytics unchanged except the documented definition fixes; tests prove it |
+| **8 — Trading integration** ✅ (stages in §7c) | Prop firm accounts with configurable rules and status history; trades linked to accounts; fees and resets as expenses; payouts linked to accounts; per-user strategies with CRUD; CSV duplicate detection; analytics fixes (profit factor, drawdown, date filters). | Existing analytics unchanged except the documented definition fixes; tests prove it |
 | **9 — Planning and reporting** | Objectives and milestones linked to financial targets; monthly cash-flow report; allocation history report. | Reports built only on stored data |
 | **10 — Hardening** | Full regression run; security review; migration replay; UI and accessibility pass; README and screenshots; deployment documentation; `docs/REVIEW.md`. | Definition of Done (prompt §19 plus the supplementary §9) met, with known limitations listed |
 
@@ -398,7 +399,7 @@ Phase 8 is delivered in stages, each on its own branch cut from the previous one
 | **P8.2** ✅ | Trades linked to accounts. Balances entered from the firm's dashboard. Balance, drawdown room, daily loss, target progress and trading days calculated from linked trades and those balances, labelled as from recorded trades (D12). Warnings near a limit, which never block anything |
 | **P8.3** ✅ | Payouts linked to accounts. Fees and resets linked by choosing an expense already in the ledger, as obligations and purchases do. The report answering "which trading accounts consume fees without producing payouts?", per currency and unconverted |
 | **P8.4** ✅ | Analytics definition fixes: profit factor with no losses becomes undefined instead of gross profit, and equity-curve drawdown becomes an amount instead of a percentage of cumulative P&L. Tests prove nothing else moves |
-| **P8.5** | Verification and documentation: full regression, Phase 8 traced requirement by requirement, the items already delivered confirmed, and whether CSV import is atomic checked (`ARCHITECTURE_REVIEW` W11) |
+| **P8.5** ✅ | Verification and documentation: full regression, Phase 8 traced requirement by requirement, the items already delivered confirmed, and whether CSV import is atomic checked (`ARCHITECTURE_REVIEW` W11) |
 
 ### 7a. Trading journal and AI-assisted review (owner brief, 2026-10-27)
 

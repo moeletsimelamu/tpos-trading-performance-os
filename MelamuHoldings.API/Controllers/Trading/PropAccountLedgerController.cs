@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using MelamuHoldings.Application.Finance;
+using MelamuHoldings.Application.Trading;
 
 namespace MelamuHoldings.API.Controllers;
 

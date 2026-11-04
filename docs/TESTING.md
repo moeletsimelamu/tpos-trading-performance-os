@@ -49,6 +49,34 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-04 (branch `phase-8-5-verification`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 385 passed, 0 failed |
+| `dotnet test` (Release): integration | 156 passed, 0 failed, on two consecutive runs |
+| `ng test --watch=false` | 252 passed, 0 failed (32 files) |
+| `ng build` (production) | Succeeded; initial bundle 340.13 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes pending. No migration. |
+
+An earlier run in this stage was discarded: a running API locked the output files, the build failed, and the tests ran against old binaries (147 integration tests). After that regression, a one-sentence change on the Import page's help text was followed by another `ng test` and `ng build`.
+
+**New tests (`CsvImportIntegrityEndpointTests`), all nine failing on the old code first:**
+
+- A database rule rejects a file's last row. On the old code, two earlier trades remained. Now no trade, match or new strategy remains, the log reads Failed, the same file then imports in full, and a third upload finds only duplicates.
+- A value too large for `RR`, `EntryPrice` or `PnL` is that row's error, and the other rows import.
+- An unreadable or blank entry time is that row's error, not midnight.
+- The same row twice in one file imports once, and asks once when it matches a hand-entered trade.
+
+**Checked in the running app** (scratch database, test owner): a file of five rows through the Import page read as 2 imported, 1 already imported and 2 failed, naming `Row 4: Invalid EntryTime 'half past nine'.` and `Row 5: RR is too large.` The trades were saved with the right times. The Payouts page shows a linked payout's prop account.
+
+**Not checked in a browser:** the Import page's message when an import fails outright.
+
+The requirement trace and the gaps are in `PHASE_8_REVIEW.md`.
+
 ## Results — 2026-11-04 (branch `phase-8-4-analytics-definitions`)
 
 | Command | Result |

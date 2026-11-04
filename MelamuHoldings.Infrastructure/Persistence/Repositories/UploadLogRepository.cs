@@ -14,4 +14,15 @@ public class UploadLogRepository : BaseRepository<UploadLog>, IUploadLogReposito
             .Where(u => u.UserId == userId)
             .OrderByDescending(u => u.UploadedAt)
             .ToListAsync();
+
+    public async Task<T> InTransactionAsync<T>(Func<Task<T>> work)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        var result = await work();
+        await transaction.CommitAsync();
+        return result;
+    }
+
+    public Task MarkFailedAsync(int id) =>
+        _context.UploadLogs.Where(u => u.Id == id).ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, UploadStatus.Failed));
 }

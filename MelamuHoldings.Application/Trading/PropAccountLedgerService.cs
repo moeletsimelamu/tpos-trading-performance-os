@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using MelamuHoldings.Application.Common;
-using MelamuHoldings.Application.Trading;
+using MelamuHoldings.Application.Finance;
 using MelamuHoldings.Domain.Common;
 using MelamuHoldings.Domain.Finance;
 using MelamuHoldings.Domain.Trading;
 
-namespace MelamuHoldings.Application.Finance;
+namespace MelamuHoldings.Application.Trading;
 
 public class LinkPropAccountFeeRequest
 {
