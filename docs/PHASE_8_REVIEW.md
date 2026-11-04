@@ -21,7 +21,7 @@ How prop firm accounts work is in [`PROP_ACCOUNTS.md`](PROP_ACCOUNTS.md). Test r
 | `dotnet ef migrations has-pending-model-changes` | No changes |
 | `dotnet ef migrations script --idempotent` | Generated without error |
 | Migrations applied | 20 of 20 on both `MelamuHoldings_Scratch` and dev `MelamuHoldings` (read from their history tables). P8.5 adds none. |
-| CI | **Not run on any of Phase 8.** Every Phase 8 branch is local. See gap 1. |
+| CI | Passed on `develop` at `575438f` on 2026-11-04 (run 41802036533, backend and frontend), the first CI run on Phase 8. |
 
 A first regression run during this review was invalid: a running API preview locked the output files, so the build failed and the tests ran against old binaries, showing 147 integration tests instead of 156. Those results were discarded and the run repeated with the API stopped.
 
@@ -107,7 +107,7 @@ Each of the import problems was reproduced by a test on the old code first. All 
 
 ## Gaps and recommendations
 
-1. **CI has not run on Phase 8.** Everything here has passed on this machine only. **Recommended next step:** push these branches and open the pull request, so CI checks them before Phase 9 builds on top.
+1. **CI.** *Closed after P8.5 (2026-11-04).* `develop` was pushed and CI passed at `575438f`. Phase 8 is not on `main` until its pull request is merged.
 2. **Two uploads of one file at the same moment could both import it.** Duplicates are found by reading existing trades, and no database rule prevents them. This comes from reading the code and has not been tested. It needs two uploads within moments of each other, and there is one operator.
 3. **Dates and times in a CSV are read in the server's language settings.** `2026-11-03` is safe everywhere, but `01/02/2026` could mean January or February depending on the server. Only ISO dates are safe to rely on.
 4. **Two genuinely identical fills in one file count as one.** Same date, instrument, direction, time, prices and P&L. The result shows it as already imported, so it can be seen, and the trade can be added by hand.

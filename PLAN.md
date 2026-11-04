@@ -39,8 +39,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Account panels and payment cards (the third step of that addendum) are complete on branch `accounts-panels`, cut from `accounts-business-structure`.
 - P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report) is complete on branch `phase-8-3-prop-fees-and-payouts`, cut from `accounts-panels`, with bank cards drawn on account panels at the owner's request (decisions D15 and D16).
 - P8.4 (profit factor with no losses is undefined, and equity-curve drawdown is an amount) is complete on branch `phase-8-4-analytics-definitions`, cut from `phase-8-3-prop-fees-and-payouts`.
-- P8.5 (verification) is complete on branch `phase-8-5-verification`, cut from `phase-8-4-analytics-definitions`: `docs/PHASE_8_REVIEW.md` traces Phase 8 requirement by requirement. CSV import was not atomic and now is. Phase 8 is complete, and CI has not yet run on it.
-- Next: push Phase 8 for CI, then Phase 9 with the Scaling Plan, once the owner supplies it.
+- P8.5 (verification) is complete on branch `phase-8-5-verification`, cut from `phase-8-4-analytics-definitions`: `docs/PHASE_8_REVIEW.md` traces Phase 8 requirement by requirement. CSV import was not atomic and now is. Phase 8 is complete. `develop` was pushed at `575438f` and CI passed (run 41802036533). It is not yet merged into `main`.
+- Next: Phase 9 with the Scaling Plan, once the owner supplies it.
 
 ---
 
