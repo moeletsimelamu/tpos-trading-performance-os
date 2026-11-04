@@ -49,6 +49,45 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-04 (branch `accounts-business-structure`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 348 passed, 0 failed |
+| `dotnet test` (Release): integration | 138 passed, 0 failed |
+| `ng test --watch=false` | 225 passed, 0 failed (31 files) |
+| `ng build` (production) | Succeeded; initial bundle 339.83 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | Generated for all 17 migrations; every step guarded |
+| `AddAccountProfile` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+CI has not run on this branch, because it has not been pushed.
+
+**New tests**
+- **Unit (`AccountProfileTests`):** nothing is stated until told, and a name proves nothing. A category has to suit the type. A masked reference is accepted and a full account number refused. Dates and undefined values are checked. Only a company bank or cash account is business cash, and changing the owner changes whether it counts.
+- **Integration (`AccountStructureEndpointTests`, in a database of its own, worked out by hand):**
+  - **The intended structure:** two company bank accounts, a personal TFSA, a company investment account, a personal current account and one with ownership not stated. Cash is ZAR 15,000, with ZAR 2,000 personal and ZAR 700 not stated apart, and the Wealth Fund's ZAR 4,500 spans its two accounts.
+  - **Paying the owner:** a ZAR 1,000 transfer to the personal account takes Cash to ZAR 14,000. The period shows it as money out, from ZAR 15,000 to ZAR 14,000, and the personal money rises to ZAR 3,000.
+  - **The rest of the scope:** the ledger's cash filter leaves out an entry only in a personal account. Continuity lists personal money as not counted, with the reason. The affordability check leaves it out too.
+  - **Stating the owner:** moves the money into Cash, and the audit log keeps the before and after by name.
+  - **Refusals:** a full number, a category that does not suit the type, a future date, a fund that does not exist, and the system fund get 422; a long reference and an unknown value get 400. An update is held to the same rules, and the type cannot change.
+- **Angular:** the bodies sent for a new account and an edit, the fixed type and currency when editing, categories following the type, what each row shows, the note beside Cash on the Accounts page and overview, and no note when there is nothing to say.
+- **Existing tests changed:** the continuity spec reads the new wording, and the Accounts spec calls `save()`, which replaced `create()`.
+
+**Also changed:** the audit log now writes enums by name in new entries, because an ownership change read as `"ownership":2`. Existing entries keep their numbers.
+
+**Browser check (scratch database, desktop and phone width)**
+- **New account:** a full number was refused with the reason and the form stayed open. With the last four digits it saved, showing "FNB · Ref 1234 · Opened 2026-01-15", Current, a Personal tag and "Mainly for Owner's Distribution".
+- **Edit:** type and currency were locked, only the categories for a brokerage were offered, and the saved row showed Investment and Taxable.
+- **Cash:** after a ZAR 2,000 opening balance and a ZAR 500 transfer to the personal account, Cash went from ZAR 21,132.50 to ZAR 20,632.50, the overview said "Not counted as business cash: ZAR 2,500.00 in personal accounts", and today's period showed the transfer as ZAR -500.00.
+- **Funds page:** Owner's Distribution lists the account.
+- **Clipped figures:** none at 1280 px on the overview or 375 px on the Accounts page. The long figures that were cut off now move to the next row.
+- **How it was driven:** the forms by page script in a background tab, with the opening balance and transfer through the API.
+- **Not exercised in the browser:** ownership not stated, tax-free on an account, and the Investments page's new labels. The integration and Angular tests cover the first two; the Investments label was only built, not looked at.
+
 ## Results — 2026-11-04 (branch `brand-melamu-logo`)
 
 Angular only: no .NET code, schema or migration changed, so the .NET suites were not rerun.
