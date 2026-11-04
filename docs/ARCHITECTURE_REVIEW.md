@@ -154,7 +154,7 @@ Logging in needs either the owner's real password, which I must not enter, or a 
 | W10 | **Fixed** | ProblemDetails for all errors (exception handler, status pages, `Problem()`). |
 | W11 | Open (Phase 8) | CSV duplicate detection and atomic import. |
 | W12 | Open (Phase 8) | Per-user strategies. |
-| W13 | **Partly fixed** | Expectancy counted breakevens as losses and has been corrected. Profit factor with zero losses still returns gross profit (a test pins it until the Phase 8 contract change). |
+| W13 | **Fixed** | Expectancy counted breakevens as losses and has been corrected. Date filters arrived in J6. In P8.4, profit factor with no losses became undefined (`null`), and equity-curve drawdown became an amount. |
 | W14 | **Fixed**, except the `BehaviourAlerts` table | Dead files and SSR packages removed. The table stays until a Phase 3 migration drops it. |
 | W15 | **Fixed** | `JwtService` uses `IOptions<JwtOptions>`. |
 | W16 | Partly | CI added and passing on GitHub (run 40508109510). The README merges the useful parts of the GitHub README (metric definitions, CSV format, endpoints) with the current setup; the full README is Phase 10. |

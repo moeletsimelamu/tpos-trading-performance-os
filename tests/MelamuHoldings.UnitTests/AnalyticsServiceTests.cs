@@ -45,20 +45,6 @@ public class AnalyticsServiceTests
     }
 
     [Fact]
-    public async Task Profit_factor_with_no_losses_currently_returns_gross_profit()
-    {
-        // Characterises a known defect (ARCHITECTURE_REVIEW W13): the ratio is undefined with no losses,
-        // but the API returns the gross profit amount. Fixing it changes the DTO contract (Phase 8).
-        var service = new AnalyticsService(new InMemoryTradeRepository(
-            Trade("2026-10-05", "09:00", 150),
-            Trade("2026-10-05", "10:00", 50)));
-
-        var summary = await service.GetSummaryAsync(userId: 1);
-
-        Assert.Equal(200m, summary.ProfitFactor);
-    }
-
-    [Fact]
     public async Task Max_drawdown_is_largest_peak_to_trough_drop_in_cumulative_pnl()
     {
         var summary = await ServiceWithMixedResults().GetSummaryAsync(userId: 1);

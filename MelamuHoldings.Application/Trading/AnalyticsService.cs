@@ -8,8 +8,12 @@ public class AnalyticsSummaryDto
     public decimal WinRate { get; set; }
     public decimal Expectancy { get; set; }
     public decimal AverageRR { get; set; }
-    public decimal ProfitFactor { get; set; }
+
+    // Gross profit ÷ gross loss. Null with no losses: there is nothing to divide by.
+    public decimal? ProfitFactor { get; set; }
     public decimal TotalPnL { get; set; }
+
+    // The largest fall from a peak, trade by trade
     public decimal MaxDrawdown { get; set; }
     public int WinCount { get; set; }
     public int LossCount { get; set; }
@@ -25,6 +29,9 @@ public class EquityPointDto
     public DateOnly Date { get; set; }
     public decimal CumulativePnL { get; set; }
     public decimal DailyPnL { get; set; }
+
+    // How far the day's closing total is below the highest closing total so far, as an amount.
+    // It reads day ends, so a fall that recovered within a day shows in MaxDrawdown but not here.
     public decimal Drawdown { get; set; }
 }
 
@@ -35,7 +42,9 @@ public class StrategyPerformanceDto
     public decimal WinRate { get; set; }
     public decimal AverageRR { get; set; }
     public decimal TotalPnL { get; set; }
-    public decimal ProfitFactor { get; set; }
+
+    // Null with no losses, as in the summary
+    public decimal? ProfitFactor { get; set; }
 }
 
 public class TimePerformanceDto
@@ -90,7 +99,7 @@ public class AnalyticsService
             WinRate = Math.Round(winRate * 100, 2),
             Expectancy = Math.Round(expectancy, 2),
             AverageRR = AverageR(trades),
-            ProfitFactor = grossLoss == 0 ? grossProfit : Math.Round(grossProfit / grossLoss, 2),
+            ProfitFactor = ProfitFactor(grossProfit, grossLoss),
             TotalPnL = Math.Round(trades.Sum(t => t.PnL), 2),
             MaxDrawdown = Math.Round(CalculateMaxDrawdown(trades), 2),
             InsufficientData = trades.Count < AdherenceService.MinimumSample
@@ -113,14 +122,13 @@ public class AnalyticsService
             var dailyPnL = group.Sum(t => t.PnL);
             cumulative += dailyPnL;
             peak = Math.Max(peak, cumulative);
-            var drawdown = peak > 0 ? ((peak - cumulative) / peak) * 100 : 0;
 
             equityCurve.Add(new EquityPointDto
             {
                 Date = group.Key,
                 DailyPnL = Math.Round(dailyPnL, 2),
                 CumulativePnL = Math.Round(cumulative, 2),
-                Drawdown = Math.Round(drawdown, 2)
+                Drawdown = Math.Round(peak - cumulative, 2)
             });
         }
 
@@ -147,7 +155,7 @@ public class AnalyticsService
                     WinRate = Math.Round((decimal)wins.Count / g.Count() * 100, 2),
                     AverageRR = AverageR(g),
                     TotalPnL = Math.Round(g.Sum(t => t.PnL), 2),
-                    ProfitFactor = grossLoss == 0 ? grossProfit : Math.Round(grossProfit / grossLoss, 2)
+                    ProfitFactor = ProfitFactor(grossProfit, grossLoss)
                 };
             })
             .OrderByDescending(s => s.TotalPnL)
@@ -167,6 +175,9 @@ public class AnalyticsService
     }
 
     // --- Private helpers ---
+
+    private static decimal? ProfitFactor(decimal grossProfit, decimal grossLoss) =>
+        grossLoss == 0 ? null : Math.Round(grossProfit / grossLoss, 2);
 
     // Mean R over the trades that have one: a manual trade recorded without risk has no R, and is not counted as 0R
     private static decimal AverageR(IEnumerable<CompletedTrade> trades)

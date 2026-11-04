@@ -96,8 +96,13 @@ const BREAKDOWNS: { key: BreakdownTab; label: string; column: string }[] = [
                 </div>
                 <div class="metric">
                   <span class="metric-label">Profit factor</span>
-                  <span class="metric-value">{{ s.profitFactor | number: '1.2-2' }}</span>
-                  <span class="metric-note">Gross profit ÷ gross loss</span>
+                  @if (s.profitFactor === null) {
+                    <span class="metric-value">Undefined</span>
+                    <span class="metric-note">No losing trades to divide by</span>
+                  } @else {
+                    <span class="metric-value">{{ s.profitFactor | number: '1.2-2' }}</span>
+                    <span class="metric-note">Gross profit ÷ gross loss</span>
+                  }
                 </div>
                 <div class="metric">
                   <span class="metric-label">Average R</span>

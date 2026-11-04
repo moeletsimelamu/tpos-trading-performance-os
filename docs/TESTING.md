@@ -49,6 +49,36 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-04 (branch `phase-8-4-analytics-definitions`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 385 passed, 0 failed |
+| `dotnet test` (Release): integration | 147 passed, 0 failed |
+| `ng test --watch=false` | 252 passed, 0 failed (32 files) |
+| `ng build` (production) | Succeeded; initial bundle 340.13 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes pending. No migration: nothing stored changed. |
+
+**How the tests show nothing else moved:** `AnalyticsDefinitionTests` was written and run against the code before the change. Its five "Unchanged" tests pin every other figure, worked out by hand from one week of trades: the whole summary, the curve's dates and totals, strategy figures, and results by day and session. They passed before the change and pass after it. The eight tests of the new definitions failed before it and pass after it, with no other test changing except the one that had pinned the old profit factor, which was removed.
+
+**What the new tests cover:**
+
+- **Profit factor:** undefined with no losses, with only breakevens, with a win and a breakeven, and with no trades, in the summary and per strategy. With losses and no wins it stays 0.
+- **Curve drawdown:** an amount below the highest closing total so far, counting a loss before any profit as a fall from zero, and rounded to cents. Max drawdown stays trade by trade, so it can be larger: 600 against 400 in the test week.
+- **API (`AnalyticsDefinitionEndpointTests`):** from saved trades, an undefined profit factor arrives as `null`, and drawdown arrives as an amount.
+- **Angular (`performance.component.spec.ts`):** "Undefined" shows with no number beside it, and a profit factor of 0 still shows as 0.00.
+
+**Checked in the running app** (scratch database, test owner):
+
+- Filtered to one winning day, Performance shows profit factor "Undefined" with "No losing trades to divide by", and max drawdown 0.00.
+- Unfiltered, the 29 scratch trades show profit factor 3.22 and max drawdown 3,500.00, with no console errors.
+- The equity-curve API returned drawdowns of 200, 600, 150 and 3,500 on the days below a peak, and 0 on the others. These match the closing totals by hand.
+
+**Not shown on a page:** the curve's `drawdown` is only in the API. The chart draws cumulative P&L and has never shown it.
+
 ## Results — 2026-11-04 (branch `phase-8-3-prop-fees-and-payouts`)
 
 | Command | Result |

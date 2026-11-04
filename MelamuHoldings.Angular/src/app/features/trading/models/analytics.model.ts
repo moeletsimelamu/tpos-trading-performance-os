@@ -3,7 +3,8 @@ export interface AnalyticsSummary {
   winRate: number;
   expectancy: number;
   averageRR: number;
-  profitFactor: number;
+  // Null with no losing trades: there is nothing to divide by
+  profitFactor: number | null;
   totalPnL: number;
   maxDrawdown: number;
   winCount: number;
@@ -18,6 +19,7 @@ export interface EquityPoint {
   date: string;
   cumulativePnL: number;
   dailyPnL: number;
+  // An amount: how far the day's closing total is below the highest closing total so far
   drawdown: number;
 }
 
@@ -27,7 +29,7 @@ export interface StrategyPerformance {
   winRate: number;
   averageRR: number;
   totalPnL: number;
-  profitFactor: number;
+  profitFactor: number | null;
 }
 
 export interface TimePerformance {

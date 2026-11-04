@@ -38,7 +38,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Account details and business cash (decision D14, the second step of that addendum) are complete on branch `accounts-business-structure`, cut from `brand-melamu-logo`.
 - Account panels and payment cards (the third step of that addendum) are complete on branch `accounts-panels`, cut from `accounts-business-structure`.
 - P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report) is complete on branch `phase-8-3-prop-fees-and-payouts`, cut from `accounts-panels`, with bank cards drawn on account panels at the owner's request (decisions D15 and D16).
-- Next: P8.4 (analytics definition fixes).
+- P8.4 (profit factor with no losses is undefined, and equity-curve drawdown is an amount) is complete on branch `phase-8-4-analytics-definitions`, cut from `phase-8-3-prop-fees-and-payouts`.
+- Next: P8.5 (verification and documentation).
 
 ---
 
@@ -396,7 +397,7 @@ Phase 8 is delivered in stages, each on its own branch cut from the previous one
 | **P8.1** ✅ | Prop firm accounts (D10, D11): one record per attempt, phases and statuses with an append-only history, rules that change by adding a version, resets. No link to trades or the ledger yet |
 | **P8.2** ✅ | Trades linked to accounts. Balances entered from the firm's dashboard. Balance, drawdown room, daily loss, target progress and trading days calculated from linked trades and those balances, labelled as from recorded trades (D12). Warnings near a limit, which never block anything |
 | **P8.3** ✅ | Payouts linked to accounts. Fees and resets linked by choosing an expense already in the ledger, as obligations and purchases do. The report answering "which trading accounts consume fees without producing payouts?", per currency and unconverted |
-| **P8.4** | Analytics definition fixes: profit factor with no losses becomes undefined instead of gross profit, and equity-curve drawdown becomes an amount instead of a percentage of cumulative P&L. Tests prove nothing else moves |
+| **P8.4** ✅ | Analytics definition fixes: profit factor with no losses becomes undefined instead of gross profit, and equity-curve drawdown becomes an amount instead of a percentage of cumulative P&L. Tests prove nothing else moves |
 | **P8.5** | Verification and documentation: full regression, Phase 8 traced requirement by requirement, the items already delivered confirmed, and whether CSV import is atomic checked (`ARCHITECTURE_REVIEW` W11) |
 
 ### 7a. Trading journal and AI-assisted review (owner brief, 2026-10-27)

@@ -107,10 +107,10 @@ The landing page shows the business as recorded:
 ### Performance analytics
 - **Win rate**: winning trades ÷ total trades.
 - **Expectancy**: (win rate × average win) − (loss rate × average loss). Loss rate counts losing trades only, so this equals the mean P&L per trade; breakevens count as zero.
-- **Profit factor**: gross profit ÷ gross loss. *Known issue:* with no losing trades it currently shows gross profit instead of "undefined"; the fix is scheduled for Phase 8.
+- **Profit factor**: gross profit ÷ gross loss. With no losing trades there is nothing to divide by, so it reads "Undefined" and the API returns `null`.
 - **Average RR**: mean reward-to-risk ratio.
-- **Equity curve**: cumulative P&L by day.
-- **Max drawdown**: the largest peak-to-trough fall in cumulative P&L.
+- **Equity curve**: cumulative P&L by day. Through the API, each point's `drawdown` is an amount: how far that day's closing total is below the highest closing total so far.
+- **Max drawdown**: the largest peak-to-trough fall in cumulative P&L, trade by trade. It can be larger than any day's curve drawdown, because a fall that recovers within a day never shows at a day's end.
 - **Breakdowns**: by strategy, day of week, trading session and **journal answer**: pick any question with fixed answers (emotion, a rating, recorded mistakes) to compare results answer by answer, with trades that have no answer shown apart, and Show to narrow the page to one answer.
 - **Rule adherence over time**: month by month or week by week, with empty periods kept and small samples labelled.
 - **Filters** (Performance and Behaviour): date range, strategy, instrument, session, account, rule adherence (followed every mandatory rule, broke one, or not scored), and any journal answer with fixed choices, such as your emotion before entry or a quality rating. Filters only narrow the trades; every figure is calculated exactly as without them. Fewer than 20 matching trades is labelled insufficient data, and the filtered view is kept in the address so it can be bookmarked.
@@ -293,7 +293,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET · POST | `/api/trades/{id}/attachments` | Attach a file to a trade (multipart, `file` and optional `caption`) |
 | GET · DELETE | `/api/trades/{id}/attachments/{attachmentId}` | Download or delete an attachment |
 | GET | `/api/analytics/summary` | KPI summary. Every `/api/analytics/*` endpoint takes the same filter: `from`, `to`, `strategyId`, `session`, `account`, `adherence` (`Followed`, `Broke`, `NotScored`), `answerField` + `answerValue` |
-| GET | `/api/analytics/equity-curve` | Daily equity curve |
+| GET | `/api/analytics/equity-curve` | Daily equity curve, with `drawdown` as an amount |
 | GET | `/api/analytics/by-strategy` | Strategy breakdown |
 | GET | `/api/analytics/by-day` | Performance by day of week |
 | GET | `/api/analytics/by-session` | Performance by session |
