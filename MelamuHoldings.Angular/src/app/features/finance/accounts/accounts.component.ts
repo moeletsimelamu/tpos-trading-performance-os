@@ -4,7 +4,8 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { FinanceApiService } from '../finance-api.service';
-import { ACCOUNT_CATEGORY_LABELS, Account, AccountCategory, AccountType, Balances, CurrencyInfo, Ownership, PaymentCard, PaymentCardKind, TAX_TREATMENT_LABELS, TaxTreatment, categoriesFor, otherCashText } from '../finance.models';
+import { PaymentCardComponent } from './payment-card.component';
+import { ACCOUNT_CATEGORY_LABELS, Account, AccountCategory, AccountType, Balances, CARD_FINISHES, CardFinish, CurrencyInfo, Ownership, PaymentCard, PaymentCardKind, PaymentCardNetwork, TAX_TREATMENT_LABELS, TaxTreatment, categoriesFor, otherCashText } from '../finance.models';
 import { MoneyPipe, formatMoney } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
@@ -30,7 +31,7 @@ function readView(): AccountsView {
 @Component({
   selector: 'app-finance-accounts',
   standalone: true,
-  imports: [NgTemplateOutlet, ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent],
+  imports: [NgTemplateOutlet, ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent, PaymentCardComponent],
   template: `
     <div class="page">
       <app-page-header section="Finance" title="Accounts"
@@ -158,7 +159,28 @@ function readView(): AccountsView {
                     @if (group.note) { <p class="small secondary group-note">{{ group.note }}</p> }
                     <div class="panels">
                       @for (a of group.accounts; track a.id) {
-                        <article class="panel" [class.closed]="a.status === 'Closed'" [attr.data-type]="a.type" [attr.aria-label]="a.name">
+                        <article class="panel" [class.closed]="a.status === 'Closed'" [class.with-card]="activeCards(a).length > 0" [attr.data-type]="a.type" [attr.aria-label]="a.name">
+                          @if (activeCards(a).length > 0) {
+                            <div class="card-column">
+                              @for (c of activeCards(a); track c.id) {
+                                <div class="card-slot">
+                                  <app-payment-card [card]="c" [provider]="a.institution ?? a.name" />
+                                  <div class="card-caption">
+                                    <span>{{ cardLabel(c) }}</span>
+                                    @if (a.status === 'Active') {
+                                      @if (confirmingCard() === c.id) {
+                                        <button type="button" class="btn btn-sm btn-danger" [disabled]="saving()" (click)="cancelCard(a, c)">Record as cancelled</button>
+                                        <button type="button" class="btn-link small" (click)="confirmingCard.set(null)">Keep</button>
+                                      } @else {
+                                        <button type="button" class="btn-link small" (click)="confirmingCard.set(c.id)">Cancel card</button>
+                                      }
+                                    }
+                                  </div>
+                                </div>
+                              }
+                            </div>
+                          }
+                          <div class="panel-body">
                           <header class="panel-head">
                             <span class="provider-badge" aria-hidden="true">{{ initials(a) }}</span>
                             <div class="provider">
@@ -188,20 +210,10 @@ function readView(): AccountsView {
                               <div>
                                 <dt>Payment cards</dt>
                                 <dd>
-                                  @for (c of a.cards ?? []; track c.id) {
-                                    <div class="card-line" [class.cancelled]="c.status === 'Cancelled'">
-                                      <span>{{ cardLabel(c) }}</span>
-                                      @if (c.status === 'Cancelled') { <span class="tag">Cancelled</span> }
-                                      @else if (a.status === 'Active') {
-                                        @if (confirmingCard() === c.id) {
-                                          <button type="button" class="btn btn-sm btn-danger" [disabled]="saving()" (click)="cancelCard(a, c)">Record as cancelled</button>
-                                          <button type="button" class="btn-link small" (click)="confirmingCard.set(null)">Keep</button>
-                                        } @else {
-                                          <button type="button" class="btn-link small" (click)="confirmingCard.set(c.id)">Cancel card</button>
-                                        }
-                                      }
-                                    </div>
-                                  } @empty { <span class="muted">None recorded</span> }
+                                  @for (c of cancelledCards(a); track c.id) {
+                                    <div class="card-line cancelled"><span>{{ cardLabel(c) }}</span> <span class="tag">Cancelled</span></div>
+                                  }
+                                  @if (!(a.cards ?? []).length) { <span class="muted">None recorded</span> }
                                   @if (a.status === 'Active' && addingCardTo() !== a.id) { <div><button type="button" class="btn-link small" (click)="startCard(a)">Add a card</button></div> }
                                 </dd>
                               </div>
@@ -212,6 +224,16 @@ function readView(): AccountsView {
                               <div class="field">
                                 <label [for]="'card-kind-' + a.id">Kind</label>
                                 <select [id]="'card-kind-' + a.id" formControlName="kind"><option value="Debit">Debit</option><option value="Credit">Credit</option></select>
+                              </div>
+                              <div class="field">
+                                <label [for]="'card-network-' + a.id">Network</label>
+                                <select [id]="'card-network-' + a.id" formControlName="network"><option value="NotStated">Not stated</option><option value="Visa">Visa</option><option value="Mastercard">Mastercard</option><option value="Other">Other</option></select>
+                              </div>
+                              <div class="field">
+                                <label [for]="'card-finish-' + a.id">Colour</label>
+                                <select [id]="'card-finish-' + a.id" formControlName="finish">
+                                  @for (f of finishes; track f) { <option [value]="f">{{ f }}</option> }
+                                </select>
                               </div>
                               <div class="field">
                                 <label [for]="'card-four-' + a.id">Last four digits (optional)</label>
@@ -233,12 +255,13 @@ function readView(): AccountsView {
                             <a class="btn-link small" [routerLink]="['/finance/transactions']" [queryParams]="{ accountId: a.id }">Transactions</a>
                             <ng-container *ngTemplateOutlet="accountActions; context: { $implicit: a }" />
                           </footer>
+                          </div>
                         </article>
                       }
                     </div>
                   </section>
                 }
-                <p class="small muted honesty">These panels summarise what you recorded here. They are not bank cards or live connections to any bank, and no bank's logo is used.</p>
+                <p class="small muted honesty">Cards are drawn from what you recorded here, not the bank's own artwork, and show only the last four digits. Nothing here connects to a bank.</p>
               } @else {
               <div class="card table-card">
                 <table class="data-table">
@@ -314,6 +337,10 @@ function readView(): AccountsView {
     .panel[data-type='Brokerage'] { border-top-color: #b8a06a; }
     .panel[data-type='Cash'], .panel[data-type='Other'] { border-top-color: var(--text-muted); }
     .panel.closed { opacity: .7; }
+    .panel.with-card { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: var(--space-5); }
+    .card-column { flex: 0 1 320px; min-width: min(260px, 100%); display: grid; gap: var(--space-4); align-content: start; }
+    .card-caption { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); margin-top: var(--space-2); font-size: var(--text-sm); }
+    .panel-body { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
     .panel-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
     .provider-badge { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--radius); background: var(--surface-sunken); color: var(--text-secondary); font-size: 13px; font-weight: 600; }
     .provider { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
@@ -359,8 +386,11 @@ export class AccountsComponent {
   readonly addingCardTo = signal<number | null>(null);
   readonly confirmingCard = signal<number | null>(null);
   readonly cardError = signal('');
+  readonly finishes = CARD_FINISHES;
   readonly cardForm = this.fb.nonNullable.group({
     kind: ['Debit' as PaymentCardKind, Validators.required],
+    network: ['NotStated' as PaymentCardNetwork, Validators.required],
+    finish: ['Navy' as CardFinish, Validators.required],
     lastFour: ['', Validators.pattern(/^\d{4}$/)],
     name: ['', Validators.maxLength(50)]
   });
@@ -477,6 +507,14 @@ export class AccountsComponent {
     return `${a.type}${category} · ${a.currency}`;
   }
 
+  activeCards(a: Account): PaymentCard[] {
+    return (a.cards ?? []).filter(c => c.status === 'Active');
+  }
+
+  cancelledCards(a: Account): PaymentCard[] {
+    return (a.cards ?? []).filter(c => c.status === 'Cancelled');
+  }
+
   cardLabel(c: PaymentCard): string {
     const ending = c.lastFour ? ` ending ${c.lastFour}` : '';
     return `${c.name ? `${c.name}: ` : ''}${c.kind} card${ending}`;
@@ -493,7 +531,7 @@ export class AccountsComponent {
     const v = this.cardForm.getRawValue();
     this.saving.set(true);
     this.cardError.set('');
-    this.api.addPaymentCard(a.id, { kind: v.kind, lastFour: v.lastFour.trim() || null, name: v.name.trim() || null }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.api.addPaymentCard(a.id, { kind: v.kind, network: v.network, finish: v.finish, lastFour: v.lastFour.trim() || null, name: v.name.trim() || null }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => { this.saving.set(false); this.addingCardTo.set(null); this.load(); },
       error: err => { this.saving.set(false); this.cardError.set(`Not saved: ${describeHttpError(err)}`); }
     });

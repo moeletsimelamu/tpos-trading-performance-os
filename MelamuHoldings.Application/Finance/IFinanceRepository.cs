@@ -22,6 +22,9 @@ public record TransactionQuery(
 // One expense transaction that has not been reversed; Amount is what it cost, as a positive number
 public record ExpenseRow(int TransactionId, DateOnly Date, string? Category, string Currency, decimal Amount);
 
+// A fee linked to a prop firm account, with what the ledger says about its expense. Amount is positive.
+public record PropFeeRow(int Id, int AccountId, PropAccountFeeKind Kind, int TransactionId, DateOnly Date, string Description, string? Category, string Currency, decimal Amount);
+
 // One ledger entry in a brokerage account. Type is the transaction's type, or for a reversal the type of the
 // transaction it reverses, so a reversed contribution cancels as a contribution.
 public record InvestmentEntryRow(int AccountId, DateOnly Date, LedgerTransactionType Type, LedgerEntryRole Role, decimal Amount, int TransactionId);
@@ -85,6 +88,14 @@ public interface IFinanceRepository
     // Which of these expenses are already linked as a planned purchase
     Task<HashSet<int>> GetLinkedPurchaseTransactionIdsAsync(IEnumerable<int> transactionIds);
 
+    Task<List<PropFeeRow>> GetPropAccountFeesAsync(IEnumerable<int> accountIds);
+    Task<PropAccountFee?> GetPropAccountFeeAsync(int id);
+
+    // Which of these expenses are already linked as a prop account's fee
+    Task<HashSet<int>> GetPropFeeTransactionIdsAsync(IEnumerable<int> transactionIds);
+    Task<Dictionary<int, string>> GetPropAccountNamesAsync(IEnumerable<int> accountIds);
+    Task<bool> PropAccountBelongsToAsync(int accountId, int userId);
+
     // Every entry in a Brokerage account (see InvestmentEntryRow)
     Task<List<InvestmentEntryRow>> GetBrokerageEntriesAsync();
 
@@ -114,6 +125,8 @@ public interface IFinanceRepository
     void Add(BudgetLine line);
     void Remove(BudgetLine line);
     void Add(PlannedPurchase purchase);
+    void Add(PropAccountFee fee);
+    void Remove(PropAccountFee fee);
     void Remove(InvestmentValuation valuation);
 
     // Saves everything added or changed. Throws UniqueConstraintViolationException when a unique index rejects the write,

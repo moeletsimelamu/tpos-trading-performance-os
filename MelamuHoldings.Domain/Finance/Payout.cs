@@ -16,8 +16,11 @@ public class Payout
 
     public int Id { get; private set; }
 
-    // Who pays it, e.g. the prop firm. A label for now; Phase 8 links payouts to prop-firm accounts.
+    // Who pays it, e.g. the prop firm
     public string Source { get; private set; } = string.Empty;
+
+    // The prop firm account it came from, when there is one. Says where it came from and moves no money.
+    public int? PropFirmAccountId { get; private set; }
     public string? Reference { get; private set; }
     public string? Notes { get; private set; }
 
@@ -75,6 +78,20 @@ public class Payout
         CreatedByUserId = recording.UserId;
         IdempotencyKey = recording.IdempotencyKey;
         RequestHash = recording.RequestHash;
+    }
+
+    public void LinkToPropAccount(int propFirmAccountId)
+    {
+        if (Status == PayoutStatus.Rejected) throw new DomainException("A rejected payout paid nothing, so it cannot be linked to an account.");
+        if (PropFirmAccountId == propFirmAccountId) throw new DomainException($"Payout #{Id} is already linked to this account.");
+        if (PropFirmAccountId is not null) throw new DomainException($"Payout #{Id} is linked to another account. Remove that link first.");
+        PropFirmAccountId = propFirmAccountId;
+    }
+
+    public void UnlinkFromPropAccount()
+    {
+        if (PropFirmAccountId is null) throw new DomainException($"Payout #{Id} is not linked to an account.");
+        PropFirmAccountId = null;
     }
 
     // The approved amount can be lower than requested (a firm may approve less); it can never be higher

@@ -19,6 +19,19 @@ public class PaymentCardTests
     }
 
     [Fact]
+    public void A_card_keeps_its_network_and_colour_and_has_plain_defaults()
+    {
+        var chosen = Bank().AddCard(PaymentCardKind.Debit, null, null, Now, PaymentCardNetwork.Visa, PaymentCardFinish.Gold);
+        Assert.Equal((PaymentCardNetwork.Visa, PaymentCardFinish.Gold), (chosen.Network, chosen.Finish));
+
+        var plain = Bank().AddCard(PaymentCardKind.Debit, null, null, Now);
+        Assert.Equal((PaymentCardNetwork.NotStated, PaymentCardFinish.Navy), (plain.Network, plain.Finish));
+
+        Assert.Throws<DomainException>(() => Bank().AddCard(PaymentCardKind.Debit, null, null, Now, (PaymentCardNetwork)9));
+        Assert.Throws<DomainException>(() => Bank().AddCard(PaymentCardKind.Debit, null, null, Now, PaymentCardNetwork.Visa, (PaymentCardFinish)9));
+    }
+
+    [Fact]
     public void Name_and_digits_are_optional()
     {
         var card = Bank().AddCard(PaymentCardKind.Credit, "  ", null, Now);

@@ -49,6 +49,49 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-04 (branch `phase-8-3-prop-fees-and-payouts`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 373 passed, 0 failed |
+| `dotnet test` (Release): integration | 146 passed, 0 failed |
+| `ng test --watch=false` | 249 passed, 0 failed (32 files) |
+| `ng build` (production) | Succeeded; initial bundle 340.13 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes pending |
+| `AddPaymentCardLook`, `AddPropAccountFeesAndPayoutLink` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY`. Dev holds no accounts, transactions or payouts. |
+
+After that regression, a one-line template change removed a link to a page that does not exist. `ng test` and `ng build` were run again and the figures above are from that run. The .NET suites were not run again, as no .NET code changed.
+
+**New tests:**
+
+- **Unit (`PropAccountEconomicsTests`, `PaymentCardTests`):**
+  - Fees with no received payout are flagged. A received payout counts for what reached the account.
+  - Requested and approved payouts are awaiting only, and rejected ones count for nothing. A reversed fee costs nothing.
+  - Currencies stay apart, with nothing converted, and totals add up per currency.
+  - A fee must be an unreversed expense with a stated reason. A payout links to one account, and never once rejected.
+  - A card keeps its network and colour, with plain defaults.
+- **Integration (`PropAccountLedgerEndpointTests`):**
+  - An account's whole story, from nothing linked to fees without payouts, awaiting, received, receipt undone, fee reversed and link removed. Bank balances stay unchanged by each link, and the audit trail is checked.
+  - A payout linked after the fact, counted in the currency it arrived in, and the count of unlinked received payouts.
+  - Refusals: income, reversed or missing transactions, the same expense twice (409), a payout on another account, and a rejected payout.
+  - Another trader's account gives 404, is absent from their report, and a payout cannot be recorded against it. Without the Owner role the routes give 403, while `/api/prop-accounts` stays open (`FinanceEndpointTests`).
+- **Angular (`prop-account-ledger.spec.ts`, `finance-pages.spec.ts`, `payouts-allocation.spec.ts`):**
+  - The ledger and report sections are hidden on a 403 and show an error on any other failure. Fees, awaiting payouts, reversed fees and several currencies are displayed as described.
+  - Linking and unlinking, including a refused link and removing only after asking.
+  - A drawn card shows only the last four digits and masks the rest. No card is drawn for an account without one or for a cancelled card, and no network is invented.
+  - The payout form links an account and fills in who pays it.
+
+**Checked in the running app** (scratch database, test owner):
+
+- Cards in several colours beside their account's details at desktop width and at 375 px, with no sideways scrolling. A cancelled card is listed, not drawn.
+- Two expenses and a requested payout linked through the page. The fees showed USD 699.00 with net USD -699.00, and USD 400.00 awaiting and not counted. The bank balance moved only for the two expenses themselves.
+- The report flagged that account first, listed the other as nothing linked, and counted one unlinked received payout.
+
+**Not checked in a browser:** receiving a linked payout, which is covered by the integration tests. The Owner-only hiding is covered by Angular tests only, as every user in the scratch database is an owner.
+
 ## Results — 2026-11-04 (branch `accounts-panels`)
 
 | Command | Result |

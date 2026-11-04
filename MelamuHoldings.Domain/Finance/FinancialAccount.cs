@@ -20,6 +20,11 @@ public enum PaymentCardKind { Debit, Credit }
 
 public enum PaymentCardStatus { Active, Cancelled }
 
+public enum PaymentCardNetwork { NotStated, Visa, Mastercard, Other }
+
+// The colour the card is drawn in, chosen by the owner to match the card in their wallet
+public enum PaymentCardFinish { Navy, Graphite, Gold, Silver, Plum, Teal }
+
 // A real place money is held (a bank account, cash, a brokerage account), in exactly one currency.
 // No credentials are ever stored. Balances are not stored either: they are summed from ledger entries.
 public class FinancialAccount
@@ -121,11 +126,11 @@ public class FinancialAccount
     }
 
     // A card a bank has issued on this account, recorded so it can be recognised. A card is not an account and holds no money.
-    public PaymentCard AddCard(PaymentCardKind kind, string? name, string? lastFour, DateTime now)
+    public PaymentCard AddCard(PaymentCardKind kind, string? name, string? lastFour, DateTime now, PaymentCardNetwork network = PaymentCardNetwork.NotStated, PaymentCardFinish finish = PaymentCardFinish.Navy)
     {
         EnsureActive();
         if (Type != FinancialAccountType.Bank) throw new DomainException("Only a bank account can have a payment card.");
-        var card = new PaymentCard(kind, name, lastFour, now);
+        var card = new PaymentCard(kind, name, lastFour, now, network, finish);
         if (card.LastFour is not null && _cards.Any(c => c.Status == PaymentCardStatus.Active && c.LastFour == card.LastFour))
             throw new DomainException($"This account already has an active card ending {card.LastFour}.");
         _cards.Add(card);
@@ -178,16 +183,22 @@ public class PaymentCard
     public PaymentCardKind Kind { get; private set; }
     public string? Name { get; private set; }
     public string? LastFour { get; private set; }
+    public PaymentCardNetwork Network { get; private set; }
+    public PaymentCardFinish Finish { get; private set; }
     public PaymentCardStatus Status { get; private set; }
     public DateTime AddedAt { get; private set; }
     public DateTime? CancelledAt { get; private set; }
 
     private PaymentCard() { }
 
-    internal PaymentCard(PaymentCardKind kind, string? name, string? lastFour, DateTime now)
+    internal PaymentCard(PaymentCardKind kind, string? name, string? lastFour, DateTime now, PaymentCardNetwork network, PaymentCardFinish finish)
     {
         if (!Enum.IsDefined(kind)) throw new DomainException("Choose debit or credit.");
+        if (!Enum.IsDefined(network)) throw new DomainException("Choose Visa, Mastercard or other.");
+        if (!Enum.IsDefined(finish)) throw new DomainException("Choose a colour for the card.");
         Kind = kind;
+        Network = network;
+        Finish = finish;
         Name = Text.Optional(name, MaxNameLength, "Card name");
         LastFour = Text.Optional(lastFour, 4, "Last four digits");
         if (LastFour is { } digits && (digits.Length != 4 || !digits.All(char.IsAsciiDigit)))

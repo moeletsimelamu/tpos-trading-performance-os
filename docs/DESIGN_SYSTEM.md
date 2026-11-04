@@ -50,8 +50,10 @@ The owner chose this design on 2026-11-04 (decision D13). It starts from the log
 
 The Accounts page shows each account as a panel, with a table view one click away and the choice remembered per browser.
 
-- **Not a bank card.** A panel is a plain record, with no chip, number pattern or card proportions. A footnote on the page says so, and that nothing connects to a bank.
-- **No bank logos.** A provider shows as a neutral tile of its initials and its name as text. No bank's logo or colours are used, because none has been licensed. If one is, it replaces the tile and nothing else changes.
+- **A card only where one is recorded (D15).** A bank account with an active payment card shows that card, drawn at card proportions, beside its details: chip, contactless mark, masked number, the provider's name, Active, debit or credit, and the network if stated. Savings, investment and other accounts with no card stay plain panels, because not every account is a debit card. A cancelled card is listed, not drawn.
+- **Masked, never invented.** The number shows only the recorded last four digits. Expiry and security code are always masked, because they are never stored. No cardholder name is shown. With no digits recorded, the whole number is masked.
+- **The owner chooses the colour.** Navy, Graphite, Gold, Silver, Plum or Teal, to match the card in hand. The fine line pattern is generated, not copied from any card.
+- **No bank or network logos.** The provider and network appear as plain text, because no artwork has been licensed. The footnote says the cards are drawn from what was recorded, not the bank's artwork, and that nothing connects to a bank. If official artwork is licensed, it replaces the drawing and nothing else changes. Accounts without a card show the provider as a tile of its initials.
 - **Type at a glance.** The top rule is navy for a bank, muted gold for a brokerage and grey for cash or other.
 - **Ownership at a glance.** Business accounts come first. Personal accounts and those with ownership not stated are separate groups, each saying they are not counted as business cash.
 

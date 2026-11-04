@@ -37,7 +37,7 @@ public class FinanceReadModel
             account.Category, account.TaxTreatment, account.Reference, account.OpenedOn, account.HomeFundId,
             account.HomeFundId is { } home ? FundName(home) : null,
             account.Cards.OrderBy(c => c.Status).ThenBy(c => c.Id)
-                .Select(c => new PaymentCardDto(c.Id, c.Kind, c.Name, c.LastFour, c.Status, c.AddedAt, c.CancelledAt)).ToList());
+                .Select(c => new PaymentCardDto(c.Id, c.Kind, c.Name, c.LastFour, c.Status, c.AddedAt, c.CancelledAt, c.Network, c.Finish)).ToList());
     }
 
     public IReadOnlyList<AccountDto> Accounts() => _accounts.Values.OrderBy(a => a.Name).Select(Account).ToList();

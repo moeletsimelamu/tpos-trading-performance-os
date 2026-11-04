@@ -12,7 +12,8 @@ public record PayoutDto(
     DateOnly? ReceivedOn, int? ReceivedIntoAccountId, string? ReceivedIntoAccountName,
     MoneyDto? Credited, MoneyDto? Fee, decimal? EffectiveRate, int? IncomeTransactionId,
     DateOnly? RejectedOn, string? RejectionReason, DateTime CreatedAt,
-    int? AllocationId, AllocationStatus? AllocationStatus);
+    int? AllocationId, AllocationStatus? AllocationStatus,
+    int? PropFirmAccountId, string? PropAccountName);
 
 public record PayoutResult(PayoutDto Payout, bool Replayed);
 
@@ -50,6 +51,9 @@ public class CreatePayoutRequest
     [Required] public string Currency { get; set; } = string.Empty;
     [Required] public decimal? Amount { get; set; }
     [Required] public DateOnly? RequestedOn { get; set; }
+
+    // The prop firm account it comes from, if any
+    public int? PropFirmAccountId { get; set; }
 }
 
 public class ApprovePayoutRequest

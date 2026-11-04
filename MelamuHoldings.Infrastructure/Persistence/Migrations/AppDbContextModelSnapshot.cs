@@ -850,6 +850,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<int>("FinancialAccountId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Finish")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -861,6 +866,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<string>("Name")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Network")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -922,6 +932,9 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int?>("PropFirmAccountId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("ReceivedIntoAccountId")
                         .HasColumnType("int");
 
@@ -976,6 +989,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.HasIndex("IncomeTransactionId")
                         .IsUnique()
                         .HasFilter("[IncomeTransactionId] IS NOT NULL");
+
+                    b.HasIndex("PropFirmAccountId");
 
                     b.HasIndex("ReceivedIntoAccountId");
 
@@ -1059,6 +1074,42 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasFilter("[Status] IN ('Proposed', 'Committed')");
 
                     b.ToTable("PlannedPurchases", "finance");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PropAccountFee", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("LedgerTransactionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LinkedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LinkedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PropFirmAccountId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LedgerTransactionId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PropAccountFees_LedgerTransactionId");
+
+                    b.HasIndex("PropFirmAccountId");
+
+                    b.ToTable("PropAccountFees", "finance");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Identity.User", b =>
@@ -2134,6 +2185,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasForeignKey("IncomeTransactionId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", null)
+                        .WithMany()
+                        .HasForeignKey("PropFirmAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("MelamuHoldings.Domain.Finance.FinancialAccount", null)
                         .WithMany()
                         .HasForeignKey("ReceivedIntoAccountId")
@@ -2152,6 +2208,21 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("LedgerTransactionId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PropAccountFee", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Finance.LedgerTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("LedgerTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", null)
+                        .WithMany()
+                        .HasForeignKey("PropFirmAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.ChecklistItem", b =>

@@ -25,6 +25,9 @@
                 <div>
                   <p class="step-title">Requested {{ p.requested.amount | money: p.requested.currency }}</p>
                   <p class="step-detail">{{ p.requestedOn }}{{ p.reference ? ' · Ref ' + p.reference : '' }}{{ p.notes ? ' · ' + p.notes : '' }}</p>
+                  @if (p.propFirmAccountId) {
+                    <p class="step-detail">From prop account <a [routerLink]="['/trading/prop-accounts', p.propFirmAccountId]">{{ p.propAccountName }}</a></p>
+                  }
                 </div>
               </li>
               <li class="step" [class.done]="!!p.approved">

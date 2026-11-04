@@ -1,8 +1,8 @@
 # Prop firm accounts
 
-How prop firm accounts work as built. The plan and stages are in [`../PLAN.md`](../PLAN.md) §7c, with decisions D10 to D12 in §12.
+How prop firm accounts work as built. The plan and stages are in [`../PLAN.md`](../PLAN.md) §7c, with decisions D10 to D12 and D16 in §12.
 
-**Built so far:** the account records, their rules and their history (P8.1); linked trades, balances from the firm's dashboard, each account's standing against its rules, and warnings (P8.2). Linking payouts and fees comes in P8.3. Nothing on these pages touches the ledger.
+**Built so far:** the account records, their rules and their history (P8.1); linked trades, balances from the firm's dashboard, each account's standing against its rules, and warnings (P8.2); fees and payouts linked to an account, and the report on which accounts cost money without paying back (P8.3). Nothing on these pages posts to the ledger.
 
 ## One record per attempt (D10)
 
@@ -128,13 +128,34 @@ The Executive overview warns about **active** accounts only:
 
 A warning never blocks a trade and never changes an account. Recording a breach or a reset is yours to do, which also clears the warning.
 
+## Fees and payouts (D16)
+
+An account's page has a **Fees and payouts** section, and the list page has **Fees against payouts**, which answers which accounts cost money without paying anything back.
+
+- **Fees** are expenses already in the ledger. Record the expense in Transactions first, then link it and say what it paid for: buying the account, a reset, a monthly fee or something else. The app never records the expense for you, so a fee in the rules is not treated as paid until its expense is linked.
+- **Payouts** are linked when requesting one, or later from the account's page. A rejected payout cannot be linked, and one linked to another account must be unlinked first.
+- **Linking moves no money.** The expense or payout already exists, no balance changes, and removing a link leaves it in place.
+
+| Outcome | Means |
+|---|---|
+| Fees, no payout received | At least one fee counted, and no payout received |
+| Payouts received | At least one payout received, whatever the fees came to |
+| Nothing linked | No fee counted and no payout received |
+
+What counts:
+- A reversed fee is shown but not counted.
+- A payout counts once received, for the amount that reached the bank account, in that account's currency. Undoing the receipt takes it back out.
+- A requested or approved payout is shown as awaiting and is never in the figures.
+- Each currency is its own line and nothing is converted, so a USD fee and a payout credited in ZAR are two lines, and neither net shows the whole picture for that account.
+- The report includes closed accounts, and says how many received payouts are not linked to any account and so not counted.
+
 ## Access
 
-Accounts belong to the trader who created them, like strategies and trades. Another user gets a 404. Any signed-in user can use `/api/prop-accounts` and link their own trades; the links to the ledger in P8.3 will need the Owner role, like the rest of finance.
+Accounts belong to the trader who created them, like strategies and trades. Another user gets a 404. Any signed-in user can use `/api/prop-accounts` and link their own trades. Fees and payouts need the Owner role, like the rest of finance, and a user without it does not see those sections. Even an owner reaches only their own accounts.
 
 ## Limits of this stage
 
-- No payout or expense is linked to an account yet.
+- A fee is not compared with the fee in the account's rules, and a monthly fee that was never linked does not show as missing.
 - **Balances after a payout:** the app does not take a payout off the balance by itself. Enter the balance and level from the dashboard.
 - **Other firm rules:** consistency rules, news restrictions and time limits are notes only, and nothing is measured against them.
 - **Daily loss** is measured from closed trades per closing day. Firms that measure from the day's starting equity, or at their own server's day boundary, can differ.

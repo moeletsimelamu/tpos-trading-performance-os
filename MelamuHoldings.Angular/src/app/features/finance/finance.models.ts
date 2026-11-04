@@ -5,9 +5,12 @@ export type Ownership = 'Company' | 'Personal' | 'Unspecified';
 export type AccountCategory = 'NotStated' | 'Current' | 'Savings' | 'Investment';
 export type TaxTreatment = 'NotStated' | 'Taxable' | 'TaxFree';
 export type PaymentCardKind = 'Debit' | 'Credit';
+export type PaymentCardNetwork = 'NotStated' | 'Visa' | 'Mastercard' | 'Other';
+export type CardFinish = 'Navy' | 'Graphite' | 'Gold' | 'Silver' | 'Plum' | 'Teal';
+export const CARD_FINISHES: CardFinish[] = ['Navy', 'Graphite', 'Gold', 'Silver', 'Plum', 'Teal'];
 
 // What identifies a card to its owner. Never the full number, expiry, security code or cardholder name.
-export interface PaymentCard { id: number; kind: PaymentCardKind; name?: string | null; lastFour?: string | null; status: 'Active' | 'Cancelled'; addedAt: string; cancelledAt?: string | null; }
+export interface PaymentCard { id: number; kind: PaymentCardKind; name?: string | null; lastFour?: string | null; status: 'Active' | 'Cancelled'; addedAt: string; cancelledAt?: string | null; network?: PaymentCardNetwork; finish?: CardFinish; }
 
 export const ACCOUNT_CATEGORY_LABELS: Record<AccountCategory, string> = { NotStated: 'Not stated', Current: 'Current', Savings: 'Savings', Investment: 'Investment' };
 export const TAX_TREATMENT_LABELS: Record<TaxTreatment, string> = { NotStated: 'Not stated', Taxable: 'Taxable', TaxFree: 'Tax-free' };
@@ -243,6 +246,7 @@ export interface Payout {
   credited?: Money | null; fee?: Money | null; effectiveRate?: number | null; incomeTransactionId?: number | null;
   rejectedOn?: string | null; rejectionReason?: string | null; createdAt: string;
   allocationId?: number | null; allocationStatus?: AllocationStatus | null;
+  propFirmAccountId?: number | null; propAccountName?: string | null;
 }
 
 export interface PolicyLine { fundId: number; fundName: string; percentage: number; }

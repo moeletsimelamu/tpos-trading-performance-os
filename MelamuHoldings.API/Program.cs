@@ -146,6 +146,7 @@ builder.Services.AddSingleton<IAttachmentStore>(services => new FileSystemAttach
 builder.Services.AddScoped<TradeChecklists>();
 builder.Services.AddScoped<StrategyService>();
 builder.Services.AddScoped<PropAccountService>();
+builder.Services.AddScoped<PropAccountLedgerService>();
 builder.Services.AddScoped<AdherenceService>();
 builder.Services.AddScoped<JournalAnswerAnalytics>();
 builder.Services.AddScoped<JournalTemplateService>();

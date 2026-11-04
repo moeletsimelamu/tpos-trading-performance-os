@@ -7,6 +7,7 @@ import { Observable } from 'rxjs';
 import { TradingApiService } from '../trading-api.service';
 import { EVENT_LABELS, PHASES, PropAccount, PropAccountBalance, PropAccountPhase, PropAccountStatus, RULE_STANDING, STATUS_TAGS } from '../models/prop-account.model';
 import { PropRulesFieldsComponent, PropRulesSummaryComponent, RulesGroup, rulesFrom, rulesGroup } from './prop-rules';
+import { PropAccountLedgerComponent } from './prop-account-ledger.component';
 import { todayIso } from '../../finance/finance-api.service';
 import { MoneyPipe } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
@@ -21,7 +22,7 @@ const STATUSES: PropAccountStatus[] = ['Active', 'Pending', 'Breached', 'Closed'
 @Component({
   selector: 'app-prop-account-detail',
   standalone: true,
-  imports: [NgTemplateOutlet, ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent, PropRulesFieldsComponent, PropRulesSummaryComponent],
+  imports: [NgTemplateOutlet, ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent, PropRulesFieldsComponent, PropRulesSummaryComponent, PropAccountLedgerComponent],
   template: `
     <div class="page">
       @switch (state()) {
@@ -242,6 +243,8 @@ const STATUSES: PropAccountStatus[] = ['Active', 'Pending', 'Breached', 'Closed'
                 <p class="small secondary table-note">A difference means trades are missing or wrong, or money left the account, such as a payout.</p>
               </section>
             }
+
+            <app-prop-account-ledger [accountId]="a.id" />
 
             <section class="card section" aria-label="Current rules">
               <h2>Rules <span class="small muted">Version {{ a.rules.version }}, from {{ a.rules.effectiveFrom }}</span></h2>

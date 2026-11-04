@@ -10,6 +10,24 @@ export type DrawdownModel = 'None' | 'Static' | 'TrailingEndOfDay' | 'TrailingIn
 
 export const PHASES: PropAccountPhase[] = ['Evaluation', 'Verification', 'Funded'];
 
+export type PropAccountFeeKind = 'Purchase' | 'Reset' | 'Monthly' | 'Other';
+export type PropAccountOutcome = 'FeesWithoutPayouts' | 'PayoutsReceived' | 'NothingLinked';
+
+export const OUTCOME_LABELS: Record<PropAccountOutcome, { label: string; tag: string }> = {
+  FeesWithoutPayouts: { label: 'Fees, no payout received', tag: 'tag tag-warning' },
+  PayoutsReceived: { label: 'Payouts received', tag: 'tag tag-positive' },
+  NothingLinked: { label: 'Nothing linked', tag: 'tag' }
+};
+
+export interface PropAccountCurrencyLine { currency: string; fees: number; payoutsReceived: number; net: number; }
+export interface PropAccountEconomics { outcome: PropAccountOutcome; lines: PropAccountCurrencyLine[]; awaiting: MoneyAmount[]; feesCounted: number; payoutsCounted: number; }
+export interface PropAccountFee { id: number; kind: PropAccountFeeKind; transactionId: number; date: string; description: string; category?: string | null; amount: MoneyAmount; reversed: boolean; }
+export interface PropAccountPayout { id: number; source: string; status: string; amount: MoneyAmount; requestedOn: string; receivedOn?: string | null; credited?: MoneyAmount | null; }
+export interface PropAccountLedger { economics: PropAccountEconomics; fees: PropAccountFee[]; payouts: PropAccountPayout[]; }
+export interface PropAccountFeeCandidate { transactionId: number; date: string; description: string; category?: string | null; amount: MoneyAmount; }
+export interface PropAccountReportRow { accountId: number; firm: string; nickname: string; phase: PropAccountPhase; status: PropAccountStatus; economics: PropAccountEconomics; }
+export interface PropAccountReport { accounts: PropAccountReportRow[]; totals: PropAccountCurrencyLine[]; unlinkedReceivedPayouts: number; }
+
 export const STATUS_TAGS: Record<PropAccountStatus, string> = {
   Active: 'tag tag-positive',
   Pending: 'tag tag-warning',

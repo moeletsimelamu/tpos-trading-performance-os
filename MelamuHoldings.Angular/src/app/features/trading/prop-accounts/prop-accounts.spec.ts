@@ -49,6 +49,8 @@ describe('PropAccountsComponent', () => {
     http.expectOne(`${api}/prop-accounts`).flush(list);
     http.expectOne(`${api}/prop-accounts/currencies`).flush(['USD', 'ZAR']);
     await fixture.whenStable();
+    http.match(`${api}/prop-accounts/fees-and-payouts`).forEach(r => r.flush({ accounts: [], totals: [], unlinkedReceivedPayouts: 0 }));
+    await fixture.whenStable();
     return { fixture, el: fixture.nativeElement as HTMLElement, c: fixture.componentInstance };
   }
 
@@ -144,6 +146,10 @@ describe('PropAccountDetailComponent', () => {
     const fixture = TestBed.createComponent(PropAccountDetailComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/prop-accounts/5`).flush(a);
+    await fixture.whenStable();
+    http.expectOne(`${api}/prop-accounts/5/ledger`).flush({
+      economics: { outcome: 'FeesWithoutPayouts', lines: [{ currency: 'USD', fees: 500, payoutsReceived: 0, net: -500 }], awaiting: [], feesCounted: 1, payoutsCounted: 0 }, fees: [], payouts: []
+    });
     await fixture.whenStable();
     return { fixture, el: fixture.nativeElement as HTMLElement, c: fixture.componentInstance };
   }
@@ -289,6 +295,13 @@ describe('PropAccountDetailComponent', () => {
     del.flush(account());
     await fixture.whenStable();
     expect(el.querySelector('section[aria-label="Balances entered"]')).toBeNull();
+  });
+
+  it('shows what the account has cost and paid back', async () => {
+    const { el } = await render(account());
+    const section = el.querySelector('section[aria-label="Fees and payouts"]')!;
+    expect(section.textContent).toContain('Fees, no payout received');
+    expect(section.textContent).toContain('USD -500.00');
   });
 
   it('marks a balance from before the current run as not applying', async () => {

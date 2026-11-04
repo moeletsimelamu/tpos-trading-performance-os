@@ -12,7 +12,7 @@ import { AdherenceReport, AdherenceTrend, AnswerBreakdown, SaveStrategy, Strateg
 import { AnalyticsFilter, AnalyticsFilterOptions, filterParams } from './models/analytics-filter.model';
 import { AiJournalAnswer, AiReviewDraft, AiReviewStatus } from './models/ai-review.model';
 import { CalendarMonth, ImportMatch, JournalOverview, LinkResult, MatchDecision, TradeAttachment } from './models/journal-view.model';
-import { CreatePropAccount, PropAccount, PropAccountPhase, PropAccountRules, PropAccountStatus, UpdatePropAccount } from './models/prop-account.model';
+import { CreatePropAccount, PropAccount, PropAccountFeeCandidate, PropAccountFeeKind, PropAccountLedger, PropAccountPayout, PropAccountPhase, PropAccountReport, PropAccountRules, PropAccountStatus, UpdatePropAccount } from './models/prop-account.model';
 
 @Injectable({ providedIn: 'root' })
 export class TradingApiService {
@@ -99,6 +99,39 @@ export class TradingApiService {
 
   getPropAccount(id: number): Observable<PropAccount> {
     return this.http.get<PropAccount>(`${this.base}/prop-accounts/${id}`);
+  }
+
+  // Owner only: which fees and payouts belong to which account. Links only, so no money moves.
+  getPropAccountReport(): Observable<PropAccountReport> {
+    return this.http.get<PropAccountReport>(`${this.base}/prop-accounts/fees-and-payouts`);
+  }
+
+  getPropAccountLedger(id: number): Observable<PropAccountLedger> {
+    return this.http.get<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger`);
+  }
+
+  getPropAccountFeeCandidates(id: number): Observable<PropAccountFeeCandidate[]> {
+    return this.http.get<PropAccountFeeCandidate[]>(`${this.base}/prop-accounts/${id}/ledger/fee-candidates`);
+  }
+
+  getPropAccountPayoutCandidates(id: number): Observable<PropAccountPayout[]> {
+    return this.http.get<PropAccountPayout[]>(`${this.base}/prop-accounts/${id}/ledger/payout-candidates`);
+  }
+
+  linkPropAccountFee(id: number, body: { transactionId: number; kind: PropAccountFeeKind }): Observable<PropAccountLedger> {
+    return this.http.post<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger/fees`, body);
+  }
+
+  unlinkPropAccountFee(id: number, feeId: number): Observable<PropAccountLedger> {
+    return this.http.delete<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger/fees/${feeId}`);
+  }
+
+  linkPropAccountPayout(id: number, payoutId: number): Observable<PropAccountLedger> {
+    return this.http.post<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger/payouts/${payoutId}`, null);
+  }
+
+  unlinkPropAccountPayout(id: number, payoutId: number): Observable<PropAccountLedger> {
+    return this.http.delete<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger/payouts/${payoutId}`);
   }
 
   getPropAccountCurrencies(): Observable<string[]> {

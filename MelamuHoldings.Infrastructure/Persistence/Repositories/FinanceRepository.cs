@@ -132,6 +132,41 @@ public partial class FinanceRepository : IFinanceRepository
         return (await _context.PlannedPurchases.Where(p => ids.Contains(p.LedgerTransactionId)).Select(p => p.LedgerTransactionId!.Value).ToListAsync()).ToHashSet();
     }
 
+    public async Task<List<PropFeeRow>> GetPropAccountFeesAsync(IEnumerable<int> accountIds)
+    {
+        var ids = accountIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+        var rows = await (
+            from f in _context.PropAccountFees
+            where ids.Contains(f.PropFirmAccountId)
+            join t in _context.LedgerTransactions on f.LedgerTransactionId equals t.Id
+            join e in _context.LedgerEntries on t.Id equals e.LedgerTransactionId
+            select new { f.Id, f.PropFirmAccountId, f.Kind, TransactionId = t.Id, t.TransactionDate, t.Description, t.Category, e.Currency, e.Amount })
+            .ToListAsync();
+        return rows.GroupBy(r => r.Id)
+            .Select(g => { var r = g.First(); return new PropFeeRow(r.Id, r.PropFirmAccountId, r.Kind, r.TransactionId, r.TransactionDate, r.Description, r.Category, r.Currency.Code, -g.Sum(x => x.Amount)); })
+            .ToList();
+    }
+
+    public Task<PropAccountFee?> GetPropAccountFeeAsync(int id) => _context.PropAccountFees.FirstOrDefaultAsync(f => f.Id == id);
+
+    public async Task<HashSet<int>> GetPropFeeTransactionIdsAsync(IEnumerable<int> transactionIds)
+    {
+        var ids = transactionIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+        return (await _context.PropAccountFees.Where(f => ids.Contains(f.LedgerTransactionId)).Select(f => f.LedgerTransactionId).ToListAsync()).ToHashSet();
+    }
+
+    public async Task<Dictionary<int, string>> GetPropAccountNamesAsync(IEnumerable<int> accountIds)
+    {
+        var ids = accountIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+        return await _context.PropFirmAccounts.Where(a => ids.Contains(a.Id)).ToDictionaryAsync(a => a.Id, a => a.Nickname);
+    }
+
+    public Task<bool> PropAccountBelongsToAsync(int accountId, int userId) =>
+        _context.PropFirmAccounts.AnyAsync(a => a.Id == accountId && a.UserId == userId);
+
     public async Task<List<InvestmentEntryRow>> GetBrokerageEntriesAsync()
     {
         var rows = await (
@@ -238,6 +273,10 @@ public partial class FinanceRepository : IFinanceRepository
     public void Remove(BudgetLine line) => _context.BudgetLines.Remove(line);
 
     public void Add(PlannedPurchase purchase) => _context.PlannedPurchases.Add(purchase);
+
+    public void Add(PropAccountFee fee) => _context.PropAccountFees.Add(fee);
+
+    public void Remove(PropAccountFee fee) => _context.PropAccountFees.Remove(fee);
 
     public void Remove(InvestmentValuation valuation) => _context.InvestmentValuations.Remove(valuation);
 

@@ -28,9 +28,10 @@ public class PaymentCardEndpointTests : IClassFixture<ApiFactory>
         var client = await Owner();
         var id = await client.CreateAccountAsync("Cards bank", "ZAR");
 
-        var added = await Ok(client.PostAsJsonAsync($"/api/financial-accounts/{id}/cards", new { kind = "Debit", name = "Business debit", lastFour = "1234" }));
+        var added = await Ok(client.PostAsJsonAsync($"/api/financial-accounts/{id}/cards", new { kind = "Debit", name = "Business debit", lastFour = "1234", network = "Visa", finish = "Gold" }));
         var card = Assert.Single(added.GetProperty("cards").EnumerateArray());
         Assert.Equal(("Debit", "Business debit", "1234", "Active"), (card.GetProperty("kind").GetString(), card.GetProperty("name").GetString(), card.GetProperty("lastFour").GetString(), card.GetProperty("status").GetString()));
+        Assert.Equal(("Visa", "Gold"), (card.GetProperty("network").GetString(), card.GetProperty("finish").GetString()));
         var cardId = card.GetProperty("id").GetInt32();
 
         // A card holds no money and changes no balance

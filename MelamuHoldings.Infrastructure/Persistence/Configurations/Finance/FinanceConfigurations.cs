@@ -78,6 +78,8 @@ public class PaymentCardConfiguration : IEntityTypeConfiguration<PaymentCard>
         builder.ToTable("PaymentCards", FinanceSchema.Name);
         builder.Property(c => c.Kind).HasConversion<string>().HasMaxLength(20);
         builder.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(c => c.Network).HasConversion<string>().HasMaxLength(20);
+        builder.Property(c => c.Finish).HasConversion<string>().HasMaxLength(20);
         builder.Property(c => c.Name).HasMaxLength(PaymentCard.MaxNameLength);
         builder.Property(c => c.LastFour).HasColumnType("char(4)");
     }

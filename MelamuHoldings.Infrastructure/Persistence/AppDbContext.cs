@@ -32,6 +32,7 @@ public class AppDbContext : DbContext
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<Payout> Payouts => Set<Payout>();
+    public DbSet<PropAccountFee> PropAccountFees => Set<PropAccountFee>();
     public DbSet<AllocationPolicy> AllocationPolicies => Set<AllocationPolicy>();
     public DbSet<Allocation> Allocations => Set<Allocation>();
     public DbSet<Obligation> Obligations => Set<Obligation>();
@@ -82,6 +83,7 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new LedgerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new AuditEventConfiguration());
         modelBuilder.ApplyConfiguration(new PayoutConfiguration());
+        modelBuilder.ApplyConfiguration(new PropAccountFeeConfiguration());
         modelBuilder.ApplyConfiguration(new AllocationPolicyConfiguration());
         modelBuilder.ApplyConfiguration(new AllocationPolicyLineConfiguration());
         modelBuilder.ApplyConfiguration(new AllocationConfiguration());

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using MelamuHoldings.Application.Finance;
 using MelamuHoldings.Domain.Finance;
+using MelamuHoldings.Domain.Trading;
 using MelamuHoldings.Domain.Identity;
 
 namespace MelamuHoldings.Infrastructure.Persistence.Configurations;
@@ -23,6 +24,7 @@ public class PayoutConfiguration : IEntityTypeConfiguration<Payout>
         builder.Property(p => p.FeeAmount).HasColumnType("decimal(19,4)");
         builder.Property(p => p.EffectiveRate).HasColumnType("decimal(18,8)");
         builder.Property(p => p.RejectionReason).HasMaxLength(Payout.MaxReasonLength);
+        builder.HasOne<PropFirmAccount>().WithMany().HasForeignKey(p => p.PropFirmAccountId).OnDelete(DeleteBehavior.Restrict);
         builder.Property(p => p.IdempotencyKey).HasMaxLength(LedgerTransaction.MaxIdempotencyKeyLength).IsRequired();
         builder.Property(p => p.RequestHash).HasMaxLength(64).IsRequired();
         builder.Property(p => p.RowVersion).IsRowVersion();
@@ -157,6 +159,19 @@ public class ObligationConfiguration : IEntityTypeConfiguration<Obligation>
         builder.HasIndex(o => o.Name).IsUnique().HasFilter("[Status] = 'Active'").HasDatabaseName(ObligationService.ActiveNameIndex);
         builder.HasMany(o => o.Payments).WithOne().HasForeignKey(p => p.ObligationId).IsRequired().OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(o => o.Payments).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+public class PropAccountFeeConfiguration : IEntityTypeConfiguration<PropAccountFee>
+{
+    public void Configure(EntityTypeBuilder<PropAccountFee> builder)
+    {
+        builder.ToTable("PropAccountFees", FinanceSchema.Name);
+        builder.Property(f => f.Kind).HasConversion<string>().HasMaxLength(20);
+        // One expense is one account's fee, once
+        builder.HasIndex(f => f.LedgerTransactionId).IsUnique().HasDatabaseName(PropAccountLedgerService.FeeTransactionIndex);
+        builder.HasOne<PropFirmAccount>().WithMany().HasForeignKey(f => f.PropFirmAccountId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<LedgerTransaction>().WithMany().HasForeignKey(f => f.LedgerTransactionId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

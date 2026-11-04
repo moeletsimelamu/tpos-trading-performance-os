@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { TradingApiService } from '../trading-api.service';
 import { PHASES, PropAccount, PropAccountPhase, RULE_STANDING, STATUS_TAGS } from '../models/prop-account.model';
 import { PropRulesFieldsComponent, rulesFrom, rulesGroup } from './prop-rules';
+import { PropAccountReportComponent } from './prop-account-report.component';
 import { todayIso } from '../../finance/finance-api.service';
 import { MoneyPipe } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
@@ -15,7 +16,7 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 @Component({
   selector: 'app-prop-accounts',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent, PropRulesFieldsComponent],
+  imports: [ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent, PropRulesFieldsComponent, PropAccountReportComponent],
   template: `
     <div class="page">
       <app-page-header section="Trading operations" title="Prop accounts"
@@ -116,6 +117,8 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
           </div>
         }
       }
+
+      <app-prop-account-report />
     </div>
   `,
   styles: [`

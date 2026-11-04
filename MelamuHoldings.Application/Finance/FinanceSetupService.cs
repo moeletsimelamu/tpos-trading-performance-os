@@ -123,10 +123,10 @@ public class FinanceSetupService
     public async Task<AccountDto> AddCardAsync(int accountId, AddPaymentCardRequest request, int userId)
     {
         var account = await _repository.GetAccountAsync(accountId) ?? throw new NotFoundException($"Account {accountId} does not exist.");
-        var card = account.AddCard(request.Kind!.Value, request.Name, request.LastFour, Now);
+        var card = account.AddCard(request.Kind!.Value, request.Name, request.LastFour, Now, request.Network, request.Finish);
         await SaveWithAuditAsync(() => { }, () => AuditLog.Event(
             Now, userId, "card.added", nameof(PaymentCard), card.Id, $"Added a {CardLabel(card)} to '{account.Name}'.",
-            new { AccountId = account.Id, card.Kind, card.Name, card.LastFour }));
+            new { AccountId = account.Id, card.Kind, card.Name, card.LastFour, card.Network, card.Finish }));
         return (await FinanceReadModel.LoadAsync(_repository)).Account(account);
     }
 

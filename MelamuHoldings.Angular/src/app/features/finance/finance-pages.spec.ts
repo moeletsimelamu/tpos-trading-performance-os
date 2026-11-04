@@ -188,12 +188,45 @@ describe('AccountsComponent', () => {
       expect(text(panels(el)[2])).toContain('Provider not stated');
     });
 
-    it('never looks like or claims to be an issued card or a live connection', async () => {
+    it('says cards are drawn, not the bank\'s artwork, and draws no card for an account without one', async () => {
       const fixture = await render();
       const el = fixture.nativeElement as HTMLElement;
-      expect(text(el.querySelector('.honesty')!)).toContain('not bank cards or live connections');
+      expect(text(el.querySelector('.honesty')!)).toContain("not the bank's own artwork");
+      expect(text(el.querySelector('.honesty')!)).toContain('Nothing here connects to a bank.');
       expect(el.querySelectorAll('.panel img').length).toBe(0);
-      expect(text(panels(el)[0])).not.toMatch(/\d{4} \d{4}|Valid thru|Expires|Cardholder/i);
+      expect(el.querySelector('app-payment-card')).toBeNull();
+    });
+
+    it('draws a recorded card beside the account\'s details, showing only its last four digits', async () => {
+      const fixture = await render([account({
+        id: 2, name: 'FNB Gold', institution: 'FNB',
+        cards: [{ id: 9, kind: 'Debit', network: 'Visa', finish: 'Gold', lastFour: '4111', status: 'Active', addedAt: '2026-11-04T00:00:00Z' }]
+      })]);
+      const el = fixture.nativeElement as HTMLElement;
+      const panel = panels(el)[0];
+      const card = panel.querySelector('app-payment-card') as HTMLElement;
+
+      expect(panel.classList.contains('with-card')).toBe(true);
+      expect(card.getAttribute('data-finish')).toBe('Gold');
+      expect(card.querySelector('[role="img"]')!.getAttribute('aria-label')).toBe('Active debit card from FNB, ending 4111');
+      const face = text(card);
+      for (const part of ['•••• •••• •••• 4111', 'EXP ••/••', 'CVC •••', 'VISA', 'Debit', 'FNB', 'Active']) expect(face).toContain(part);
+      expect(face).not.toMatch(/\d{5}/);
+      expect(text(panel)).toContain('ZAR');
+    });
+
+    it('masks every digit when none were recorded, draws no invented network, and lists a cancelled card without drawing it', async () => {
+      const fixture = await render([
+        account({ id: 2, name: 'No digits', cards: [{ id: 9, kind: 'Credit', status: 'Active', addedAt: '2026-11-04T00:00:00Z' }] }),
+        account({ id: 3, name: 'Old card', cards: [{ id: 8, kind: 'Debit', lastFour: '1234', status: 'Cancelled', addedAt: '2026-11-04T00:00:00Z' }] })
+      ]);
+      const [noDigits, oldCard] = panels(fixture.nativeElement);
+      const face = text(noDigits.querySelector('app-payment-card')!);
+      expect(face).toContain('•••• •••• •••• ••••');
+      expect(face).not.toContain('VISA');
+      expect(face).not.toContain('Mastercard');
+      expect(oldCard.querySelector('app-payment-card')).toBeNull();
+      expect(oldCard.querySelector('.card-line .tag')!.textContent).toBe('Cancelled');
     });
 
     it('marks a tax-free account and tells it from a taxable one', async () => {
@@ -250,10 +283,10 @@ describe('AccountsComponent', () => {
       c.addCard(c.balances()!.accounts[0]);
       http.expectNone(`${api}/financial-accounts/2/cards`);
 
-      c.cardForm.patchValue({ kind: 'Credit', lastFour: '1234', name: ' Fuel ' });
+      c.cardForm.patchValue({ kind: 'Credit', network: 'Mastercard', finish: 'Plum', lastFour: '1234', name: ' Fuel ' });
       c.addCard(c.balances()!.accounts[0]);
       const req = http.expectOne(`${api}/financial-accounts/2/cards`);
-      expect(req.request.body).toEqual({ kind: 'Credit', lastFour: '1234', name: 'Fuel' });
+      expect(req.request.body).toEqual({ kind: 'Credit', network: 'Mastercard', finish: 'Plum', lastFour: '1234', name: 'Fuel' });
       req.flush(account({ id: 2 }));
       http.expectOne(`${api}/balances`).flush({
         accounts: [account({ id: 2, name: 'FNB Gold', cards: [{ id: 9, kind: 'Credit', name: 'Fuel', lastFour: '1234', status: 'Active', addedAt: '2026-11-04T00:00:00Z' }] })],
@@ -275,9 +308,9 @@ describe('AccountsComponent', () => {
       const c = fixture.componentInstance;
       const el = fixture.nativeElement as HTMLElement;
 
-      ([...el.querySelectorAll('.card-line button')].find(b => b.textContent === 'Cancel card') as HTMLButtonElement).click();
+      ([...el.querySelectorAll('.card-caption button')].find(b => b.textContent === 'Cancel card') as HTMLButtonElement).click();
       await fixture.whenStable();
-      (el.querySelector('.card-line .btn-danger') as HTMLButtonElement).click();
+      (el.querySelector('.card-caption .btn-danger') as HTMLButtonElement).click();
       http.expectOne(`${api}/financial-accounts/2/cards/9/cancel`).flush(account({ id: 2 }));
       http.expectOne(`${api}/balances`).flush({
         accounts: [account({ id: 2, name: 'FNB Gold', cards: [{ ...active, status: 'Cancelled', cancelledAt: '2026-11-04T01:00:00Z' } as never] })], funds: FUNDS, cashTotals: []

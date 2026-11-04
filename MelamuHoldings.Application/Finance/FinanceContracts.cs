@@ -19,7 +19,7 @@ public record AccountDto(
     FinancialAccountCategory Category, TaxTreatment TaxTreatment, string? Reference, DateOnly? OpenedOn, int? HomeFundId, string? HomeFundName,
     IReadOnlyList<PaymentCardDto> Cards);
 
-public record PaymentCardDto(int Id, PaymentCardKind Kind, string? Name, string? LastFour, PaymentCardStatus Status, DateTime AddedAt, DateTime? CancelledAt);
+public record PaymentCardDto(int Id, PaymentCardKind Kind, string? Name, string? LastFour, PaymentCardStatus Status, DateTime AddedAt, DateTime? CancelledAt, PaymentCardNetwork Network, PaymentCardFinish Finish);
 
 // An open account whose home is this fund
 public record FundAccountDto(int Id, string Name);
@@ -101,6 +101,8 @@ public class AddPaymentCardRequest
     [Required] public PaymentCardKind? Kind { get; set; }
     [MaxLength(PaymentCard.MaxNameLength)] public string? Name { get; set; }
     [MaxLength(4)] public string? LastFour { get; set; }
+    public PaymentCardNetwork Network { get; set; }
+    public PaymentCardFinish Finish { get; set; }
 }
 
 public abstract class TransactionRequest
