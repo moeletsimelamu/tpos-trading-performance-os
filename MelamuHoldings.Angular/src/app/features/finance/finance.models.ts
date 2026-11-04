@@ -6,8 +6,20 @@ export type AccountCategory = 'NotStated' | 'Current' | 'Savings' | 'Investment'
 export type TaxTreatment = 'NotStated' | 'Taxable' | 'TaxFree';
 export type PaymentCardKind = 'Debit' | 'Credit';
 export type PaymentCardNetwork = 'NotStated' | 'Visa' | 'Mastercard' | 'Other';
-export type CardFinish = 'Navy' | 'Graphite' | 'Gold' | 'Silver' | 'Plum' | 'Teal';
-export const CARD_FINISHES: CardFinish[] = ['Navy', 'Graphite', 'Gold', 'Silver', 'Plum', 'Teal'];
+export type CardFinish = 'Navy' | 'Graphite' | 'Gold' | 'Silver' | 'Plum' | 'Teal' | 'ForestGold' | 'BlackTeal' | 'BlackGold' | 'Yellow' | 'Green';
+export const CARD_FINISHES: { value: CardFinish; label: string }[] = [
+  { value: 'Navy', label: 'Navy' },
+  { value: 'Graphite', label: 'Graphite' },
+  { value: 'ForestGold', label: 'Dark green and gold' },
+  { value: 'BlackTeal', label: 'Black with teal arcs' },
+  { value: 'BlackGold', label: 'Black with gold lines' },
+  { value: 'Yellow', label: 'Yellow with foil' },
+  { value: 'Green', label: 'Green with foil' },
+  { value: 'Gold', label: 'Gold' },
+  { value: 'Silver', label: 'Silver' },
+  { value: 'Plum', label: 'Plum' },
+  { value: 'Teal', label: 'Teal' }
+];
 
 // What identifies a card to its owner. Never the full number, expiry, security code or cardholder name.
 export interface PaymentCard { id: number; kind: PaymentCardKind; name?: string | null; lastFour?: string | null; status: 'Active' | 'Cancelled'; addedAt: string; cancelledAt?: string | null; network?: PaymentCardNetwork; finish?: CardFinish; }

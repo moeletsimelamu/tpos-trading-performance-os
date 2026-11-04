@@ -56,7 +56,7 @@ CI (`.github/workflows/ci.yml`) runs:
 | `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
 | `dotnet test` (Release): unit | 373 passed, 0 failed |
 | `dotnet test` (Release): integration | 146 passed, 0 failed |
-| `ng test --watch=false` | 249 passed, 0 failed (32 files) |
+| `ng test --watch=false` | 250 passed, 0 failed (32 files) |
 | `ng build` (production) | Succeeded; initial bundle 340.13 kB; no budget warnings |
 | `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
 | `npm audit` | 0 vulnerabilities |
@@ -89,6 +89,8 @@ After that regression, a one-line template change removed a link to a page that 
 - Cards in several colours beside their account's details at desktop width and at 375 px, with no sideways scrolling. A cancelled card is listed, not drawn.
 - Two expenses and a requested payout linked through the page. The fees showed USD 699.00 with net USD -699.00, and USD 400.00 awaiting and not counted. The bank balance moved only for the two expenses themselves.
 - The report flagged that account first, listed the other as nothing linked, and counted one unlinked received payout.
+
+**Card styles, added afterwards:** the five styles based on the owner's example cards add enum values and a template change, with no migration. A new Angular test checks each style's pattern, the foil and that no logo image is drawn. They were seen drawn in the running app, with no number overflowing. The figures in the table above are from the regression run after this change, in which one unit test failed because it used 9 as an undefined colour, now a real one. It was corrected and the unit suite passed when run again.
 
 **Not checked in a browser:** receiving a linked payout, which is covered by the integration tests. The Owner-only hiding is covered by Angular tests only, as every user in the scratch database is an owner.
 

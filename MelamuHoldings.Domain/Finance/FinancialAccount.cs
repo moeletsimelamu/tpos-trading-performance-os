@@ -23,7 +23,7 @@ public enum PaymentCardStatus { Active, Cancelled }
 public enum PaymentCardNetwork { NotStated, Visa, Mastercard, Other }
 
 // The colour the card is drawn in, chosen by the owner to match the card in their wallet
-public enum PaymentCardFinish { Navy, Graphite, Gold, Silver, Plum, Teal }
+public enum PaymentCardFinish { Navy, Graphite, Gold, Silver, Plum, Teal, ForestGold, BlackTeal, BlackGold, Yellow, Green }
 
 // A real place money is held (a bank account, cash, a brokerage account), in exactly one currency.
 // No credentials are ever stored. Balances are not stored either: they are summed from ledger entries.

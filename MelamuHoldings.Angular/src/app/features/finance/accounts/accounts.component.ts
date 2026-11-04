@@ -232,7 +232,7 @@ function readView(): AccountsView {
                               <div class="field">
                                 <label [for]="'card-finish-' + a.id">Colour</label>
                                 <select [id]="'card-finish-' + a.id" formControlName="finish">
-                                  @for (f of finishes; track f) { <option [value]="f">{{ f }}</option> }
+                                  @for (f of finishes; track f.value) { <option [value]="f.value">{{ f.label }}</option> }
                                 </select>
                               </div>
                               <div class="field">

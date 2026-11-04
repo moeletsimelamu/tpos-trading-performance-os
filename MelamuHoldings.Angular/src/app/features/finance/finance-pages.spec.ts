@@ -6,7 +6,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { AccountsComponent, providerInitials } from './accounts/accounts.component';
 import { TransactionsComponent } from './transactions/transactions.component';
 import { account, FUNDS } from './finance-testing';
-import { Account, Transaction, categoriesFor, otherCashText } from './finance.models';
+import { Account, PaymentCard, Transaction, categoriesFor, otherCashText } from './finance.models';
 import { environment } from '../../../environments/environment';
 
 const api = environment.apiUrl;
@@ -213,6 +213,19 @@ describe('AccountsComponent', () => {
       for (const part of ['•••• •••• •••• 4111', 'EXP ••/••', 'CVC •••', 'VISA', 'Debit', 'FNB', 'Active']) expect(face).toContain(part);
       expect(face).not.toMatch(/\d{5}/);
       expect(text(panel)).toContain('ZAR');
+    });
+
+    it('draws each colour with its own pattern, foil only where it belongs, and never a logo image', async () => {
+      const finish = (id: number, f: PaymentCard['finish']): PaymentCard => ({ id, kind: 'Debit', finish: f, status: 'Active', addedAt: '2026-11-04T00:00:00Z' });
+      const fixture = await render([account({ id: 2, name: 'Styles', cards: [finish(1, 'Yellow'), finish(2, 'BlackTeal'), finish(3, 'BlackGold'), finish(4, 'Navy')] })]);
+      const cards = [...(fixture.nativeElement as HTMLElement).querySelectorAll('app-payment-card')];
+
+      expect(cards.map(c => c.getAttribute('data-finish'))).toEqual(['Yellow', 'BlackTeal', 'BlackGold', 'Navy']);
+      expect(cards.map(c => c.querySelector('.foil') !== null)).toEqual([true, false, false, false]);
+      const patterns = cards.map(c => c.querySelectorAll('.pattern path').length);
+      expect(patterns.every(n => n > 0)).toBe(true);
+      expect(new Set(patterns).size).toBe(4);
+      expect(cards.every(c => c.querySelector('img') === null)).toBe(true);
     });
 
     it('masks every digit when none were recorded, draws no invented network, and lists a cancelled card without drawing it', async () => {

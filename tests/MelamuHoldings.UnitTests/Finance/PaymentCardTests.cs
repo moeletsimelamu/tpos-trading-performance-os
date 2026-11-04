@@ -28,7 +28,7 @@ public class PaymentCardTests
         Assert.Equal((PaymentCardNetwork.NotStated, PaymentCardFinish.Navy), (plain.Network, plain.Finish));
 
         Assert.Throws<DomainException>(() => Bank().AddCard(PaymentCardKind.Debit, null, null, Now, (PaymentCardNetwork)9));
-        Assert.Throws<DomainException>(() => Bank().AddCard(PaymentCardKind.Debit, null, null, Now, PaymentCardNetwork.Visa, (PaymentCardFinish)9));
+        Assert.Throws<DomainException>(() => Bank().AddCard(PaymentCardKind.Debit, null, null, Now, PaymentCardNetwork.Visa, (PaymentCardFinish)99));
     }
 
     [Fact]
