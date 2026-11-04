@@ -49,7 +49,7 @@ const PAGE_SIZE = 25;
             @for (f of funds(); track f.id) { <option [ngValue]="f.id">{{ f.name }}</option> }
           </select>
         </div>
-        <label class="check"><input type="checkbox" name="cash" [(ngModel)]="draft.cash" />Bank and cash accounts only</label>
+        <label class="check"><input type="checkbox" name="cash" [(ngModel)]="draft.cash" />Company bank and cash accounts only</label>
         <div class="filter-actions">
           <button type="submit" class="btn">Apply</button>
           <button type="button" class="btn-link small" (click)="clearFilters()">Clear</button>

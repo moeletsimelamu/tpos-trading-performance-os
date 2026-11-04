@@ -3,7 +3,7 @@ using MelamuHoldings.Domain.Finance;
 
 namespace MelamuHoldings.Application.Finance;
 
-// One kind of movement in bank and cash accounts over the period. Type is the ledger filter that lists exactly these
+// One kind of movement in company bank and cash accounts over the period. Type is the ledger filter that lists exactly these
 // transactions; Gross and Fees are set for income, where a fee deducted on the way is part of the same transaction.
 public record CashLineDto(LedgerTransactionType Type, string Label, decimal Amount, int Transactions, decimal? Gross = null, decimal? Fees = null);
 
@@ -22,9 +22,9 @@ public record OverviewDto(
     DateOnly From, DateOnly To, IReadOnlyList<CurrencyPeriodDto> Currencies, IReadOnlyList<MonthMovementDto> Months,
     bool MonthsTruncated, IReadOnlyList<PayoutsReceivedDto> PayoutsReceived);
 
-// The Executive Overview's figures for a period. Everything is summed from ledger entries in Bank and Cash accounts
+// The Executive Overview's figures for a period. Everything is summed from ledger entries in company Bank and Cash accounts
 // (the same scope as the cash totals), grouped by transaction type, so each figure is exactly the list of transactions
-// the ledger shows for that type, those dates and bank-and-cash accounts. Net cash movement is cash movement, not profit:
+// the ledger shows for that type, those dates and those accounts. Net cash movement is cash movement, not profit:
 // it is what entered and left those accounts, whatever the reason.
 public class OverviewService
 {
@@ -36,7 +36,8 @@ public class OverviewService
         (LedgerTransactionType.Income, "Income received"),
         (LedgerTransactionType.Expense, "Expenses"),
         (LedgerTransactionType.CurrencyExchange, "Currency exchanges"),
-        (LedgerTransactionType.Transfer, "Transfers"),   // between two bank or cash accounts they cancel out
+        // Between two company accounts they cancel out; to a personal or brokerage account, the money has left the business's cash
+        (LedgerTransactionType.Transfer, "Transfers"),
         (LedgerTransactionType.Reversal, "Reversals (corrections)")
     ];
 

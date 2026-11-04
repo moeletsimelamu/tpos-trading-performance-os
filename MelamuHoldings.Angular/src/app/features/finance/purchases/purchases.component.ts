@@ -94,7 +94,7 @@ const STATUS: Record<PlannedPurchaseStatus, { label: string; tag: string }> = {
                   <span [class]="verdict[a.verdict].tag">{{ verdict[a.verdict].label }}</span>
                   <p class="small">{{ answer(p, a) }}</p>
                   <p class="small secondary">
-                    {{ a.available.amount | money: a.available.currency }} of {{ p.fundName }} in bank and cash accounts@if (a.committedElsewhere.amount > 0) {, less {{ a.committedElsewhere.amount | money: a.committedElsewhere.currency }} committed to other purchases}.
+                    {{ a.available.amount | money: a.available.currency }} of {{ p.fundName }} in company bank and cash accounts@if (a.committedElsewhere.amount > 0) {, less {{ a.committedElsewhere.amount | money: a.committedElsewhere.currency }} committed to other purchases}.
                     @if (a.obligationsDue.amount > 0) { {{ a.obligationsDue.amount | money: a.obligationsDue.currency }} of obligations fall due within 30 days; they are not deducted, because they are not tied to a fund. }
                   </p>
                 </div>

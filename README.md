@@ -17,9 +17,9 @@ A unified operating system for managing trading operations, financial performanc
 ## What works today: executive overview
 
 The landing page shows the business as recorded:
-- cash by currency (never added across currencies);
+- business cash by currency: company bank and cash accounts only, never added across currencies. Money in personal accounts or accounts with ownership not stated is named beside it, not counted;
 - **unrestricted cash** per currency: Unallocated and Operating Capital in company bank and cash accounts, less Operating Capital's minimum, what confirmed allocations still owe other funds, received payouts not allocated yet, and committed purchases. Its own page shows the working, the bills due within 30 days beside it (not deducted), and what is not counted and why;
-- **money in and out for a period** (this month, last month, this quarter, year to date, the last 12 months or any dates), per currency, from bank and cash accounts:
+- **money in and out for a period** (this month, last month, this quarter, year to date, the last 12 months or any dates), per currency, from company bank and cash accounts:
   - **The cash movement:** cash at the start, then income received (gross and fees deducted), expenses, currency exchanges, transfers and reversals. Then the net cash movement (labelled as cash movement, not profit), opening balances recorded and cash at the end.
   - **Totals:** income, expenses and net cash movement month by month, and the payouts received.
   - **Every figure links** to the ledger list it is summed from, with the same dates and type;
@@ -43,7 +43,7 @@ The landing page shows the business as recorded:
 
 - **Budgets:** an amount per category per month, against the expenses recorded with that category. Reversed expenses count for nothing, and spending with no budget line is listed apart. A budget never blocks an expense.
 - **Planned purchases:** proposed, then committed, then purchased by linking an expense from the ledger, or cancelled. Nothing here records or moves money.
-- **Can it be afforded?** Each open purchase answers from recorded balances: the fund's money in bank and cash accounts, less its other commitments and the purchase, against the fund's minimum. It warns and never blocks. Obligations due within 30 days are shown beside the answer, not deducted.
+- **Can it be afforded?** Each open purchase answers from recorded balances: the fund's money in company bank and cash accounts, less its other commitments and the purchase, against the fund's minimum. It warns and never blocks. Obligations due within 30 days are shown beside the answer, not deducted.
 - **Warnings:** the overview flags a budget exceeded this month, a purchase that would breach a minimum, and a purchase whose expense was reversed.
 
 ## What works today: investments
@@ -56,7 +56,7 @@ The landing page shows the business as recorded:
 ## What works today: continuity
 
 - **Coverage:** how many months of essential expenses the Business Continuity fund covers, against a target of 24 months (you choose the months and enter the monthly expense yourself), with the shortfall.
-- **Only what is really there:** rand in bank and cash accounts counts. Dollars, money at a broker, and allocations not yet earmarked are listed with the reason they do not count; nothing is converted.
+- **Only what is really there:** rand in company bank and cash accounts counts. Dollars, money at a broker, personal money, and allocations not yet earmarked are listed with the reason they do not count; nothing is converted.
 - **Earmarked or separated:** the page shows how much sits in an account of its own and how much shares an account with other funds.
 - **Trading restoration:** a separate Trading Restoration fund, measured against its own target, so no money counts twice.
 - **Warnings:** the overview shows the coverage and warns when continuity is below its target or cannot be measured yet.
@@ -135,7 +135,7 @@ The landing page shows the business as recorded:
 
 ## What works today: financial management
 
-- **Accounts:** real places money is held (Bank, Cash, Brokerage), each in one fixed currency with stated ownership. They close only at a zero balance. No credentials are stored.
+- **Accounts:** real places money is held (Bank, Cash, Brokerage), each in one fixed currency with stated ownership. You can also state the category (current, savings, investment), the tax treatment (which is what tells a TFSA from a normal investment account), a reference of at most four digits, the date opened and the fund it is mainly for. Nothing is guessed from a name, and all of it can be corrected. They close only at a zero balance. No credentials or full account numbers are stored.
 - **Funds:** what money is earmarked for. The defaults are Unallocated, Operating Capital, Business Continuity, Wealth Fund and Owner's Distribution. One account can hold several funds.
 - **Ledger:** record income, expenses, transfers, earmarks (between funds inside one account), currency exchanges (USD → ZAR at the rate you actually got) and opening balances.
   - Entries are never edited.
@@ -328,14 +328,14 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/planned-purchases/{id}/expense-candidates` | Recent expenses that could be the purchase: same currency, not reversed, not linked |
 | POST | `/api/planned-purchases/{id}/purchase`, `/purchase/undo` | Link an expense as the purchase (`{ transactionId }`) / remove the link; the expense stays in the ledger |
 | GET / POST | `/api/financial-accounts` | List accounts with balances / create an account |
-| GET / PUT | `/api/financial-accounts/{id}` | One account / update name, ownership, institution, notes |
+| GET / PUT | `/api/financial-accounts/{id}` | One account / update its name, ownership, institution, notes, category, tax treatment, reference, date opened and home fund |
 | POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |
 | POST | `/api/transactions/{opening-balance\|income\|expense\|transfer\|reallocation\|exchange}` | Record a money movement |
 | POST | `/api/transactions/{id}/reverse` | Reverse a transaction (once, with a reason) |
-| GET | `/api/transactions` | The ledger; filter by `from`, `to`, `type`, `accountId`, `fundId` and `cash` (bank and cash accounts only); paged |
+| GET | `/api/transactions` | The ledger; filter by `from`, `to`, `type`, `accountId`, `fundId` and `cash` (company bank and cash accounts only); paged |
 | GET | `/api/transactions/{id}` | One transaction with its entries |
-| GET | `/api/balances?asOf=` | Account, fund and cash balances, optionally as of a date |
-| GET | `/api/overview?from=&to=` | Cash movement in bank and cash accounts for a period (this month to date by default): per currency, per type and per month, and payouts received |
+| GET | `/api/balances?asOf=` | Account, fund and business cash balances, with other bank and cash money apart, optionally as of a date |
+| GET | `/api/overview?from=&to=` | Cash movement in company bank and cash accounts for a period (this month to date by default): per currency, per type and per month, and payouts received |
 | GET | `/api/audit-events` | Audit log, newest first, paged |
 | GET | `/api/currencies` | Supported currencies |
 | GET / POST | `/api/payouts` | List payouts (optional `status`) / record a payout request |

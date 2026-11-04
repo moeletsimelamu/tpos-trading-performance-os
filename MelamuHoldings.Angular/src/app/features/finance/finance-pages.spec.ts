@@ -6,7 +6,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { AccountsComponent } from './accounts/accounts.component';
 import { TransactionsComponent } from './transactions/transactions.component';
 import { account, FUNDS } from './finance-testing';
-import { Transaction } from './finance.models';
+import { Account, Transaction, categoriesFor, otherCashText } from './finance.models';
 import { environment } from '../../../environments/environment';
 
 const api = environment.apiUrl;
@@ -58,13 +58,113 @@ describe('AccountsComponent', () => {
     http.expectOne(`${api}/balances`).flush({ accounts: [], funds: FUNDS, cashTotals: [] });
   });
 
+  it('sends everything stated about a new account, and leaves what is blank empty', async () => {
+    const fixture = await render([]);
+    const c = fixture.componentInstance;
+    c.toggleNew();
+    c.form.patchValue({ name: ' EasyEquities TFSA ', type: 'Brokerage', currency: 'ZAR', ownership: 'Personal', category: 'Investment', taxTreatment: 'TaxFree', institution: ' EasyEquities ', reference: ' 1234 ', openedOn: '2026-01-15', homeFundId: 4, notes: ' ' });
+    c.save();
+
+    const req = http.expectOne(`${api}/financial-accounts`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      name: 'EasyEquities TFSA', type: 'Brokerage', currency: 'ZAR', ownership: 'Personal', category: 'Investment', taxTreatment: 'TaxFree',
+      institution: 'EasyEquities', reference: '1234', openedOn: '2026-01-15', homeFundId: 4, notes: null
+    });
+    req.flush(account({}));
+    http.expectOne(`${api}/balances`).flush({ accounts: [], funds: FUNDS, cashTotals: [] });
+    await fixture.whenStable();
+    expect(c.showForm()).toBe(false);
+  });
+
+  it('edits an account with its type and currency fixed, and sends a PUT without them', async () => {
+    const existing: Account = account({ id: 2, name: 'FNB Aspire', ownership: 'Unspecified', category: 'Current', reference: '1234', homeFundId: 5 });
+    const fixture = await render([existing]);
+    const c = fixture.componentInstance;
+    const edit = [...fixture.nativeElement.querySelectorAll('button')].find((b: HTMLButtonElement) => b.textContent?.trim() === 'Edit') as HTMLButtonElement;
+    edit.click();
+    await fixture.whenStable();
+
+    expect(c.editing()?.id).toBe(2);
+    expect([c.form.controls.type.disabled, c.form.controls.currency.disabled]).toEqual([true, true]);
+    expect(c.form.controls.category.value).toBe('Current');
+    expect(fixture.nativeElement.querySelector('form').getAttribute('aria-label')).toBe('Edit account');
+
+    c.form.patchValue({ ownership: 'Personal' });
+    c.save();
+    const req = http.expectOne(`${api}/financial-accounts/2`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body.ownership).toBe('Personal');
+    expect(req.request.body.type).toBeUndefined();
+    expect(req.request.body.currency).toBeUndefined();
+    req.flush(existing);
+    http.expectOne(`${api}/balances`).flush({ accounts: [], funds: FUNDS, cashTotals: [] });
+    await fixture.whenStable();
+
+    c.toggleNew();
+    expect([c.editing(), c.form.controls.type.enabled, c.form.controls.name.value]).toEqual([null, true, '']);
+  });
+
+  it('offers only the categories a type can have, and drops one that no longer applies', async () => {
+    const fixture = await render([]);
+    const c = fixture.componentInstance;
+    expect(categoriesFor('Bank')).toEqual(['NotStated', 'Current', 'Savings']);
+    expect(categoriesFor('Brokerage')).toEqual(['NotStated', 'Investment']);
+    expect(categoriesFor('Cash')).toEqual(['NotStated']);
+
+    c.form.patchValue({ type: 'Bank', category: 'Savings' });
+    c.form.controls.type.setValue('Brokerage');
+    expect(c.form.controls.category.value).toBe('NotStated');
+    expect(c.categories()).toEqual(['NotStated', 'Investment']);
+  });
+
+  it('says what an account is, flags money that is not the company\'s, and offers no home for unassigned money', async () => {
+    const fixture = await render([
+      account({ id: 3, name: 'TFSA', type: 'Brokerage', ownership: 'Personal', category: 'Investment', taxTreatment: 'TaxFree', institution: 'EasyEquities', reference: '1234', openedOn: '2026-01-15', homeFundName: 'Wealth Fund' }),
+      account({ id: 4, name: 'Unknown', ownership: 'Unspecified' })
+    ]);
+    const c = fixture.componentInstance;
+    const rows = [...fixture.nativeElement.querySelectorAll('tbody tr')].map((r: HTMLElement) => r.textContent!.replace(/\s+/g, ' '));
+
+    expect(rows[0]).toContain('EasyEquities · Ref 1234 · Opened 2026-01-15');
+    expect(rows[0]).toContain('Investment');
+    expect(rows[0]).toContain('Personal');
+    expect(rows[0]).toContain('Tax-free');
+    expect(rows[0]).toContain('Mainly for Wealth Fund');
+    expect(rows[1]).toContain('Not stated');
+    expect(fixture.nativeElement.querySelectorAll('tbody .tag-warning').length).toBe(2);
+    expect(c.homeFunds().every(f => !f.isSystem)).toBe(true);
+  });
+
+  it('keeps personal and unstated money out of the Cash figure and names it beside it', async () => {
+    const fixture = TestBed.createComponent(AccountsComponent);
+    await fixture.whenStable();
+    http.expectOne(`${api}/currencies`).flush([]);
+    http.expectOne(`${api}/balances`).flush({
+      accounts: [account({})], funds: FUNDS, cashTotals: [{ amount: 100, currency: 'ZAR' }],
+      otherCash: [{ ownership: 'Personal', amount: { amount: 2000, currency: 'ZAR' } }, { ownership: 'Unspecified', amount: { amount: 700, currency: 'USD' } }]
+    });
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('.metric-note')!.textContent).toBe('Company bank and cash accounts');
+    expect(el.querySelector('.other-cash')!.textContent).toBe('Not counted as business cash: ZAR 2,000.00 in personal accounts; USD 700.00 in accounts with ownership not stated.');
+  });
+
+  it('writes nothing when all the cash is the company\'s', () => {
+    expect(otherCashText(undefined, m => String(m.amount))).toBe('');
+    expect(otherCashText([], m => String(m.amount))).toBe('');
+    expect(otherCashText([{ ownership: 'Personal', amount: { amount: 1, currency: 'ZAR' } }, { ownership: 'Personal', amount: { amount: 2, currency: 'USD' } }], m => m.currency + m.amount))
+      .toBe('ZAR1 and USD2 in personal accounts');
+  });
+
   it('shows a conflict from the API when creating a duplicate account', async () => {
     const fixture = await render([]);
     const c = fixture.componentInstance;
     c.showForm.set(true);
     c.form.patchValue({ name: 'Operating', currency: 'ZAR' });
 
-    c.create();
+    c.save();
     http.expectOne(`${api}/financial-accounts`)
       .flush({ title: "An account named 'Operating' already exists." }, { status: 409, statusText: 'Conflict' });
     await fixture.whenStable();

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MelamuHoldings.Application.Common;
 using MelamuHoldings.Domain.Finance;
 
@@ -7,7 +8,8 @@ namespace MelamuHoldings.Application.Finance;
 
 public static class AuditLog
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    // Enums by name, so the log still reads correctly if an enum is ever reordered
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
 
     // For summaries: the same on every server, whatever its culture's decimal separator
     public static string Amount(decimal amount) => amount.ToString("0.00", CultureInfo.InvariantCulture);

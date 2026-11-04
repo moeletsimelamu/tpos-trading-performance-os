@@ -60,7 +60,7 @@ describe('ContinuityComponent', () => {
 
     expect(metrics).toEqual([
       ['Coverage', '7.0 months', 'of 24 months of essential expenses'],
-      ['Counted · ZAR', 'ZAR 70,000.00', 'Business Continuity, bank and cash accounts'],
+      ['Counted · ZAR', 'ZAR 70,000.00', 'Business Continuity, company bank and cash accounts'],
       ['Target', 'ZAR 240,000.00', '24 × ZAR 10,000.00'],
       ['Shortfall', 'ZAR 170,000.00', 'Still to set aside']
     ]);
@@ -84,7 +84,7 @@ describe('ContinuityComponent', () => {
 
     expect(metrics).toEqual([
       ['Coverage', 'Not measured', 'Enter the monthly essential expense'],
-      ['Counted · ZAR', 'ZAR 70,000.00', 'Business Continuity, bank and cash accounts']
+      ['Counted · ZAR', 'ZAR 70,000.00', 'Business Continuity, company bank and cash accounts']
     ]);
     expect(el.textContent).toContain('Trading Restoration has no target yet.');
   });

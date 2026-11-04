@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { FinanceApiService } from '../finance/finance-api.service';
-import { Allocation, Balances, BudgetMonth, ContinuityReport, Investments, Money, Obligation, Payout, PlannedPurchase, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, UnrestrictedCashReport, fundStanding } from '../finance/finance.models';
+import { Allocation, Balances, BudgetMonth, ContinuityReport, Investments, Money, Obligation, Payout, PlannedPurchase, Transaction, TYPE_LABELS, UNALLOCATED_FUND_ID, UnrestrictedCashReport, fundStanding, otherCashText } from '../finance/finance.models';
 import { TradingApiService } from '../trading/trading-api.service';
 import { AnalyticsSummary, BehaviourSummary } from '../trading/models/analytics.model';
 import { PropAccount } from '../trading/models/prop-account.model';
@@ -60,7 +60,7 @@ const RECENT_PAYOUTS = 5;
                     <div class="metric metric-lead">
                       <span class="metric-label">Cash · {{ t.currency }}</span>
                       <span class="metric-value" [class.text-negative]="t.amount < 0">{{ t.amount | money: t.currency }}</span>
-                      <span class="metric-note">Bank and cash accounts</span>
+                      <span class="metric-note">Company bank and cash accounts</span>
                     </div>
                   }
                   <div class="metric">
@@ -83,6 +83,7 @@ const RECENT_PAYOUTS = 5;
                     </div>
                   }
                 </div>
+                @if (otherCash(); as other) { <p class="small secondary other-cash">Not counted as business cash: {{ other }}.</p> }
               } @else {
                 <div class="card empty-state">
                   <h2>No cash recorded yet</h2>
@@ -235,6 +236,7 @@ const RECENT_PAYOUTS = 5;
     .stack { display: grid; gap: var(--space-5); }
     .stack > .card { padding: 0; }
     .tag { margin-left: var(--space-2); }
+    .other-cash { margin-top: var(--space-2); }
     .attention, .trading { padding: 0; }
     .attention-list { list-style: none; }
     .attention-item {
@@ -278,6 +280,7 @@ export class OverviewComponent {
   readonly trading = signal<AnalyticsSummary | null>(null);
   readonly behaviour = signal<BehaviourSummary | null>(null);
 
+  readonly otherCash = computed(() => otherCashText(this.balances()?.otherCash, formatMoney));
   readonly activeAccounts = computed(() => this.balances()?.accounts.filter(a => a.status === 'Active').length ?? 0);
   readonly obligations = signal<Obligation[]>([]);
   readonly continuity = signal<ContinuityReport | null>(null);

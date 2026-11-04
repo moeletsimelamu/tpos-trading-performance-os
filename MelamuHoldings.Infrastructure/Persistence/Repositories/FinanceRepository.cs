@@ -51,6 +51,7 @@ public partial class FinanceRepository : IFinanceRepository
         if (query.FundId is { } fundId) transactions = transactions.Where(t => t.Entries.Any(e => e.FundId == fundId));
         if (query.CashOnly)
             transactions = transactions.Where(t => t.Entries.Any(e => _context.FinancialAccounts.Any(a => a.Id == e.FinancialAccountId
+                && a.Ownership == Ownership.Company
                 && (a.Type == FinancialAccountType.Bank || a.Type == FinancialAccountType.Cash))));
 
         var total = await transactions.CountAsync();
@@ -97,7 +98,7 @@ public partial class FinanceRepository : IFinanceRepository
             from e in _context.LedgerEntries
             join t in _context.LedgerTransactions on e.LedgerTransactionId equals t.Id
             join a in _context.FinancialAccounts on e.FinancialAccountId equals a.Id
-            where t.TransactionDate <= to && (a.Type == FinancialAccountType.Bank || a.Type == FinancialAccountType.Cash)
+            where t.TransactionDate <= to && a.Ownership == Ownership.Company && (a.Type == FinancialAccountType.Bank || a.Type == FinancialAccountType.Cash)
             group new { e.Amount, e.LedgerTransactionId } by new { t.TransactionDate, t.Type, e.Role, e.Currency } into g
             select new { g.Key.TransactionDate, g.Key.Type, g.Key.Role, g.Key.Currency, Amount = g.Sum(x => x.Amount), Transactions = g.Select(x => x.LedgerTransactionId).Distinct().Count() })
             .ToListAsync();

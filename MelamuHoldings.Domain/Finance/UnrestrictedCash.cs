@@ -14,5 +14,5 @@ public sealed record UnrestrictedCash(decimal Held, decimal OperatingMinimum, de
 
     // Company money only: a personal account, or one whose ownership is not stated, is listed apart
     public static bool CountsAccount(FinancialAccountType type, Ownership ownership) =>
-        type is FinancialAccountType.Bank or FinancialAccountType.Cash && ownership == Ownership.Company;
+        FinancialAccount.IsBusinessCash(type, ownership);
 }

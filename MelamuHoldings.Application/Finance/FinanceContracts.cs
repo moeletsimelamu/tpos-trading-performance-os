@@ -15,10 +15,14 @@ public record FundPositionDto(int FundId, string FundName, MoneyDto Balance);
 public record AccountDto(
     int Id, string Name, FinancialAccountType Type, string Currency, Ownership Ownership,
     string? Institution, string? Notes, FinancialAccountStatus Status,
-    MoneyDto Balance, IReadOnlyList<FundPositionDto> Funds, DateTime CreatedAt, DateTime? ClosedAt);
+    MoneyDto Balance, IReadOnlyList<FundPositionDto> Funds, DateTime CreatedAt, DateTime? ClosedAt,
+    FinancialAccountCategory Category, TaxTreatment TaxTreatment, string? Reference, DateOnly? OpenedOn, int? HomeFundId, string? HomeFundName);
+
+// An open account whose home is this fund
+public record FundAccountDto(int Id, string Name);
 
 // Minimum and Target are in one currency, compared with the fund's balance in that currency only
-public record FundDto(int Id, string Name, string? Description, bool IsSystem, IReadOnlyList<MoneyDto> Balances, MoneyDto? Minimum = null, MoneyDto? Target = null);
+public record FundDto(int Id, string Name, string? Description, bool IsSystem, IReadOnlyList<MoneyDto> Balances, MoneyDto? Minimum = null, MoneyDto? Target = null, IReadOnlyList<FundAccountDto>? Accounts = null);
 
 public record EntryDto(int AccountId, string AccountName, int FundId, string FundName, decimal Amount, string Currency, LedgerEntryRole Role);
 
@@ -29,8 +33,12 @@ public record TransactionDto(
 
 public record RecordResult(TransactionDto Transaction, bool Replayed);
 
-// Cash totals cover Bank and Cash accounts only: brokerage balances are not spendable cash
-public record BalancesDto(DateOnly? AsOf, IReadOnlyList<AccountDto> Accounts, IReadOnlyList<FundDto> Funds, IReadOnlyList<MoneyDto> CashTotals);
+// Money in bank and cash accounts that is not the business's to count: in personal accounts, or ownership not stated
+public record OtherCashDto(Ownership Ownership, MoneyDto Amount);
+
+// Cash totals cover company Bank and Cash accounts only: brokerage balances are not spendable cash, and personal money
+// is not the business's. Bank and cash money outside company accounts is in OtherCash, never added to them.
+public record BalancesDto(DateOnly? AsOf, IReadOnlyList<AccountDto> Accounts, IReadOnlyList<FundDto> Funds, IReadOnlyList<MoneyDto> CashTotals, IReadOnlyList<OtherCashDto> OtherCash);
 
 public record AuditEventDto(long Id, DateTime OccurredAt, int UserId, string Action, string EntityType, string EntityId, string Summary, string? Data);
 
@@ -58,6 +66,11 @@ public class CreateAccountRequest : IValidatableObject
     [Required] public Ownership? Ownership { get; set; }
     [MaxLength(FinancialAccount.MaxInstitutionLength)] public string? Institution { get; set; }
     [MaxLength(FinancialAccount.MaxNotesLength)] public string? Notes { get; set; }
+    public FinancialAccountCategory Category { get; set; }
+    public TaxTreatment TaxTreatment { get; set; }
+    [MaxLength(FinancialAccount.MaxReferenceLength)] public string? Reference { get; set; }
+    public DateOnly? OpenedOn { get; set; }
+    public int? HomeFundId { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
@@ -73,6 +86,11 @@ public class UpdateAccountRequest
     [Required] public Ownership? Ownership { get; set; }
     [MaxLength(FinancialAccount.MaxInstitutionLength)] public string? Institution { get; set; }
     [MaxLength(FinancialAccount.MaxNotesLength)] public string? Notes { get; set; }
+    public FinancialAccountCategory Category { get; set; }
+    public TaxTreatment TaxTreatment { get; set; }
+    [MaxLength(FinancialAccount.MaxReferenceLength)] public string? Reference { get; set; }
+    public DateOnly? OpenedOn { get; set; }
+    public int? HomeFundId { get; set; }
 }
 
 public abstract class TransactionRequest

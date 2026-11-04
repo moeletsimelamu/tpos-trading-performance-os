@@ -28,7 +28,7 @@ export function periodPresets(today: Date): PeriodPreset[] {
   ];
 }
 
-// "Money in and out" on the Executive overview: cash movement in bank and cash accounts for a period, per currency,
+// "Money in and out" on the Executive overview: cash movement in company bank and cash accounts for a period, per currency,
 // with every figure linked to the ledger list it is summed from. The period lives in the address.
 @Component({
   selector: 'app-overview-period',
@@ -39,7 +39,7 @@ export function periodPresets(today: Date): PeriodPreset[] {
       <div class="period-head">
         <div>
           <h2 id="period-heading" class="section-heading">Money in and out</h2>
-          <p class="small secondary">{{ label() }}. Bank and cash accounts only. Net cash movement is what came in less what went out, not profit.</p>
+          <p class="small secondary">{{ label() }}. Company bank and cash accounts only, so a transfer to a personal account counts as money out. Net cash movement is what came in less what went out, not profit.</p>
         </div>
         <div class="presets" role="group" aria-label="Period">
           @for (p of presets; track p.key) {
@@ -208,7 +208,7 @@ export class OverviewPeriodComponent {
     return lines.find(l => l.type === type)!;
   }
 
-  // The ledger list a figure is summed from: same type, same dates, bank and cash accounts
+  // The ledger list a figure is summed from: same type, same dates, company bank and cash accounts
   ledger(type: TransactionType, month?: MonthMovement): Record<string, string> {
     return { from: month?.start ?? this.from(), to: month?.end ?? this.to(), type, cash: 'true' };
   }

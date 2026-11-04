@@ -35,7 +35,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - Phase 8 is staged (§7c; decisions D10–D12). P8.1 (prop firm accounts, their rules and their history) is complete on branch `phase-8-1-prop-accounts`, cut from `main`. The rules as built are in `docs/PROP_ACCOUNTS.md`.
 - P8.2 (trades linked to accounts, balances from the firm's dashboard, and each account's standing against its rules, with warnings) is complete on branch `phase-8-2-prop-account-standing`, cut from `phase-8-1-prop-accounts`.
 - The company's logo replaced the proposed mark (decision D13) on branch `brand-melamu-logo`, cut from `phase-8-2-prop-account-standing`; the rest of the owner's business-structure addendum of 2026-11-04 is still to be sequenced.
-- Next: P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report), unless the owner reorders.
+- Account details and business cash (decision D14, the second step of that addendum) are complete on branch `accounts-business-structure`, cut from `brand-melamu-logo`.
+- Next: account panels, then P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report).
 
 ---
 
@@ -524,3 +525,4 @@ Melamu Holdings OS stays fully usable on its own. No integration code is written
 | D11 | Which trading accounts get a record (2026-11-03) | **Prop firm accounts only.** Trades on any other account keep the free-text account field. |
 | D12 | How far the app goes with an account's rules (2026-11-03) | **Calculate and warn.** Balance, drawdown room, daily loss, target progress and trading days come from linked trades and balances entered from the firm's dashboard. Figures are labelled as from recorded trades, because the firm's own numbers decide. The app warns and never blocks. |
 | D13 | The company logo (2026-11-04) | **The supplied M with its candlesticks forming the H**, joined by a gold bar. Name in **Playfair Display Bold**, tagline in Lato, with no closing full stop. It replaces the proposed mark from §6a. Details in `docs/DESIGN_SYSTEM.md`. |
+| D14 | What counts as business cash, and what an account states (2026-11-04) | **Company bank and cash accounts only.** Personal and ownership-not-stated money is reported apart and never added, in every cash figure, continuity and the affordability check, so paying the owner is money out of business cash. Accounts state their category, tax treatment, a masked reference, date opened and home fund, and none of it is inferred from a name. Details in `docs/FINANCIAL_DOMAIN.md`. |

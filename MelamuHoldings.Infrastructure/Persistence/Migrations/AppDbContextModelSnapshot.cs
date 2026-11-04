@@ -430,6 +430,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("datetime2");
 
@@ -439,6 +444,9 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasColumnType("char(3)");
+
+                    b.Property<int?>("HomeFundId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Institution")
                         .HasMaxLength(100)
@@ -453,12 +461,24 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateOnly?>("OpenedOn")
+                        .HasColumnType("date");
+
                     b.Property<string>("Ownership")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("Reference")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TaxTreatment")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -469,6 +489,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("HomeFundId");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -1979,6 +2001,14 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.HasOne("MelamuHoldings.Domain.Finance.Fund", null)
                         .WithMany()
                         .HasForeignKey("RestorationFundId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.FinancialAccount", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Finance.Fund", null)
+                        .WithMany()
+                        .HasForeignKey("HomeFundId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

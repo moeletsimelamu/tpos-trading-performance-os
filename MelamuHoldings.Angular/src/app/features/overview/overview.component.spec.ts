@@ -320,6 +320,20 @@ describe('OverviewComponent', () => {
     expect(items[0].link).toBe('/trading/prop-accounts/5');
   });
 
+  it('names personal and unstated money beside Cash, and says nothing when there is none', async () => {
+    const fixture = await render();
+    flushFinance();
+    flushTrading(20);
+    await fixture.whenStable();
+    const c = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.other-cash')).toBeNull();
+
+    c.balances.update(b => ({ ...b!, otherCash: [{ ownership: 'Personal', amount: { amount: 2000, currency: 'ZAR' } }] }));
+    await fixture.whenStable();
+    expect(el.querySelector('.other-cash')!.textContent).toBe('Not counted as business cash: ZAR 2,000.00 in personal accounts.');
+  });
+
   it('shows each currency separately and never adds them together', async () => {
     const fixture = await render();
     flushFinance();

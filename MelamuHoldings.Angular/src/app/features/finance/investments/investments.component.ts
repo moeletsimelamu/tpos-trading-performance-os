@@ -54,7 +54,7 @@ import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
                 <div class="card-header">
                   <div>
                     <h2 [id]="'inv-' + a.accountId">{{ a.accountName }}</h2>
-                    <span class="small muted">{{ a.institution ? a.institution + ' · ' : '' }}{{ a.currency }}@if (a.status === 'Closed') { · closed }</span>
+                    <span class="small muted">{{ a.institution ? a.institution + ' · ' : '' }}{{ a.currency }}@if (a.taxTreatment === 'TaxFree') { · Tax-free }@if (a.taxTreatment === 'Taxable') { · Taxable }@if (a.ownership !== 'Company') { · {{ a.ownership === 'Personal' ? 'Personal' : 'Ownership not stated' }} }@if (a.status === 'Closed') { · closed }</span>
                   </div>
                   @if (a.status === 'Active' && recording() !== a.accountId) {
                     <button type="button" class="btn btn-sm" (click)="startRecording(a)">Record valuation</button>
