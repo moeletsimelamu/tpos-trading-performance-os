@@ -15,6 +15,7 @@ export interface Trade {
   tradeDate: string;
   instrument: string;
   tradingAccount?: string | null;
+  propAccountId?: number | null;   // set when linked to a prop firm account; tradingAccount is then its nickname
   direction?: 'Long' | 'Short' | null;
   entryTime?: string | null;
   entryPrice?: number | null;
@@ -86,6 +87,7 @@ export interface SaveTrade {
   tradeDate: string;
   instrument: string;
   tradingAccount?: string | null;
+  propAccountId?: number | null;
   direction?: string | null;
   entryTime?: string | null;
   entryPrice?: number | null;

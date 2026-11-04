@@ -8,7 +8,7 @@ A unified operating system for managing trading operations, financial performanc
 > - the trading module;
 > - **Financial Management**: accounts, funds, an auditable ledger and balances.
 >
-> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets, planned purchases and unrestricted cash** work too (Phase 7). Prop-firm accounts and business planning are **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
+> **Payouts and capital allocation** work end to end: request → approve → receive → allocate 40/30/20/10 → settle. **Obligations, continuity, investments, budgets, planned purchases and unrestricted cash** work too (Phase 7). **Prop firm accounts** work with their rules, history and linked trades, and warn near a limit (Phase 8, in progress); linking payouts and fees is next. Business planning is **planned, not built**. The navigation lists only what works; the roadmap is in [`PLAN.md`](PLAN.md).
 
 ![Executive overview](docs/images/executive-overview.jpg)
 
@@ -17,9 +17,9 @@ A unified operating system for managing trading operations, financial performanc
 ## What works today: executive overview
 
 The landing page shows the business as recorded:
-- cash by currency (never added across currencies);
+- business cash by currency: company bank and cash accounts only, never added across currencies. Money in personal accounts or accounts with ownership not stated is named beside it, not counted;
 - **unrestricted cash** per currency: Unallocated and Operating Capital in company bank and cash accounts, less Operating Capital's minimum, what confirmed allocations still owe other funds, received payouts not allocated yet, and committed purchases. Its own page shows the working, the bills due within 30 days beside it (not deducted), and what is not counted and why;
-- **money in and out for a period** (this month, last month, this quarter, year to date, the last 12 months or any dates), per currency, from bank and cash accounts:
+- **money in and out for a period** (this month, last month, this quarter, year to date, the last 12 months or any dates), per currency, from company bank and cash accounts:
   - **The cash movement:** cash at the start, then income received (gross and fees deducted), expenses, currency exchanges, transfers and reversals. Then the net cash movement (labelled as cash movement, not profit), opening balances recorded and cash at the end.
   - **Totals:** income, expenses and net cash movement month by month, and the payouts received.
   - **Every figure links** to the ledger list it is summed from, with the same dates and type;
@@ -28,11 +28,22 @@ The landing page shows the business as recorded:
 - recent payouts with their status, and recent ledger activity;
 - a trading summary, labelled as not business cash until a payout is recorded.
 
+## What works today: prop firm accounts
+
+- **One record per attempt:** evaluation, verification and funded are phases of one record. A paid reset stays on it; a new challenge after a breach is a new record.
+- **Rules:** drawdown model and limit, daily loss limit, profit target, minimum trading days, payout split and the firm's stated fees. They change by adding a version, so earlier rules stay readable.
+- **History:** every phase, status, reset, rule change and correction is kept with its date. A breach says which rule.
+- **Trades:** choose the account on a trade, or put a whole CSV file on one when importing. A linked trade takes the account's name and currency, and Performance and the trade log can filter by it.
+- **Balances:** enter what the firm's dashboard shows. The page lists what your trades came to beside it, so a difference shows up.
+- **Where it stands:** balance, drawdown room, daily loss, target progress and trading days, worked out from linked closed trades and the balances you entered. These are labelled as the app's figures, because the firm's own numbers decide.
+- **Warnings:** the overview warns near or at a limit and when the target is met. Nothing is ever blocked or changed by a warning.
+- **Not yet:** payouts and fees are not linked to an account. Nothing on these pages touches the ledger. The rules as built are in [`docs/PROP_ACCOUNTS.md`](docs/PROP_ACCOUNTS.md).
+
 ## What works today: budgets and planned purchases
 
 - **Budgets:** an amount per category per month, against the expenses recorded with that category. Reversed expenses count for nothing, and spending with no budget line is listed apart. A budget never blocks an expense.
 - **Planned purchases:** proposed, then committed, then purchased by linking an expense from the ledger, or cancelled. Nothing here records or moves money.
-- **Can it be afforded?** Each open purchase answers from recorded balances: the fund's money in bank and cash accounts, less its other commitments and the purchase, against the fund's minimum. It warns and never blocks. Obligations due within 30 days are shown beside the answer, not deducted.
+- **Can it be afforded?** Each open purchase answers from recorded balances: the fund's money in company bank and cash accounts, less its other commitments and the purchase, against the fund's minimum. It warns and never blocks. Obligations due within 30 days are shown beside the answer, not deducted.
 - **Warnings:** the overview flags a budget exceeded this month, a purchase that would breach a minimum, and a purchase whose expense was reversed.
 
 ## What works today: investments
@@ -45,7 +56,7 @@ The landing page shows the business as recorded:
 ## What works today: continuity
 
 - **Coverage:** how many months of essential expenses the Business Continuity fund covers, against a target of 24 months (you choose the months and enter the monthly expense yourself), with the shortfall.
-- **Only what is really there:** rand in bank and cash accounts counts. Dollars, money at a broker, and allocations not yet earmarked are listed with the reason they do not count; nothing is converted.
+- **Only what is really there:** rand in company bank and cash accounts counts. Dollars, money at a broker, personal money, and allocations not yet earmarked are listed with the reason they do not count; nothing is converted.
 - **Earmarked or separated:** the page shows how much sits in an account of its own and how much shares an account with other funds.
 - **Trading restoration:** a separate Trading Restoration fund, measured against its own target, so no money counts twice.
 - **Warnings:** the overview shows the coverage and warns when continuity is below its target or cannot be measured yet.
@@ -96,10 +107,10 @@ The landing page shows the business as recorded:
 ### Performance analytics
 - **Win rate**: winning trades ÷ total trades.
 - **Expectancy**: (win rate × average win) − (loss rate × average loss). Loss rate counts losing trades only, so this equals the mean P&L per trade; breakevens count as zero.
-- **Profit factor**: gross profit ÷ gross loss. *Known issue:* with no losing trades it currently shows gross profit instead of "undefined"; the fix is scheduled for Phase 8.
+- **Profit factor**: gross profit ÷ gross loss. With no losing trades there is nothing to divide by, so it reads "Undefined" and the API returns `null`.
 - **Average RR**: mean reward-to-risk ratio.
-- **Equity curve**: cumulative P&L by day.
-- **Max drawdown**: the largest peak-to-trough fall in cumulative P&L.
+- **Equity curve**: cumulative P&L by day. Through the API, each point's `drawdown` is an amount: how far that day's closing total is below the highest closing total so far.
+- **Max drawdown**: the largest peak-to-trough fall in cumulative P&L, trade by trade. It can be larger than any day's curve drawdown, because a fall that recovers within a day never shows at a day's end.
 - **Breakdowns**: by strategy, day of week, trading session and **journal answer**: pick any question with fixed answers (emotion, a rating, recorded mistakes) to compare results answer by answer, with trades that have no answer shown apart, and Show to narrow the page to one answer.
 - **Rule adherence over time**: month by month or week by week, with empty periods kept and small samples labelled.
 - **Filters** (Performance and Behaviour): date range, strategy, instrument, session, account, rule adherence (followed every mandatory rule, broke one, or not scored), and any journal answer with fixed choices, such as your emotion before entry or a quality rating. Filters only narrow the trades; every figure is calculated exactly as without them. Fewer than 20 matching trades is labelled insufficient data, and the filtered view is kept in the address so it can be bookmarked.
@@ -124,7 +135,9 @@ The landing page shows the business as recorded:
 
 ## What works today: financial management
 
-- **Accounts:** real places money is held (Bank, Cash, Brokerage), each in one fixed currency with stated ownership. They close only at a zero balance. No credentials are stored.
+- **Accounts:** real places money is held (Bank, Cash, Brokerage), each in one fixed currency with stated ownership. You can also state the category (current, savings, investment), the tax treatment (which is what tells a TFSA from a normal investment account), a reference of at most four digits, the date opened and the fund it is mainly for. Nothing is guessed from a name, and all of it can be corrected. They close only at a zero balance. No credentials or full account numbers are stored.
+- **Account panels:** the Accounts page shows each account as a panel, with business accounts first and personal ones apart: provider, category, currency, recorded balance, money by fund, reference and a link to its transactions. A table view is one click away. A bank account with a recorded payment card shows that card beside its details, in the style you choose. It is drawn by the app, not the bank's artwork or logos, and shows only the last four digits, with expiry and security code masked. Accounts with no card, such as savings and investments, stay plain panels, and nothing connects to a bank.
+- **Payment cards:** recorded on a bank account as debit or credit, with at most the last four digits. No full number, expiry, security code or cardholder name is ever stored.
 - **Funds:** what money is earmarked for. The defaults are Unallocated, Operating Capital, Business Continuity, Wealth Fund and Owner's Distribution. One account can hold several funds.
 - **Ledger:** record income, expenses, transfers, earmarks (between funds inside one account), currency exchanges (USD → ZAR at the rate you actually got) and opening balances.
   - Entries are never edited.
@@ -236,7 +249,9 @@ RiskAmount, PnL, RR, Strategy, Session, DayOfWeek, TradeDuration,
 Notes, IsManualOverride, DeviationNotes
 ```
 
-`Direction` is `Long` or `Short`, and entry and exit prices must be greater than zero.
+`Direction` is `Long` or `Short`, `EntryTime` must be a valid time, and entry and exit prices must be greater than zero. Use ISO dates such as `2026-11-03`: other formats are read in the server's language settings.
+
+A row that breaks these rules, or holds a value too large to store, is listed by row number, and the other rows are imported. If the import itself fails, nothing from the file is kept, so it can simply be uploaded again. The same row twice is imported once.
 
 ## API endpoints
 
@@ -247,7 +262,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/auth/login` | Sign in; returns a JWT |
 | GET | `/api/trades?status=` | List your trades, optionally by status (`Draft`, `Open`, `Closed`, `Reviewed`) |
 | GET | `/api/trades/{id}` | Get one trade |
-| POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted; optional `journal` and `checklist` answers); accepts `Idempotency-Key` |
+| POST | `/api/trades` | Create a journal entry (`status` Draft, Open or Closed; Closed if omitted; optional `propAccountId`, `journal` and `checklist` answers); accepts `Idempotency-Key` |
 | PUT | `/api/trades/{id}` | Update a journal entry (omit `status` to keep it) |
 | GET | `/api/trades/{id}/history` | Every saved change to the trade, newest first, with each value before and after |
 | POST | `/api/trades/{id}/review` | Mark a closed trade reviewed, with the review notes (refused while required journal questions are unanswered) |
@@ -262,8 +277,16 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | POST | `/api/strategies` | Create a strategy with its rules |
 | PUT | `/api/strategies/{id}` | Update a strategy; rules left out are retired |
 | POST | `/api/strategies/{id}/archive` · `/restore` · `/rules/{ruleId}/restore` | Strategy actions |
+| GET | `/api/prop-accounts?includeClosed=` | List your prop firm accounts with their rules, history, balances and where each stands |
+| GET | `/api/prop-accounts/{id}` · `/api/prop-accounts/currencies` | Get one account; the currencies an account can be in |
+| POST | `/api/prop-accounts` | Add an account with its first rules |
+| PUT | `/api/prop-accounts/{id}` | Correct the firm, nickname, size, login or notes |
+| POST | `/api/prop-accounts/{id}/rules` · `/phase` · `/status` · `/reset` | Add a rule version, change phase (with that phase's rules), change status, record a reset |
+| POST · DELETE | `/api/prop-accounts/{id}/balances` · `/balances/{balanceId}` | Enter a balance from the firm's dashboard, or remove a wrong one |
 | DELETE | `/api/trades/{id}` | Delete a trade |
-| POST | `/api/upload` | Import a CSV journal (max 10 MB) |
+| GET | `/api/prop-accounts/fees-and-payouts` | Owner: every prop firm account's fees against payouts received, per currency and unconverted |
+| GET | `/api/prop-accounts/{id}/ledger` | Owner: one account's linked fees and payouts. `POST .../ledger/fees` and `POST .../ledger/payouts/{payoutId}` add a link, `DELETE` removes it, and `GET .../ledger/fee-candidates` and `.../payout-candidates` list what can be linked. No link moves money |
+| POST | `/api/upload` | Import a CSV journal (max 10 MB); an optional `propAccountId` form field puts the whole file on that prop firm account |
 | GET | `/api/upload/logs` | Upload history (imported, skipped, matched and failed rows) |
 | GET | `/api/upload/matches?status=` | CSV rows that matched trades journaled by hand (default: those waiting for a decision) |
 | POST | `/api/upload/matches/{id}/link` · `/import` · `/dismiss` | Decide on a matched row |
@@ -272,7 +295,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET · POST | `/api/trades/{id}/attachments` | Attach a file to a trade (multipart, `file` and optional `caption`) |
 | GET · DELETE | `/api/trades/{id}/attachments/{attachmentId}` | Download or delete an attachment |
 | GET | `/api/analytics/summary` | KPI summary. Every `/api/analytics/*` endpoint takes the same filter: `from`, `to`, `strategyId`, `session`, `account`, `adherence` (`Followed`, `Broke`, `NotScored`), `answerField` + `answerValue` |
-| GET | `/api/analytics/equity-curve` | Daily equity curve |
+| GET | `/api/analytics/equity-curve` | Daily equity curve, with `drawdown` as an amount |
 | GET | `/api/analytics/by-strategy` | Strategy breakdown |
 | GET | `/api/analytics/by-day` | Performance by day of week |
 | GET | `/api/analytics/by-session` | Performance by session |
@@ -311,14 +334,15 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET | `/api/planned-purchases/{id}/expense-candidates` | Recent expenses that could be the purchase: same currency, not reversed, not linked |
 | POST | `/api/planned-purchases/{id}/purchase`, `/purchase/undo` | Link an expense as the purchase (`{ transactionId }`) / remove the link; the expense stays in the ledger |
 | GET / POST | `/api/financial-accounts` | List accounts with balances / create an account |
-| GET / PUT | `/api/financial-accounts/{id}` | One account / update name, ownership, institution, notes |
+| GET / PUT | `/api/financial-accounts/{id}` | One account / update its name, ownership, institution, notes, category, tax treatment, reference, date opened and home fund |
 | POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |
+| POST | `/api/financial-accounts/{id}/cards` · `/cards/{cardId}/cancel` | Record a payment card on a bank account, or record it as cancelled |
 | POST | `/api/transactions/{opening-balance\|income\|expense\|transfer\|reallocation\|exchange}` | Record a money movement |
 | POST | `/api/transactions/{id}/reverse` | Reverse a transaction (once, with a reason) |
-| GET | `/api/transactions` | The ledger; filter by `from`, `to`, `type`, `accountId`, `fundId` and `cash` (bank and cash accounts only); paged |
+| GET | `/api/transactions` | The ledger; filter by `from`, `to`, `type`, `accountId`, `fundId` and `cash` (company bank and cash accounts only); paged |
 | GET | `/api/transactions/{id}` | One transaction with its entries |
-| GET | `/api/balances?asOf=` | Account, fund and cash balances, optionally as of a date |
-| GET | `/api/overview?from=&to=` | Cash movement in bank and cash accounts for a period (this month to date by default): per currency, per type and per month, and payouts received |
+| GET | `/api/balances?asOf=` | Account, fund and business cash balances, with other bank and cash money apart, optionally as of a date |
+| GET | `/api/overview?from=&to=` | Cash movement in company bank and cash accounts for a period (this month to date by default): per currency, per type and per month, and payouts received |
 | GET | `/api/audit-events` | Audit log, newest first, paged |
 | GET | `/api/currencies` | Supported currencies |
 | GET / POST | `/api/payouts` | List payouts (optional `status`) / record a payout request |

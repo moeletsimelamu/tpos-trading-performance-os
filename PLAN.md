@@ -29,8 +29,18 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - P7.2 (continuity and trading restoration) is complete on branch `phase-7-2-continuity`, cut from `phase-7-1-funds-obligations`.
 - P7.3 (investments: brokerage valuations and unrealised gain or loss) is complete on branch `phase-7-3-investments`, cut from `phase-7-2-continuity`.
 - P7.4 (budgets, planned purchases and the affordability check) is complete on branch `phase-7-4-budgets-purchases`, cut from `phase-7-3-investments`.
-- P7.5 (verification and documentation) is complete on branch `phase-7-5-verification`, cut from `phase-7-4-budgets-purchases`: full regression, Phase 7 traced requirement by requirement in `docs/PHASE_7_REVIEW.md`, the formulas moved to Domain with unit tests, defects fixed, gaps listed. - Unrestricted cash (P7.6, decision D9) is complete on branch `phase-7-6-unrestricted-cash`, cut from `phase-7-5-verification`. Phase 7 is complete and on `develop`, with CI passing, awaiting review in a pull request to `main`.
-- Next: Phase 8 (trading integration).
+- P7.5 (verification and documentation) is complete on branch `phase-7-5-verification`, cut from `phase-7-4-budgets-purchases`: full regression, Phase 7 traced requirement by requirement in `docs/PHASE_7_REVIEW.md`, the formulas moved to Domain with unit tests, defects fixed, gaps listed.
+- Unrestricted cash (P7.6, decision D9) is complete on branch `phase-7-6-unrestricted-cash`, cut from `phase-7-5-verification`.
+- PR #5 (Phase 7) was merged into `main` on 2026-11-03.
+- Phase 8 is staged (§7c; decisions D10–D12). P8.1 (prop firm accounts, their rules and their history) is complete on branch `phase-8-1-prop-accounts`, cut from `main`. The rules as built are in `docs/PROP_ACCOUNTS.md`.
+- P8.2 (trades linked to accounts, balances from the firm's dashboard, and each account's standing against its rules, with warnings) is complete on branch `phase-8-2-prop-account-standing`, cut from `phase-8-1-prop-accounts`.
+- The company's logo replaced the proposed mark (decision D13) on branch `brand-melamu-logo`, cut from `phase-8-2-prop-account-standing`; the rest of the owner's business-structure addendum of 2026-11-04 is still to be sequenced.
+- Account details and business cash (decision D14, the second step of that addendum) are complete on branch `accounts-business-structure`, cut from `brand-melamu-logo`.
+- Account panels and payment cards (the third step of that addendum) are complete on branch `accounts-panels`, cut from `accounts-business-structure`.
+- P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report) is complete on branch `phase-8-3-prop-fees-and-payouts`, cut from `accounts-panels`, with bank cards drawn on account panels at the owner's request (decisions D15 and D16).
+- P8.4 (profit factor with no losses is undefined, and equity-curve drawdown is an amount) is complete on branch `phase-8-4-analytics-definitions`, cut from `phase-8-3-prop-fees-and-payouts`.
+- P8.5 (verification) is complete on branch `phase-8-5-verification`, cut from `phase-8-4-analytics-definitions`: `docs/PHASE_8_REVIEW.md` traces Phase 8 requirement by requirement. CSV import was not atomic and now is. Phase 8 is complete. `develop` was pushed at `575438f` and CI passed (run 41802036533). It is not yet merged into `main`.
+- Next: Phase 9 with the Scaling Plan, once the owner supplies it.
 
 ---
 
@@ -129,7 +139,7 @@ Angular src/app/
 Rules:
 
 - **Financial rules live in Domain** (`Money` arithmetic, allocation calculation and rounding, ledger invariants) and are unit-tested without a database. Controllers only translate HTTP. Angular never computes an authoritative balance.
-- **Finance does not depend on Trading.** The single integration point is a `Payout`, which may optionally reference a prop firm account (Phase 8). The trading module never writes ledger entries.
+- **Finance does not depend on Trading.** The integration points are a `Payout`, which may optionally reference a prop firm account, and a `PropAccountFee`, which names an existing expense as an account's cost (Phase 8). Both are links that move no money, and the service reading both sides lives in Trading. The trading module never writes ledger entries.
 - **One `AppDbContext`, separate SQL schemas** (`dbo` for the existing trading tables, `finance` for new ones). This gives clear boundaries without distributed transactions.
 - **Use-case services, not generic CRUD**, for anything that moves money (`RecordIncome`, `RecordTransfer`, `ConfirmAllocation`, …). The generic `BaseRepository<T>` remains for trading data only.
 
@@ -238,7 +248,7 @@ Phase 7's entities are built. Where the design changed, the entry says so; the r
   - Coverage in months = continuity fund balance ÷ monthly essential expense.
   - Remaining amount = target − recorded balance.
 - `InvestmentAccount` (a financial account of type Brokerage) plus `InvestmentValuation`. Unrealised gain/loss, labelled **unrealised**. **As built (P7.3):** latest valuation − recorded balance on its date, so dividends and fees are not counted as market movement. Latest valuation − net contributions is shown separately as the gain on contributions.
-- `PropFirmAccount`: firm, nickname, phase, size, currency, status history, and a configurable rule set (drawdown model, limits, target, minimum days, payout split, fees). Fees and resets are `Expense` transactions linked back to the account.
+- `PropFirmAccount`: firm, nickname, phase, size, currency, status history, and a configurable rule set (drawdown model, limits, target, minimum days, payout split, fees). Fees and resets are `Expense` transactions linked back to the account. **As built (P8.1):** one record per attempt (D10), an append-only history, and rules that change by adding a version, in `docs/PROP_ACCOUNTS.md`. The links to expenses come in P8.3.
 - **Warnings** (computed, never stored, never acted on automatically):
   - a fund below its minimum;
   - continuity below target;
@@ -286,6 +296,7 @@ The existing routes stay unchanged: `/api/auth/*`, `/api/trades`, `/api/upload`,
 | Allocations | `POST /api/allocations/preview`, `POST /api/allocations` (confirm), `GET /api/allocations/{id}`, `POST /{id}/cancel` |
 | Overview | `GET /api/overview?from&to` returns only metrics backed by stored records |
 | Phase 7 | `/api/obligations`, `/api/continuity`, `/api/investments`, `/api/budgets`, `/api/planned-purchases`; the full list is in `README.md` |
+| Phase 8 | `/api/prop-accounts`; the full list is in `README.md` |
 
 Cross-cutting:
 
@@ -308,7 +319,7 @@ Cross-cutting:
   | Group | Live today | Added later |
   |---|---|---|
   | Overview | Executive overview | |
-  | Trading operations | Performance, Trades, Import, Behaviour | Journal (§7a), Prop firm accounts (Phase 8) |
+  | Trading operations | Performance, Trades, Import, Behaviour | Journal (§7a), Prop accounts (P8.1) |
   | Finance | Accounts, Funds, Transactions, Audit log | Payouts, Capital allocation (Phase 5); Obligations, Continuity, Investments, Budgets, Purchases (Phase 7) |
   | Wealth | | Not used: Continuity, Investments, Budgets and Purchases (Phase 7) sit under Finance, because all of them read the ledger |
   | Business | | Business planning (Phase 9) |
@@ -361,7 +372,7 @@ Each phase ends with a build, all tests green, a browser check of the touched pa
 | **5 — Payouts and allocation (first milestone)** ✅ | Payout lifecycle, versioned policies (default 40/30/20/10 seeded as configuration, not hard-coded), preview, confirm, settle via transfer or earmark, reconciliation, cancellation, duplicate protection. Outstanding allocations added to the Executive overview (cash and fund positions are already there). | The §8 end-to-end scenario passes in automated API tests **and** in a manual browser walkthrough, with screenshots |
 | **6 — Executive Overview** ✅ | Period filters; income and expenses by period; net cash movement (labelled as cash movement, not profit); recent payouts; drill-down links to records; warnings panel. | Every figure traceable to a record list |
 | **7 — Continuity and wealth** ✅ | Obligations, continuity targets (24-month essential cover plus a separate restoration target), coverage months, earmarked versus physically separated view; investment accounts, contributions, valuation snapshots, unrealised gain/loss; budgets and planned purchases with budget-versus-actual. | Formulas documented in `FINANCIAL_DOMAIN.md` and unit-tested |
-| **8 — Trading integration** | Prop firm accounts with configurable rules and status history; trades linked to accounts; fees and resets as expenses; payouts linked to accounts; per-user strategies with CRUD; CSV duplicate detection; analytics fixes (profit factor, drawdown, date filters). | Existing analytics unchanged except the documented definition fixes; tests prove it |
+| **8 — Trading integration** ✅ (stages in §7c) | Prop firm accounts with configurable rules and status history; trades linked to accounts; fees and resets as expenses; payouts linked to accounts; per-user strategies with CRUD; CSV duplicate detection; analytics fixes (profit factor, drawdown, date filters). | Existing analytics unchanged except the documented definition fixes; tests prove it |
 | **9 — Planning and reporting** | Objectives and milestones linked to financial targets; monthly cash-flow report; allocation history report. | Reports built only on stored data |
 | **10 — Hardening** | Full regression run; security review; migration replay; UI and accessibility pass; README and screenshots; deployment documentation; `docs/REVIEW.md`. | Definition of Done (prompt §19 plus the supplementary §9) met, with known limitations listed |
 
@@ -377,6 +388,18 @@ Phase 7 is delivered in stages, each on its own branch cut from the previous one
 | **P7.4** ✅ | Budgets per month and category with budget versus actual from expense categories; planned purchases (Proposed → Committed → Purchased with a linked expense, or Cancelled) and the "can it be afforded without breaching the operating minimum" check; warnings for an exceeded budget and a purchase that would breach the minimum |
 | **P7.5** ✅ | Verification and documentation: `docs/PHASE_7_REVIEW.md` |
 | **P7.6** ✅ | Unrestricted cash, once the owner defined it (D9): the figure per currency on the overview, and its working on its own page |
+
+### 7c. Phase 8 stages (2026-11-03)
+
+Phase 8 is delivered in stages, each on its own branch cut from the previous one. Three items in the Phase 8 row are already delivered: per-user strategies with CRUD (J4), CSV duplicate detection (J5) and date filters (J6). P8.5 confirms them.
+
+| Stage | Scope |
+|---|---|
+| **P8.1** ✅ | Prop firm accounts (D10, D11): one record per attempt, phases and statuses with an append-only history, rules that change by adding a version, resets. No link to trades or the ledger yet |
+| **P8.2** ✅ | Trades linked to accounts. Balances entered from the firm's dashboard. Balance, drawdown room, daily loss, target progress and trading days calculated from linked trades and those balances, labelled as from recorded trades (D12). Warnings near a limit, which never block anything |
+| **P8.3** ✅ | Payouts linked to accounts. Fees and resets linked by choosing an expense already in the ledger, as obligations and purchases do. The report answering "which trading accounts consume fees without producing payouts?", per currency and unconverted |
+| **P8.4** ✅ | Analytics definition fixes: profit factor with no losses becomes undefined instead of gross profit, and equity-curve drawdown becomes an amount instead of a percentage of cumulative P&L. Tests prove nothing else moves |
+| **P8.5** ✅ | Verification and documentation: full regression, Phase 8 traced requirement by requirement, the items already delivered confirmed, and whether CSV import is atomic checked (`ARCHITECTURE_REVIEW` W11) |
 
 ### 7a. Trading journal and AI-assisted review (owner brief, 2026-10-27)
 
@@ -502,3 +525,10 @@ Melamu Holdings OS stays fully usable on its own. No integration code is written
 | D7 | Continuity currency (2026-10-29) | **ZAR.** The 24-month target and the monthly essential expense are in rand. Continuity money held in another currency is shown beside it, unconverted, and not counted towards coverage. |
 | D8 | Monthly essential expense (2026-10-29) | **Entered by the owner.** It is not derived from flagged expenses (that can be added later without changing the target). |
 | D9 | What unrestricted cash means (2026-11-03) | **Per currency, Unallocated and Operating Capital in company bank and cash accounts, less** Operating Capital's minimum, what confirmed allocations still owe other funds, received payouts not allocated yet (in full), and committed purchases. Obligations due within 30 days are **shown beside it, not deducted**. Money in personal accounts, accounts with ownership not stated, and brokerage accounts is listed apart. |
+| D10 | How a prop firm account is recorded (2026-11-03) | **One record per attempt.** Evaluation, verification and funded are phases of one record, and each phase and reset restarts the balance. A new challenge after a breach is a new record. Fees and payouts stay together, so the fees-versus-payouts question has a direct answer. |
+| D11 | Which trading accounts get a record (2026-11-03) | **Prop firm accounts only.** Trades on any other account keep the free-text account field. |
+| D12 | How far the app goes with an account's rules (2026-11-03) | **Calculate and warn.** Balance, drawdown room, daily loss, target progress and trading days come from linked trades and balances entered from the firm's dashboard. Figures are labelled as from recorded trades, because the firm's own numbers decide. The app warns and never blocks. |
+| D13 | The company logo (2026-11-04) | **The supplied M with its candlesticks forming the H**, joined by a gold bar. Name in **Playfair Display Bold**, tagline in Lato, with no closing full stop. It replaces the proposed mark from §6a. Details in `docs/DESIGN_SYSTEM.md`. |
+| D14 | What counts as business cash, and what an account states (2026-11-04) | **Company bank and cash accounts only.** Personal and ownership-not-stated money is reported apart and never added, in every cash figure, continuity and the affordability check, so paying the owner is money out of business cash. Accounts state their category, tax treatment, a masked reference, date opened and home fund, and none of it is inferred from a name. Details in `docs/FINANCIAL_DOMAIN.md`. |
+| D15 | How a payment card looks on an account panel (2026-11-04) | **Drawn like a real card, only for an account with a recorded card.** The owner asked for the card beside the details, like Mercury's. It shows a chip, the provider's name, the network as text and the recorded last four digits, in a style the owner chooses to resemble the card in hand. Styles were added from the FNB and TymeBank cards the owner supplied, using similar colours and general patterns, without their logos or artwork, because those marks are not the owner's to license and the repository is public. Expiry and security code stay masked and no cardholder name appears, because none is stored. It is the app's drawing, not the bank's artwork, and the page says so. Accounts with no card stay plain panels, as the addendum asks. This replaces the earlier design, where panels were deliberately not card-shaped. Official artwork can replace the drawing if licensed. |
+| D16 | How fees and payouts attach to a prop firm account (2026-11-04) | **As links to records that already exist.** Trading never writes to the ledger: the expense or payout is recorded first and then linked, and a link moves no money. An expense can be one account's fee once, and may also pay an obligation or purchase. Fees count unless reversed, and payouts once received, for what reached the account. Per currency, unconverted. Owner only. |

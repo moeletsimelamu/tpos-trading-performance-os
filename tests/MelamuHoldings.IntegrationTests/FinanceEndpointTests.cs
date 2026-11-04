@@ -288,6 +288,14 @@ public class FinanceAccessTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Payment_cards_reject_anonymous_requests()
+    {
+        var client = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/financial-accounts/1/cards", new { kind = "Debit" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsync("/api/financial-accounts/1/cards/1/cancel", null)).StatusCode);
+    }
+
+    [Fact]
     public async Task A_valid_token_without_the_owner_role_cannot_reach_finance()
     {
         var client = _factory.CreateClient();
@@ -296,6 +304,14 @@ public class FinanceAccessTests : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/balances")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/payouts")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/allocations/preview", new { payoutId = 1 })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/financial-accounts/1/cards", new { kind = "Debit" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/financial-accounts/1/cards/1/cancel", null)).StatusCode);
+        // A trader's own prop accounts stay open to them; the money linked to them is the owner's
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/prop-accounts")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/prop-accounts/fees-and-payouts")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/prop-accounts/1/ledger")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/prop-accounts/1/ledger/fees", new { transactionId = 1, kind = "Other" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/prop-accounts/1/ledger/payouts/1", null)).StatusCode);
         foreach (var path in new[] { "/api/obligations", "/api/continuity", "/api/investments", "/api/budgets", "/api/planned-purchases", "/api/unrestricted-cash" })
             Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/trades")).StatusCode);

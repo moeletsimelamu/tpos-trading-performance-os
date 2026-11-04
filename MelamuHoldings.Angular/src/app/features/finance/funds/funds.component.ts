@@ -78,7 +78,12 @@ type LoadState = 'loading' | 'ready' | 'error';
                       <a [routerLink]="['/finance/transactions']" [queryParams]="{ fundId: f.id }">{{ f.name }}</a>
                       @if (f.isSystem) { <span class="tag tag-info system">System</span> }
                     </td>
-                    <td class="small">{{ f.description ?? '' }}</td>
+                    <td class="small">
+                      {{ f.description ?? '' }}
+                      @if (f.accounts?.length) {
+                        <div class="muted">Accounts: @for (a of f.accounts; track a.id; let last = $last) { <a [routerLink]="['/finance/transactions']" [queryParams]="{ accountId: a.id }">{{ a.name }}</a>@if (!last) {, } }</div>
+                      }
+                    </td>
                     <td class="num">
                       @for (b of f.balances; track b.currency) { <div>{{ b.amount | money: b.currency }}</div> }
                       @empty { <span class="muted">Nothing recorded</span> }

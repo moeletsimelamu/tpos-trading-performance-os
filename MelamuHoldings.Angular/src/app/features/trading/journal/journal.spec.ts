@@ -59,12 +59,65 @@ describe('TradeFormComponent', () => {
   let http: HttpTestingController;
   afterEach(() => http.verify());
 
+  it('links a trade to a prop firm account, which takes over the account name and the currency', async () => {
+    http = configure(TradeFormComponent);
+    const fixture = TestBed.createComponent(TradeFormComponent);
+    await fixture.whenStable();
+    http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([
+      { id: 5, nickname: 'Attempt 1', firm: 'Test Firm', status: 'Active', accountSize: { amount: 100000, currency: 'ZAR' } },
+      { id: 6, nickname: 'Finished', firm: 'Test Firm', status: 'Closed', accountSize: { amount: 100000, currency: 'USD' } }
+    ]);
+    await fixture.whenStable();
+    const c = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('#t-prop-account')!.textContent).toContain('Attempt 1 (Test Firm)');
+    expect(el.querySelector('#t-prop-account')!.textContent).not.toContain('Finished');
+    expect(el.querySelector('#t-account')).not.toBeNull();
+
+    c.form.patchValue({ tradeDate: '2026-10-26', instrument: 'EURUSD', tradingAccount: 'Typed before', currency: 'USD' });
+    c.form.controls.propAccountId.setValue(5);
+    await fixture.whenStable();
+    expect(c.form.controls.currency.disabled).toBe(true);
+    expect(c.form.controls.currency.value).toBe('ZAR');
+
+    c.save('Draft');
+    const req = http.expectOne(`${api}/trades`);
+    expect(req.request.body).toMatchObject({ propAccountId: 5, tradingAccount: null, currency: 'ZAR' });
+    req.flush(trade({ status: 'Draft' }));
+
+    c.form.controls.propAccountId.setValue(null);
+    expect(c.form.controls.currency.enabled).toBe(true);
+  });
+
+  it('keeps the closed account a trade is already on, showing no free-text name for it', async () => {
+    http = configure(TradeFormComponent, 5);
+    const fixture = TestBed.createComponent(TradeFormComponent);
+    await fixture.whenStable();
+    http.expectOne(`${api}/trades/5`).flush(trade({ propAccountId: 6, tradingAccount: 'Finished', currency: 'USD' }));
+    http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([
+      { id: 6, nickname: 'Finished', firm: 'Test Firm', status: 'Closed', accountSize: { amount: 100000, currency: 'USD' } }
+    ]);
+    await fixture.whenStable();
+    const c = fixture.componentInstance;
+
+    expect(c.propAccountChoices().map(a => a.id)).toEqual([6]);
+    expect(c.form.controls.propAccountId.value).toBe(6);
+    expect(c.form.controls.tradingAccount.value).toBe('');
+    expect((fixture.nativeElement as HTMLElement).querySelector('#t-account')).toBeNull();
+  });
+
   it('saves a draft with only date and instrument, sending empty fields as null, with an idempotency key', async () => {
     http = configure(TradeFormComponent);
     const fixture = TestBed.createComponent(TradeFormComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
     http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     const c = fixture.componentInstance;
     c.form.patchValue({ tradeDate: '2026-10-26', instrument: ' EURUSD ', session: 'London' });
 
@@ -82,6 +135,7 @@ describe('TradeFormComponent', () => {
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
     http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     const c = fixture.componentInstance;
     c.form.patchValue({ instrument: 'EURUSD', direction: 'Short', entryTime: '09:31', entryPrice: 1.0825 });
 
@@ -99,6 +153,7 @@ describe('TradeFormComponent', () => {
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
     http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     const c = fixture.componentInstance;
     c.form.patchValue({ instrument: 'EURUSD', direction: 'Short', entryTime: '09:31', entryPrice: 1.0825, exitPrice: 1.08, pnL: 375, riskAmount: 150 });
     expect(c.calculatedR()).toBe('2.50');
@@ -121,6 +176,7 @@ describe('TradeFormComponent', () => {
     http.expectOne(`${api}/trades/5`).flush(trade({ status: 'Reviewed', reviewNotes: 'Good trade', journal: journal({ answers: { valid: 'Yes' } }) }));
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
     http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     await fixture.whenStable();
     const c = fixture.componentInstance;
 
@@ -142,6 +198,7 @@ describe('TradeFormComponent', () => {
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
     http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     await fixture.whenStable();
     const c = fixture.componentInstance;
 
@@ -167,6 +224,7 @@ describe('TradeFormComponent', () => {
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
     http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
 
     expect(fixture.componentInstance.journalVersionId()).toBe(21);   // the Scalp template, not the default
   });
@@ -177,6 +235,7 @@ describe('TradeFormComponent', () => {
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
     http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     const c = fixture.componentInstance;
     c.onAnswers({ valid: 'Yes', mood: 'Calm' });
 
@@ -196,6 +255,7 @@ describe('TradeFormComponent', () => {
     http.expectOne(`${api}/trades/5`).flush(trade({ journal: journal({ templateVersionId: 10, version: 1, latestVersion: 2, answers: { valid: 'No' } }) }));
     http.expectOne(`${api}/journal-templates`).flush([template(1, 11, STANDARD, { currentVersion: 2 })]);
     http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     await fixture.whenStable();
     const c = fixture.componentInstance;
 
@@ -219,6 +279,7 @@ describe('TradeFormComponent', () => {
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(null, { status: 500, statusText: 'Server Error' });
     http.expectOne(`${api}/strategies`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     await fixture.whenStable();
     const c = fixture.componentInstance;
 

@@ -12,6 +12,7 @@ import { AdherenceReport, AdherenceTrend, AnswerBreakdown, SaveStrategy, Strateg
 import { AnalyticsFilter, AnalyticsFilterOptions, filterParams } from './models/analytics-filter.model';
 import { AiJournalAnswer, AiReviewDraft, AiReviewStatus } from './models/ai-review.model';
 import { CalendarMonth, ImportMatch, JournalOverview, LinkResult, MatchDecision, TradeAttachment } from './models/journal-view.model';
+import { CreatePropAccount, PropAccount, PropAccountFeeCandidate, PropAccountFeeKind, PropAccountLedger, PropAccountPayout, PropAccountPhase, PropAccountReport, PropAccountRules, PropAccountStatus, UpdatePropAccount } from './models/prop-account.model';
 
 @Injectable({ providedIn: 'root' })
 export class TradingApiService {
@@ -89,6 +90,86 @@ export class TradingApiService {
     return this.http.post<Strategy>(`${this.base}/strategies/${id}/rules/${ruleId}/restore`, {});
   }
 
+  // ---- Prop firm accounts ----
+
+  getPropAccounts(includeClosed = false): Observable<PropAccount[]> {
+    const params = includeClosed ? new HttpParams().set('includeClosed', true) : undefined;
+    return this.http.get<PropAccount[]>(`${this.base}/prop-accounts`, { params });
+  }
+
+  getPropAccount(id: number): Observable<PropAccount> {
+    return this.http.get<PropAccount>(`${this.base}/prop-accounts/${id}`);
+  }
+
+  // Owner only: which fees and payouts belong to which account. Links only, so no money moves.
+  getPropAccountReport(): Observable<PropAccountReport> {
+    return this.http.get<PropAccountReport>(`${this.base}/prop-accounts/fees-and-payouts`);
+  }
+
+  getPropAccountLedger(id: number): Observable<PropAccountLedger> {
+    return this.http.get<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger`);
+  }
+
+  getPropAccountFeeCandidates(id: number): Observable<PropAccountFeeCandidate[]> {
+    return this.http.get<PropAccountFeeCandidate[]>(`${this.base}/prop-accounts/${id}/ledger/fee-candidates`);
+  }
+
+  getPropAccountPayoutCandidates(id: number): Observable<PropAccountPayout[]> {
+    return this.http.get<PropAccountPayout[]>(`${this.base}/prop-accounts/${id}/ledger/payout-candidates`);
+  }
+
+  linkPropAccountFee(id: number, body: { transactionId: number; kind: PropAccountFeeKind }): Observable<PropAccountLedger> {
+    return this.http.post<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger/fees`, body);
+  }
+
+  unlinkPropAccountFee(id: number, feeId: number): Observable<PropAccountLedger> {
+    return this.http.delete<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger/fees/${feeId}`);
+  }
+
+  linkPropAccountPayout(id: number, payoutId: number): Observable<PropAccountLedger> {
+    return this.http.post<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger/payouts/${payoutId}`, null);
+  }
+
+  unlinkPropAccountPayout(id: number, payoutId: number): Observable<PropAccountLedger> {
+    return this.http.delete<PropAccountLedger>(`${this.base}/prop-accounts/${id}/ledger/payouts/${payoutId}`);
+  }
+
+  getPropAccountCurrencies(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/prop-accounts/currencies`);
+  }
+
+  createPropAccount(body: CreatePropAccount): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts`, body);
+  }
+
+  updatePropAccount(id: number, body: UpdatePropAccount): Observable<PropAccount> {
+    return this.http.put<PropAccount>(`${this.base}/prop-accounts/${id}`, body);
+  }
+
+  changePropAccountRules(id: number, body: { effectiveFrom: string; rules: PropAccountRules }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/rules`, body);
+  }
+
+  movePropAccountPhase(id: number, body: { phase: PropAccountPhase; date: string; startingBalance: number | null; login: string | null; rules: PropAccountRules; reason: string | null }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/phase`, body);
+  }
+
+  changePropAccountStatus(id: number, body: { status: PropAccountStatus; date: string; reason: string | null }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/status`, body);
+  }
+
+  resetPropAccount(id: number, body: { date: string; startingBalance: number | null; note: string | null }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/reset`, body);
+  }
+
+  recordPropAccountBalance(id: number, body: { asOf: string; balance: number; drawdownLevel: number | null; note: string | null }): Observable<PropAccount> {
+    return this.http.post<PropAccount>(`${this.base}/prop-accounts/${id}/balances`, body);
+  }
+
+  removePropAccountBalance(id: number, balanceId: number): Observable<PropAccount> {
+    return this.http.delete<PropAccount>(`${this.base}/prop-accounts/${id}/balances/${balanceId}`);
+  }
+
   // Adherence takes the same filter as every other figure (a strategy page passes its strategyId)
   getAdherence(filter: AnalyticsFilter = {}): Observable<AdherenceReport> {
     return this.http.get<AdherenceReport>(`${this.base}/analytics/adherence`, { params: filterParams(filter) });
@@ -120,9 +201,11 @@ export class TradingApiService {
   }
 
   // Upload
-  uploadCsv(file: File): Observable<UploadResult> {
+  // A whole file can be put on one prop firm account, because a CSV has no account column
+  uploadCsv(file: File, propAccountId: number | null = null): Observable<UploadResult> {
     const form = new FormData();
     form.append('file', file);
+    if (propAccountId !== null) form.append('propAccountId', String(propAccountId));
     return this.http.post<UploadResult>(`${this.base}/upload`, form);
   }
 

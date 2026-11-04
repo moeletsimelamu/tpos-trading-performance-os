@@ -430,6 +430,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("datetime2");
 
@@ -439,6 +444,9 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasColumnType("char(3)");
+
+                    b.Property<int?>("HomeFundId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Institution")
                         .HasMaxLength(100)
@@ -453,12 +461,24 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateOnly?>("OpenedOn")
+                        .HasColumnType("date");
+
                     b.Property<string>("Ownership")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("Reference")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TaxTreatment")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -469,6 +489,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("HomeFundId");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -811,6 +833,57 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.ToTable("ObligationPayments", "finance");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PaymentCard", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinancialAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Finish")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("LastFour")
+                        .HasColumnType("char(4)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Network")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FinancialAccountId");
+
+                    b.ToTable("PaymentCards", "finance");
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.Payout", b =>
                 {
                     b.Property<int>("Id")
@@ -858,6 +931,9 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("PropFirmAccountId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("ReceivedIntoAccountId")
                         .HasColumnType("int");
@@ -913,6 +989,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.HasIndex("IncomeTransactionId")
                         .IsUnique()
                         .HasFilter("[IncomeTransactionId] IS NOT NULL");
+
+                    b.HasIndex("PropFirmAccountId");
 
                     b.HasIndex("ReceivedIntoAccountId");
 
@@ -996,6 +1074,42 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasFilter("[Status] IN ('Proposed', 'Committed')");
 
                     b.ToTable("PlannedPurchases", "finance");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PropAccountFee", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("LedgerTransactionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LinkedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LinkedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PropFirmAccountId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LedgerTransactionId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PropAccountFees_LedgerTransactionId");
+
+                    b.HasIndex("PropFirmAccountId");
+
+                    b.ToTable("PropAccountFees", "finance");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Identity.User", b =>
@@ -1266,6 +1380,238 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.ToTable("TradeJournalEntries");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountBalance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<DateOnly>("AsOf")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("DrawdownLevel")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("PropFirmAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PropFirmAccountId", "AsOf")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PropAccountBalances_PropFirmAccountId_AsOf");
+
+                    b.ToTable("PropAccountBalances", (string)null);
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Login")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateOnly>("OccurredOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("PropFirmAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("StartingBalance")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PropFirmAccountId");
+
+                    b.ToTable("PropAccountEvents", (string)null);
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountRuleSet", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("DailyLossLimit")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("DrawdownModel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("MaxDrawdown")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<int?>("MinimumTradingDays")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("MonthlyFee")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<decimal?>("PayoutSplitPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal?>("ProfitTarget")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<int>("PropFirmAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("PurchaseFee")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<decimal?>("ResetFee")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<bool>("TrailingLocksAtStart")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PropFirmAccountId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("PropAccountRuleSets", (string)null);
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropFirmAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AccountSize")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("char(3)");
+
+                    b.Property<string>("Firm")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Login")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Nickname")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateOnly>("OpenedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateOnly>("RunStartedOn")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("StartingBalance")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Nickname")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PropFirmAccounts_UserId_Nickname_Open")
+                        .HasFilter("[Status] <> 'Closed'");
+
+                    b.ToTable("PropFirmAccounts");
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Strategy", b =>
                 {
                     b.Property<int>("Id")
@@ -1421,6 +1767,9 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Property<decimal?>("PositionSize")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<int?>("PropFirmAccountId")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("RR")
                         .HasColumnType("decimal(8,2)");
 
@@ -1472,6 +1821,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PropFirmAccountId");
 
                     b.HasIndex("StrategyId");
 
@@ -1745,6 +2096,14 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.FinancialAccount", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Finance.Fund", null)
+                        .WithMany()
+                        .HasForeignKey("HomeFundId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.InvestmentValuation", b =>
                 {
                     b.HasOne("MelamuHoldings.Domain.Finance.FinancialAccount", null)
@@ -1804,6 +2163,15 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PaymentCard", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Finance.FinancialAccount", null)
+                        .WithMany("Cards")
+                        .HasForeignKey("FinancialAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.Payout", b =>
                 {
                     b.HasOne("MelamuHoldings.Domain.Identity.User", null)
@@ -1815,6 +2183,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.HasOne("MelamuHoldings.Domain.Finance.LedgerTransaction", null)
                         .WithMany()
                         .HasForeignKey("IncomeTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", null)
+                        .WithMany()
+                        .HasForeignKey("PropFirmAccountId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("MelamuHoldings.Domain.Finance.FinancialAccount", null)
@@ -1835,6 +2208,21 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("LedgerTransactionId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PropAccountFee", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Finance.LedgerTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("LedgerTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", null)
+                        .WithMany()
+                        .HasForeignKey("PropFirmAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.ChecklistItem", b =>
@@ -1914,6 +2302,42 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountBalance", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", null)
+                        .WithMany("Balances")
+                        .HasForeignKey("PropFirmAccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountEvent", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", null)
+                        .WithMany("Events")
+                        .HasForeignKey("PropFirmAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropAccountRuleSet", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", null)
+                        .WithMany("RuleSets")
+                        .HasForeignKey("PropFirmAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropFirmAccount", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Strategy", b =>
                 {
                     b.HasOne("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", null)
@@ -1939,6 +2363,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Trade", b =>
                 {
+                    b.HasOne("MelamuHoldings.Domain.Trading.PropFirmAccount", "PropFirmAccount")
+                        .WithMany()
+                        .HasForeignKey("PropFirmAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("MelamuHoldings.Domain.Trading.Strategy", "Strategy")
                         .WithMany("Trades")
                         .HasForeignKey("StrategyId")
@@ -1953,6 +2382,8 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("PropFirmAccount");
 
                     b.Navigation("Strategy");
 
@@ -2022,6 +2453,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.Navigation("Lines");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.FinancialAccount", b =>
+                {
+                    b.Navigation("Cards");
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.LedgerTransaction", b =>
                 {
                     b.Navigation("Entries");
@@ -2040,6 +2476,15 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Journal.JournalTemplate", b =>
                 {
                     b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Trading.PropFirmAccount", b =>
+                {
+                    b.Navigation("Balances");
+
+                    b.Navigation("Events");
+
+                    b.Navigation("RuleSets");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Trading.Strategy", b =>

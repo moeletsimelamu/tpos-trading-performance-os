@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<TradeAttachment> TradeAttachments => Set<TradeAttachment>();
     public DbSet<ImportMatch> ImportMatches => Set<ImportMatch>();
     public DbSet<TradeRevision> TradeRevisions => Set<TradeRevision>();
+    public DbSet<PropFirmAccount> PropFirmAccounts => Set<PropFirmAccount>();
 
     public DbSet<Fund> Funds => Set<Fund>();
     public DbSet<FinancialAccount> FinancialAccounts => Set<FinancialAccount>();
@@ -31,6 +32,7 @@ public class AppDbContext : DbContext
     public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<Payout> Payouts => Set<Payout>();
+    public DbSet<PropAccountFee> PropAccountFees => Set<PropAccountFee>();
     public DbSet<AllocationPolicy> AllocationPolicies => Set<AllocationPolicy>();
     public DbSet<Allocation> Allocations => Set<Allocation>();
     public DbSet<Obligation> Obligations => Set<Obligation>();
@@ -69,13 +71,19 @@ public class AppDbContext : DbContext
         modelBuilder.ApplyConfiguration(new TradeAttachmentConfiguration());
         modelBuilder.ApplyConfiguration(new ImportMatchConfiguration());
         modelBuilder.ApplyConfiguration(new TradeRevisionConfiguration());
+        modelBuilder.ApplyConfiguration(new PropFirmAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new PropAccountEventConfiguration());
+        modelBuilder.ApplyConfiguration(new PropAccountRuleSetConfiguration());
+        modelBuilder.ApplyConfiguration(new PropAccountBalanceConfiguration());
 
         modelBuilder.ApplyConfiguration(new FundConfiguration());
         modelBuilder.ApplyConfiguration(new FinancialAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new PaymentCardConfiguration());
         modelBuilder.ApplyConfiguration(new LedgerTransactionConfiguration());
         modelBuilder.ApplyConfiguration(new LedgerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new AuditEventConfiguration());
         modelBuilder.ApplyConfiguration(new PayoutConfiguration());
+        modelBuilder.ApplyConfiguration(new PropAccountFeeConfiguration());
         modelBuilder.ApplyConfiguration(new AllocationPolicyConfiguration());
         modelBuilder.ApplyConfiguration(new AllocationPolicyLineConfiguration());
         modelBuilder.ApplyConfiguration(new AllocationConfiguration());

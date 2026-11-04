@@ -27,7 +27,8 @@ public record ValuationDto(
 public record InvestmentAccountDto(
     int AccountId, string AccountName, string Currency, string? Institution, Ownership Ownership, FinancialAccountStatus Status,
     DateOnly AsOf, ValuationDto? Latest, MoneyDto NetContributions, MoneyDto RecordedIncome, MoneyDto RecordedCosts, MoneyDto RecordedBalance,
-    MoneyDto? Unrealised, MoneyDto? GainOnContributions, int TransactionsSinceValuation, MoneyDto MovedSinceValuation, MoneyDto CurrentRecordedBalance);
+    MoneyDto? Unrealised, MoneyDto? GainOnContributions, int TransactionsSinceValuation, MoneyDto MovedSinceValuation, MoneyDto CurrentRecordedBalance,
+    TaxTreatment TaxTreatment);
 
 // Accounts with a valuation, per currency; never added across currencies. Valuations may be of different dates.
 public record InvestmentTotalDto(string Currency, decimal Value, decimal NetContributions, decimal Unrealised, int Accounts);
@@ -139,7 +140,8 @@ public class InvestmentService
             latest is null ? null : M(latest.GainOnContributions(contributions)),
             latest is null ? 0 : after.Select(e => e.TransactionId).Distinct().Count(),
             M(latest is null ? 0 : after.Sum(e => e.Amount)),
-            M(entries.Sum(e => e.Amount)));
+            M(entries.Sum(e => e.Amount)),
+            account.TaxTreatment);
     }
 
     private static ValuationDto Dto(InvestmentValuation v, List<InvestmentEntryRow> entries)

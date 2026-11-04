@@ -240,4 +240,41 @@ describe('PayoutsComponent', () => {
     expect(fixture.componentInstance.expected()).toEqual([{ currency: 'USD', amount: 1950 }]);
     expect(fixture.nativeElement.textContent).toContain('Not cash');
   });
+
+  it('records a request against a prop account, filling in who pays it, and works when there are none', async () => {
+    http = configure(PayoutsComponent);
+    const fixture = TestBed.createComponent(PayoutsComponent);
+    await fixture.whenStable();
+    http.expectOne(`${api}/payouts`).flush([]);
+    http.expectOne(`${api}/currencies`).flush([{ code: 'USD', minorUnits: 2 }]);
+    await fixture.whenStable();
+    const c = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+
+    c.toggleForm();
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([{ id: 5, firm: 'Test Firm', nickname: '100k attempt 1' }]);
+    await fixture.whenStable();
+    expect(el.querySelector('#po-prop')!.textContent).toContain('100k attempt 1 · Test Firm');
+
+    c.form.patchValue({ propFirmAccountId: 5, currency: 'USD', amount: 1000, requestedOn: '2026-11-04' });
+    c.fillSource();
+    expect(c.form.controls.source.value).toBe('Test Firm');
+    c.form.controls.source.setValue('Paid by someone else');
+    c.fillSource();
+    expect(c.form.controls.source.value).toBe('Paid by someone else');
+
+    c.create();
+    const req = http.expectOne(`${api}/payouts`);
+    expect(req.request.body.propFirmAccountId).toBe(5);
+    req.flush(payout({}));
+    http.expectOne(`${api}/payouts`).flush([payout({ propFirmAccountId: 5, propAccountName: '100k attempt 1' })]);
+    await fixture.whenStable();
+    expect(el.querySelector('tbody')!.textContent).toContain('100k attempt 1');
+
+    // No prop accounts, or not allowed to read them: the form still works and asks nothing about them
+    c.toggleForm();
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush(null, { status: 500, statusText: 'Server Error' });
+    await fixture.whenStable();
+    expect(c.showForm()).toBe(true);
+  });
 });

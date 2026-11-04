@@ -60,7 +60,28 @@ public class FinancialAccountConfiguration : IEntityTypeConfiguration<FinancialA
         builder.Property(a => a.Currency).IsCurrencyCode();
         builder.Property(a => a.Institution).HasMaxLength(FinancialAccount.MaxInstitutionLength);
         builder.Property(a => a.Notes).HasMaxLength(FinancialAccount.MaxNotesLength);
+        builder.Property(a => a.Category).HasConversion<string>().HasMaxLength(20);
+        builder.Property(a => a.TaxTreatment).HasConversion<string>().HasMaxLength(20);
+        builder.Property(a => a.Reference).HasMaxLength(FinancialAccount.MaxReferenceLength);
+        builder.HasOne<Fund>().WithMany().HasForeignKey(a => a.HomeFundId).OnDelete(DeleteBehavior.Restrict);
         builder.Ignore(a => a.IsClosed);
+        builder.Ignore(a => a.CountsAsBusinessCash);
+        builder.HasMany(a => a.Cards).WithOne().HasForeignKey(c => c.FinancialAccountId).IsRequired().OnDelete(DeleteBehavior.Restrict);
+        builder.Navigation(a => a.Cards).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+public class PaymentCardConfiguration : IEntityTypeConfiguration<PaymentCard>
+{
+    public void Configure(EntityTypeBuilder<PaymentCard> builder)
+    {
+        builder.ToTable("PaymentCards", FinanceSchema.Name);
+        builder.Property(c => c.Kind).HasConversion<string>().HasMaxLength(20);
+        builder.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(c => c.Network).HasConversion<string>().HasMaxLength(20);
+        builder.Property(c => c.Finish).HasConversion<string>().HasMaxLength(20);
+        builder.Property(c => c.Name).HasMaxLength(PaymentCard.MaxNameLength);
+        builder.Property(c => c.LastFour).HasColumnType("char(4)");
     }
 }
 

@@ -8,6 +8,7 @@ import { REQUIRED_FOR, SaveStatus, SaveTrade, Trade } from '../models/trade.mode
 import { JournalAnswers, JournalSection, JournalTemplate, carryAnswers, isAnswered } from '../models/journal.model';
 import { JournalFieldsComponent } from './journal-fields.component';
 import { RULE_ANSWERS, RuleAnswer, RuleCategory, Strategy, groupByCategory } from '../models/strategy.model';
+import { PropAccount } from '../models/prop-account.model';
 import { newIdempotencyKey, todayIso } from '../../finance/finance-api.service';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
@@ -101,6 +102,10 @@ export class TradeFormComponent {
   readonly checks = signal<Record<number, RuleAnswer>>({});
   private checklistChanged = false;
 
+  // Closed accounts take no new trades, but a trade already on one keeps it
+  readonly propAccounts = signal<PropAccount[]>([]);
+  readonly propAccountChoices = computed(() => this.propAccounts().filter(a => a.status !== 'Closed' || a.id === this.original()?.propAccountId));
+
   // A checklist already started keeps its own copy of the rules; otherwise the strategy's active rules
   readonly checklistRules = computed<{ ruleId: number; text: string; isMandatory: boolean; category: RuleCategory }[]>(() => {
     const name = (this.value().strategyName ?? '').trim().toLowerCase();
@@ -181,6 +186,7 @@ export class TradeFormComponent {
     direction: [null as 'Long' | 'Short' | null],
     session: ['', Validators.maxLength(50)],
     strategyName: ['', Validators.maxLength(100)],
+    propAccountId: [null as number | null],
     tradingAccount: ['', Validators.maxLength(100)],
     currency: [null as string | null],
     entryTime: [null as string | null],
@@ -216,6 +222,12 @@ export class TradeFormComponent {
       if (!this.saving()) this.key = newIdempotencyKey();
       this.missing.set([]);
     });
+    this.form.controls.propAccountId.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.applyAccount());
+    this.api.getPropAccounts(true).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: a => { this.propAccounts.set(a); this.applyAccount(); },
+      // The form still works without them: the trade just is not linked
+      error: () => {}
+    });
     if (this.editingId) this.load();
     this.loadTemplates();
     // A new trade naming a strategy starts with that strategy's journal template, as long as nothing has been
@@ -230,6 +242,16 @@ export class TradeFormComponent {
       });
     });
     this.loadStrategies();
+  }
+
+  // A linked trade is in its account's currency, so the choice is taken away
+  private applyAccount(): void {
+    const id = this.form.controls.propAccountId.value;
+    const currency = this.form.controls.currency;
+    if (id === null) { currency.enable({ emitEvent: false }); return; }
+    const account = this.propAccounts().find(a => a.id === id);
+    if (account) currency.setValue(account.accountSize.currency, { emitEvent: false });
+    currency.disable({ emitEvent: false });
   }
 
   loadStrategies(): void {
@@ -318,7 +340,7 @@ export class TradeFormComponent {
         this.original.set(t);
         this.form.reset({
           tradeDate: t.tradeDate, instrument: t.instrument, direction: t.direction ?? null, session: t.session ?? '',
-          strategyName: t.strategyName ?? '', tradingAccount: t.tradingAccount ?? '', currency: t.currency ?? null,
+          strategyName: t.strategyName ?? '', propAccountId: t.propAccountId ?? null, tradingAccount: t.propAccountId ? '' : t.tradingAccount ?? '', currency: t.currency ?? null,
           entryTime: t.entryTime?.slice(0, 5) ?? null, entryPrice: t.entryPrice ?? null, stopLoss: t.stopLoss ?? null,
           takeProfit: t.takeProfit ?? null, positionSize: t.positionSize ?? null, riskAmount: t.riskAmount ?? null,
           exitDate: t.exitDate ?? null, exitTime: t.exitTime?.slice(0, 5) ?? null, exitPrice: t.exitPrice ?? null,
@@ -371,7 +393,7 @@ export class TradeFormComponent {
     return {
       status: status ?? undefined,
       tradeDate: v.tradeDate!, instrument: v.instrument!.trim(), direction: v.direction,
-      session: v.session?.trim() ?? '', strategyName: text(v.strategyName), tradingAccount: text(v.tradingAccount),
+      session: v.session?.trim() ?? '', strategyName: text(v.strategyName), propAccountId: v.propAccountId, tradingAccount: v.propAccountId ? null : text(v.tradingAccount),
       currency: v.currency, entryTime: v.entryTime || null, entryPrice: num(v.entryPrice), stopLoss: num(v.stopLoss),
       takeProfit: num(v.takeProfit), positionSize: num(v.positionSize), riskAmount: num(v.riskAmount),
       exitDate: v.exitDate || null, exitTime: v.exitTime || null, exitPrice: num(v.exitPrice), pnL: num(v.pnL),

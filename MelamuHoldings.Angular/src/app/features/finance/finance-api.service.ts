@@ -2,11 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Account, AccountType, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, BudgetLine, BudgetMonth, ContinuityReport, UnrestrictedCashReport, ContinuitySettings, CurrencyInfo, Fund, Investments, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PlannedPurchase, PayoutStatus, RecordKind, RecordValuation, SaveContinuitySettings, SaveFund, SaveObligation, SavePlannedPurchase, Transaction, TransactionFilter, Valuation } from './finance.models';
+import { Account, AccountCategory, AccountType, CardFinish, PaymentCardKind, PaymentCardNetwork, TaxTreatment, Allocation, AllocationPolicy, AllocationPreview, AuditEvent, Balances, BudgetLine, BudgetMonth, ContinuityReport, UnrestrictedCashReport, ContinuitySettings, CurrencyInfo, Fund, Investments, Obligation, Overview, Ownership, Paged, PaymentCandidate, Payout, PlannedPurchase, PayoutStatus, RecordKind, RecordValuation, SaveContinuitySettings, SaveFund, SaveObligation, SavePlannedPurchase, Transaction, TransactionFilter, Valuation } from './finance.models';
 
 export interface CreateAccountRequest {
-  name: string; type: AccountType; currency: string; ownership: Ownership; institution?: string; notes?: string;
+  name: string; type: AccountType; currency: string; ownership: Ownership; institution?: string | null; notes?: string | null;
+  category: AccountCategory; taxTreatment: TaxTreatment; reference: string | null; openedOn: string | null; homeFundId: number | null;
 }
+
+export type UpdateAccountRequest = Omit<CreateAccountRequest, 'type' | 'currency'>;
 
 @Injectable({ providedIn: 'root' })
 export class FinanceApiService {
@@ -28,6 +31,18 @@ export class FinanceApiService {
 
   createAccount(request: CreateAccountRequest): Observable<Account> {
     return this.http.post<Account>(`${this.base}/financial-accounts`, request);
+  }
+
+  updateAccount(id: number, request: UpdateAccountRequest): Observable<Account> {
+    return this.http.put<Account>(`${this.base}/financial-accounts/${id}`, request);
+  }
+
+  addPaymentCard(accountId: number, request: { kind: PaymentCardKind; name: string | null; lastFour: string | null; network: PaymentCardNetwork; finish: CardFinish }): Observable<Account> {
+    return this.http.post<Account>(`${this.base}/financial-accounts/${accountId}/cards`, request);
+  }
+
+  cancelPaymentCard(accountId: number, cardId: number): Observable<Account> {
+    return this.http.post<Account>(`${this.base}/financial-accounts/${accountId}/cards/${cardId}/cancel`, {});
   }
 
   closeAccount(id: number): Observable<Account> {

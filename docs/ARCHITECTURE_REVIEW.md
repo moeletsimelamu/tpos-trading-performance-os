@@ -152,9 +152,9 @@ Logging in needs either the owner's real password, which I must not enter, or a 
 | W8 | **Fixed** | The login route renders outside a new `ShellComponent`; Sign out works. |
 | W9 | **Fixed** | `CreateTradeDto` validation returns 400 with field errors. |
 | W10 | **Fixed** | ProblemDetails for all errors (exception handler, status pages, `Problem()`). |
-| W11 | Open (Phase 8) | CSV duplicate detection and atomic import. |
-| W12 | Open (Phase 8) | Per-user strategies. |
-| W13 | **Partly fixed** | Expectancy counted breakevens as losses and has been corrected. Profit factor with zero losses still returns gross profit (a test pins it until the Phase 8 contract change). |
+| W11 | **Fixed** | Duplicate detection arrived in J5. In P8.5, one transaction made import atomic, and an unreadable entry time became a row error instead of midnight (`PHASE_8_REVIEW.md`). |
+| W12 | **Fixed** | Strategies became per-user with management pages in J4, confirmed in P8.5. |
+| W13 | **Fixed** | Expectancy counted breakevens as losses and has been corrected. Date filters arrived in J6. In P8.4, profit factor with no losses became undefined (`null`), and equity-curve drawdown became an amount. |
 | W14 | **Fixed**, except the `BehaviourAlerts` table | Dead files and SSR packages removed. The table stays until a Phase 3 migration drops it. |
 | W15 | **Fixed** | `JwtService` uses `IOptions<JwtOptions>`. |
 | W16 | Partly | CI added and passing on GitHub (run 40508109510). The README merges the useful parts of the GitHub README (metric definitions, CSV format, endpoints) with the current setup; the full README is Phase 10. |

@@ -22,7 +22,7 @@ export const MAX_MONTHS = 120;
   template: `
     <div class="page">
       <app-page-header section="Finance" title="Continuity"
-        description="How many months of essential expenses the continuity reserve covers, counted from recorded balances. Money in another currency, outside bank and cash accounts, or not yet earmarked is shown but never counted.">
+        description="How many months of essential expenses the continuity reserve covers, counted from recorded balances. Money in another currency, outside company bank and cash accounts, or not yet earmarked is shown but never counted.">
         @if (!editing()) { <button type="button" class="btn" (click)="startEdit()" [disabled]="state() !== 'ready'">Change settings</button> }
       </app-page-header>
 
@@ -71,7 +71,7 @@ export const MAX_MONTHS = 120;
               <div class="metric">
                 <span class="metric-label">Counted · {{ r.cash.currency }}</span>
                 <span class="metric-value">{{ r.cash.amount | money: r.cash.currency }}</span>
-                <span class="metric-note">{{ r.settings.continuityFundName }}, bank and cash accounts</span>
+                <span class="metric-note">{{ r.settings.continuityFundName }}, company bank and cash accounts</span>
               </div>
               @if (r.target; as t) {
                 <div class="metric">

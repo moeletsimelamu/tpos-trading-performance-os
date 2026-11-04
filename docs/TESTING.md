@@ -49,6 +49,292 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-04 (branch `phase-8-5-verification`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 385 passed, 0 failed |
+| `dotnet test` (Release): integration | 156 passed, 0 failed, on two consecutive runs |
+| `ng test --watch=false` | 252 passed, 0 failed (32 files) |
+| `ng build` (production) | Succeeded; initial bundle 340.13 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes pending. No migration. |
+
+An earlier run in this stage was discarded: a running API locked the output files, the build failed, and the tests ran against old binaries (147 integration tests). After that regression, a one-sentence change on the Import page's help text was followed by another `ng test` and `ng build`.
+
+**New tests (`CsvImportIntegrityEndpointTests`), all nine failing on the old code first:**
+
+- A database rule rejects a file's last row. On the old code, two earlier trades remained. Now no trade, match or new strategy remains, the log reads Failed, the same file then imports in full, and a third upload finds only duplicates.
+- A value too large for `RR`, `EntryPrice` or `PnL` is that row's error, and the other rows import.
+- An unreadable or blank entry time is that row's error, not midnight.
+- The same row twice in one file imports once, and asks once when it matches a hand-entered trade.
+
+**Checked in the running app** (scratch database, test owner): a file of five rows through the Import page read as 2 imported, 1 already imported and 2 failed, naming `Row 4: Invalid EntryTime 'half past nine'.` and `Row 5: RR is too large.` The trades were saved with the right times. The Payouts page shows a linked payout's prop account.
+
+**Not checked in a browser:** the Import page's message when an import fails outright.
+
+The requirement trace and the gaps are in `PHASE_8_REVIEW.md`.
+
+## Results — 2026-11-04 (branch `phase-8-4-analytics-definitions`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 385 passed, 0 failed |
+| `dotnet test` (Release): integration | 147 passed, 0 failed |
+| `ng test --watch=false` | 252 passed, 0 failed (32 files) |
+| `ng build` (production) | Succeeded; initial bundle 340.13 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes pending. No migration: nothing stored changed. |
+
+**How the tests show nothing else moved:** `AnalyticsDefinitionTests` was written and run against the code before the change. Its five "Unchanged" tests pin every other figure, worked out by hand from one week of trades: the whole summary, the curve's dates and totals, strategy figures, and results by day and session. They passed before the change and pass after it. The eight tests of the new definitions failed before it and pass after it, with no other test changing except the one that had pinned the old profit factor, which was removed.
+
+**What the new tests cover:**
+
+- **Profit factor:** undefined with no losses, with only breakevens, with a win and a breakeven, and with no trades, in the summary and per strategy. With losses and no wins it stays 0.
+- **Curve drawdown:** an amount below the highest closing total so far, counting a loss before any profit as a fall from zero, and rounded to cents. Max drawdown stays trade by trade, so it can be larger: 600 against 400 in the test week.
+- **API (`AnalyticsDefinitionEndpointTests`):** from saved trades, an undefined profit factor arrives as `null`, and drawdown arrives as an amount.
+- **Angular (`performance.component.spec.ts`):** "Undefined" shows with no number beside it, and a profit factor of 0 still shows as 0.00.
+
+**Checked in the running app** (scratch database, test owner):
+
+- Filtered to one winning day, Performance shows profit factor "Undefined" with "No losing trades to divide by", and max drawdown 0.00.
+- Unfiltered, the 29 scratch trades show profit factor 3.22 and max drawdown 3,500.00, with no console errors.
+- The equity-curve API returned drawdowns of 200, 600, 150 and 3,500 on the days below a peak, and 0 on the others. These match the closing totals by hand.
+
+**Not shown on a page:** the curve's `drawdown` is only in the API. The chart draws cumulative P&L and has never shown it.
+
+## Results — 2026-11-04 (branch `phase-8-3-prop-fees-and-payouts`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 373 passed, 0 failed |
+| `dotnet test` (Release): integration | 146 passed, 0 failed |
+| `ng test --watch=false` | 250 passed, 0 failed (32 files) |
+| `ng build` (production) | Succeeded; initial bundle 340.13 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes pending |
+| `AddPaymentCardLook`, `AddPropAccountFeesAndPayoutLink` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY`. Dev holds no accounts, transactions or payouts. |
+
+After that regression, a one-line template change removed a link to a page that does not exist. `ng test` and `ng build` were run again and the figures above are from that run. The .NET suites were not run again, as no .NET code changed.
+
+**New tests:**
+
+- **Unit (`PropAccountEconomicsTests`, `PaymentCardTests`):**
+  - Fees with no received payout are flagged. A received payout counts for what reached the account.
+  - Requested and approved payouts are awaiting only, and rejected ones count for nothing. A reversed fee costs nothing.
+  - Currencies stay apart, with nothing converted, and totals add up per currency.
+  - A fee must be an unreversed expense with a stated reason. A payout links to one account, and never once rejected.
+  - A card keeps its network and colour, with plain defaults.
+- **Integration (`PropAccountLedgerEndpointTests`):**
+  - An account's whole story, from nothing linked to fees without payouts, awaiting, received, receipt undone, fee reversed and link removed. Bank balances stay unchanged by each link, and the audit trail is checked.
+  - A payout linked after the fact, counted in the currency it arrived in, and the count of unlinked received payouts.
+  - Refusals: income, reversed or missing transactions, the same expense twice (409), a payout on another account, and a rejected payout.
+  - Another trader's account gives 404, is absent from their report, and a payout cannot be recorded against it. Without the Owner role the routes give 403, while `/api/prop-accounts` stays open (`FinanceEndpointTests`).
+- **Angular (`prop-account-ledger.spec.ts`, `finance-pages.spec.ts`, `payouts-allocation.spec.ts`):**
+  - The ledger and report sections are hidden on a 403 and show an error on any other failure. Fees, awaiting payouts, reversed fees and several currencies are displayed as described.
+  - Linking and unlinking, including a refused link and removing only after asking.
+  - A drawn card shows only the last four digits and masks the rest. No card is drawn for an account without one or for a cancelled card, and no network is invented.
+  - The payout form links an account and fills in who pays it.
+
+**Checked in the running app** (scratch database, test owner):
+
+- Cards in several colours beside their account's details at desktop width and at 375 px, with no sideways scrolling. A cancelled card is listed, not drawn.
+- Two expenses and a requested payout linked through the page. The fees showed USD 699.00 with net USD -699.00, and USD 400.00 awaiting and not counted. The bank balance moved only for the two expenses themselves.
+- The report flagged that account first, listed the other as nothing linked, and counted one unlinked received payout.
+
+**Card styles, added afterwards:** the five styles based on the owner's example cards add enum values and a template change, with no migration. A new Angular test checks each style's pattern, the foil and that no logo image is drawn. They were seen drawn in the running app, with no number overflowing. The figures in the table above are from the regression run after this change, in which one unit test failed because it used 9 as an undefined colour, now a real one. It was corrected and the unit suite passed when run again.
+
+**Not checked in a browser:** receiving a linked payout, which is covered by the integration tests. The Owner-only hiding is covered by Angular tests only, as every user in the scratch database is an owner.
+
+## Results — 2026-11-04 (branch `accounts-panels`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 363 passed, 0 failed |
+| `dotnet test` (Release): integration | 142 passed, 0 failed |
+| `ng test --watch=false` | 234 passed, 0 failed (31 files) |
+| `ng build` (production) | Succeeded; initial bundle 339.83 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | Generated for all 18 migrations; every step guarded |
+| `AddPaymentCards` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+CI has not run on this branch, because it has not been pushed.
+
+**New tests**
+- **Unit (`PaymentCardTests`):** a card keeps only what recognises it, and its name and digits are optional. Anything but exactly four digits is refused, including a full card number. Only a bank account can have a card. An account cannot have two active cards with the same digits, and closing it cancels its cards.
+- **Integration (`PaymentCardEndpointTests`):** a card is added, read back and recorded as cancelled, with both in the audit log and the balance unchanged. Closing an account cancels its cards. A full number, wrong digits, a missing or unknown kind, a brokerage account, and a missing account or card are refused. `FinanceEndpointTests` adds the 401 and 403 checks.
+- **Angular (`finance-pages.spec`):** what a panel shows, and the groups with the company's first. Nothing claims to be an issued card or a live connection, and there are no images in a panel. Tax-free is marked, and a closed account comes after the open ones with no actions. The table choice is remembered. Adding a card sends only what recognises it, cards are offered only on bank accounts, and cancelling asks first. Initials are made from a provider's name.
+- **Existing tests changed:** the two Accounts specs that read table rows now switch to the table view.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Panels:** five accounts in Business and Personal groups, each with provider, category, currency, balance, money by fund and its links.
+- **Cards:** a debit card ending 4111 saved and showed on its panel. The same digits were refused with the reason. Recording it as cancelled asked first, then showed Cancelled.
+- **Table:** the switch showed all five rows with the same actions, and the choice was kept in the browser.
+- **Phone width:** panels and the card form fit the 375 px page with nothing past its edge.
+- **How it was driven:** by page script in a background tab.
+- **Not exercised in the browser:** closing an account from a panel, the tax-free tag, and the Ownership not stated group. The Angular and integration tests cover them.
+
+## Results — 2026-11-04 (branch `accounts-business-structure`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 348 passed, 0 failed |
+| `dotnet test` (Release): integration | 138 passed, 0 failed |
+| `ng test --watch=false` | 225 passed, 0 failed (31 files) |
+| `ng build` (production) | Succeeded; initial bundle 339.83 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | Generated for all 17 migrations; every step guarded |
+| `AddAccountProfile` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+CI has not run on this branch, because it has not been pushed.
+
+**New tests**
+- **Unit (`AccountProfileTests`):** nothing is stated until told, and a name proves nothing. A category has to suit the type. A masked reference is accepted and a full account number refused. Dates and undefined values are checked. Only a company bank or cash account is business cash, and changing the owner changes whether it counts.
+- **Integration (`AccountStructureEndpointTests`, in a database of its own, worked out by hand):**
+  - **The intended structure:** two company bank accounts, a personal TFSA, a company investment account, a personal current account and one with ownership not stated. Cash is ZAR 15,000, with ZAR 2,000 personal and ZAR 700 not stated apart, and the Wealth Fund's ZAR 4,500 spans its two accounts.
+  - **Paying the owner:** a ZAR 1,000 transfer to the personal account takes Cash to ZAR 14,000. The period shows it as money out, from ZAR 15,000 to ZAR 14,000, and the personal money rises to ZAR 3,000.
+  - **The rest of the scope:** the ledger's cash filter leaves out an entry only in a personal account. Continuity lists personal money as not counted, with the reason. The affordability check leaves it out too.
+  - **Stating the owner:** moves the money into Cash, and the audit log keeps the before and after by name.
+  - **Refusals:** a full number, a category that does not suit the type, a future date, a fund that does not exist, and the system fund get 422; a long reference and an unknown value get 400. An update is held to the same rules, and the type cannot change.
+- **Angular:** the bodies sent for a new account and an edit, the fixed type and currency when editing, categories following the type, what each row shows, the note beside Cash on the Accounts page and overview, and no note when there is nothing to say.
+- **Existing tests changed:** the continuity spec reads the new wording, and the Accounts spec calls `save()`, which replaced `create()`.
+
+**Also changed:** the audit log now writes enums by name in new entries, because an ownership change read as `"ownership":2`. Existing entries keep their numbers.
+
+**Browser check (scratch database, desktop and phone width)**
+- **New account:** a full number was refused with the reason and the form stayed open. With the last four digits it saved, showing "FNB · Ref 1234 · Opened 2026-01-15", Current, a Personal tag and "Mainly for Owner's Distribution".
+- **Edit:** type and currency were locked, only the categories for a brokerage were offered, and the saved row showed Investment and Taxable.
+- **Cash:** after a ZAR 2,000 opening balance and a ZAR 500 transfer to the personal account, Cash went from ZAR 21,132.50 to ZAR 20,632.50, the overview said "Not counted as business cash: ZAR 2,500.00 in personal accounts", and today's period showed the transfer as ZAR -500.00.
+- **Funds page:** Owner's Distribution lists the account.
+- **Clipped figures:** none at 1280 px on the overview or 375 px on the Accounts page. The long figures that were cut off now move to the next row.
+- **How it was driven:** the forms by page script in a background tab, with the opening balance and transfer through the API.
+- **Not exercised in the browser:** ownership not stated, tax-free on an account, and the Investments page's new labels. The integration and Angular tests cover the first two; the Investments label was only built, not looked at.
+
+## Results — 2026-11-04 (branch `brand-melamu-logo`)
+
+Angular only: no .NET code, schema or migration changed, so the .NET suites were not rerun.
+
+| Command | Result |
+|---|---|
+| `ng test --watch=false` | 218 passed, 0 failed (31 files) |
+| `ng build` (production) | Succeeded; initial bundle 339.81 kB, up from 313.30 kB because the lettering is drawn inline; no budget warnings |
+
+**New tests:** `brand-mark.component.spec`: the mark's parts, a separate gradient per instance, the tones, and the name's label and two layouts.
+
+**Browser check (scratch database)**
+- **Sidebar, 1280 px:** the mark and two-line name fit the 248 px sidebar with "Operating System" under them, and the gradient resolves.
+- **Phone top bar, 375 px:** the mark and one-line name fit, with nothing past the page edge.
+- **Sign-in:** the full logo shows on the navy panel at desktop width, and the mark and name at phone width.
+- **Files:** the favicon, the three PNG icons and the logo files are served with the right types and render at 96, 48, 32 and 16 px.
+- **Not checked:** the favicon in a real browser tab, because the app's browser pane shows no tab icons. The icon links are in `index.html`, and the files load when opened directly.
+- **Not updated:** `docs/images/executive-overview.jpg` and the other screenshots still show the old mark.
+
+## Results — 2026-11-03 (branch `phase-8-2-prop-account-standing`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 317 passed, 0 failed |
+| `dotnet test` (Release): integration | 135 passed, 0 failed |
+| `ng test --watch=false` | 214 passed, 0 failed (30 files) |
+| `ng build` (production) | Succeeded; initial bundle 313.30 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | Generated for all 16 migrations; every step guarded |
+| `AddTradePropAccountLinkAndBalances` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+CI has not run on this branch, because it has not been pushed.
+
+**New tests**
+- **Unit (`PropAccountStandingTests`, each figure worked out by hand):**
+  - **Balance:** only trades closed in the run count, and a balance entered replaces the figure, with later trades moving on from it.
+  - **Drawdown:** a static level stays put, a trailing level rises and never falls, end of day sees the day's close while intraday sees each trade, and a lock stops at the starting balance. Near starts at exactly 80% of the limit and at the limit at all of it.
+  - **After a payout:** the balance alone looks like lost room, the level from the firm replaces the calculated one, and later highs move it up.
+  - **Daily loss:** a day's trades count together, a day past the limit stays listed after recovering, and only the current day can be near.
+  - **Target:** met only with the minimum days too.
+  - **Balances:** one per day, within the run, not in the future, below zero or in another currency. A closed account takes none, and a drawdown level needs a drawdown limit.
+  - **Linking:** a trade takes the account's name and currency, and another stated currency is refused.
+- **Integration (`PropAccountStandingEndpointTests`):**
+  - **Worked by hand:** three linked trades, an open one, a draft and an unlinked one come to 105,500 with a level of 95,500 and a day past the limit. A dashboard balance of 105,000 shows a difference of −500, and removing it goes back to the trades alone while the history keeps it.
+  - **Runs:** a trade counts on the day it closed, and a phase change or reset starts again with the older trades named as not counted.
+  - **Links:** renaming the account renames it on the trade, editing a trade moves the balance, and unlinking or deleting one takes it out and is in the trade's history.
+  - **Refusals:** someone else's account, one that does not exist, another currency, and a new trade on a closed account (one already on it can still be corrected).
+  - **Import:** a whole file onto one account, and without one nothing changes.
+  - **Analytics and the trade log:** both filter by the account's name.
+  - **Access:** another trader gets 404, and no session gets 401.
+- **Angular:** the trade form's account choice and locked currency, a closed account kept only for the trade already on it, the import choice, the trade log opening on an account, the list's figures and flags, the standing section with what is left out, entering and removing a balance, and the overview's warnings for active accounts only.
+- **Existing tests changed:** the trade form, import, overview and strategy specs answer the new request for accounts; the P8.1 list test reads the new columns. `TradeRepository.UpdateAsync` no longer marks what a tracked trade refers to as changed, so editing a trade does not rewrite its account.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Trade form:** choosing "Walkthrough 100k" hid the free-text account and locked the currency to USD. A trade saved as closed opened showing the account's name.
+- **Standing:** with +5,000, −3,500 and +4,000 on three days and one open trade, the page showed USD 105,500, room of USD 10,000 above USD 95,500, the 3,500 day past the 3,000 limit, USD 5,500 of USD 8,000, 3 of 3 days, and "1 open trade is not counted until closed", all matching the working by hand.
+- **Balance:** USD 105,000 entered through the form showed USD 105,500 from the trades and a difference of USD −500, with room down to USD 9,500.
+- **Import:** a two-row file put on the account took the balance to USD 108,000 and the target to met.
+- **Links:** "View its trades" opened the log with the filter set, and Performance showed 3 trades and +5,500.00 for the account.
+- **Overview:** it warned that the account passed its daily loss limit and that it has met its target. The breached account gave no warning.
+- **Phone width:** nothing extends past the 375 px page on the account page or the list.
+- **How it was driven:** the forms and links by page script, in a background tab, with three trades and the account created through the API.
+- **Not exercised in the browser:** near-the-limit warnings, a drawdown level entered, removing a balance through the page, and the intraday note. The unit, integration and Angular tests cover them.
+
+## Results — 2026-11-03 (branch `phase-8-1-prop-accounts`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 289 passed, 0 failed |
+| `dotnet test` (Release): integration | 128 passed, 0 failed |
+| `ng test --watch=false` | 204 passed, 0 failed (30 files) |
+| `ng build` (production) | Succeeded; initial bundle 313.30 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | Generated for all 15 migrations; every step guarded |
+| `AddPropFirmAccounts` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+CI has not run on this branch, because it has not been pushed.
+
+**New tests**
+- **Unit (`PropFirmAccountTests`):**
+  - **Opening:** a new account's balance, rules and first history entry, and the limits on its size, dates and text.
+  - **Rules:** each rule that cannot apply is refused with its reason, every limit is optional, and a lock only applies to a trailing model.
+  - **Phases:** passing one stays on the record, restarts the balance and adds that phase's rules. Going back needs a reason, and limits are checked against the new starting balance.
+  - **Status:** a breach says which rule, leaving a breach or a close needs a reason, and dates stay in order.
+  - **Resets:** a breached account becomes active in the same phase, and a closed one cannot be reset until reopened.
+  - **Rule versions:** a change adds a version and keeps the old one, while unchanged rules add nothing.
+  - **Corrections:** they record what changed, and correcting the size corrects the starting balance.
+- **Integration (`PropAccountEndpointTests`):**
+  - **The whole story:** an account from evaluation to funded, breached and reset, read back from the database in order with what it was at each step.
+  - **Access:** another trader gets 404 and can use the same nickname, and no session gets 401.
+  - **Nicknames:** open ones are unique ignoring case. A closed one's is free, and reopening it is then refused with a 409.
+  - **Refusals:** 400, 422 and 404 cases, none of which leave a history entry.
+  - **The ledger:** the transaction count does not change.
+- **Angular (`prop-accounts.spec`):** the counts and list, the empty state, closed accounts on request, the bodies sent, no limit or lock sent for a model that does not use it, what the status allows, a phase change starting from the current rules, when a reason is required, a refusal shown with the API's message, and earlier rule versions.
+- **Existing tests changed:** none.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Created:** "100k attempt 1" through the form, which opened on its page with the rules and first history entry as entered.
+- **Phase change:** the form started at Verification with the current rules, and saving restarted the run and added version 2.
+- **Reasons:** saving stayed disabled for a breach and for reopening a closed account until a reason was given.
+- **Refusal:** a reset dated before the last change showed "The reset date cannot be before the last change (2026-10-20)", and the form stayed open.
+- **Everything else:** a reset, a rule change to trailing end of day (the lock option appeared), a firm correction, closing and reopening. The history and earlier versions showed each one, and a closed account offered only Change status.
+- **Phone width:** nothing extends past the 375 px page on the account page or the list.
+- **How it was driven:** the first form with real input through the browser tools, the rest by setting fields and clicking through a page script, because the pane was hidden. No screenshot of the full width was possible for the same reason, so desktop layout was checked by the page not overflowing at 1280 px and by the part of the page captured.
+- **After the check:** two labels changed ("Balance since" on the list, and the date moved from the phase to the starting balance on the account page). The Angular specs cover the second; the first was not looked at again in the browser.
+- **Not exercised in the browser:** a nickname conflict and going back a phase. The integration, unit and Angular tests cover them.
+
 ## Results — 2026-11-03 (branch `phase-7-6-unrestricted-cash`)
 
 | Command | Result |

@@ -26,7 +26,7 @@ public class UploadController : ControllerBase
 
     [HttpPost]
     [RequestSizeLimit(10 * 1024 * 1024)]
-    public async Task<IActionResult> Upload(IFormFile file)
+    public async Task<IActionResult> Upload(IFormFile file, [FromForm] int? propAccountId = null)
     {
         if (file is null || file.Length == 0)
             return Problem(title: "No file provided.", statusCode: StatusCodes.Status400BadRequest);
@@ -35,7 +35,7 @@ public class UploadController : ControllerBase
             return Problem(title: "Only CSV files are accepted.", statusCode: StatusCodes.Status400BadRequest);
 
         using var stream = file.OpenReadStream();
-        var result = await _uploadService.ProcessUploadAsync(stream, file.FileName, GetUserId());
+        var result = await _uploadService.ProcessUploadAsync(stream, file.FileName, GetUserId(), propAccountId);
         return Ok(result);
     }
 

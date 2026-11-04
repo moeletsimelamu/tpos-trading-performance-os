@@ -44,10 +44,21 @@
               <datalist id="strategy-list">@for (s of strategies(); track s.id) { <option [value]="s.name"></option> }</datalist>
               @if (scopeNote()) { <p class="small notice notice-warning scope-note" role="status">{{ scopeNote() }}</p> }
             </div>
-            <div class="field">
-              <label for="t-account">Trading account (optional)</label>
-              <input id="t-account" formControlName="tradingAccount" placeholder="e.g. the prop firm account" />
-            </div>
+            @if (propAccountChoices().length > 0) {
+              <div class="field">
+                <label for="t-prop-account">Prop firm account</label>
+                <select id="t-prop-account" formControlName="propAccountId">
+                  <option [ngValue]="null">None</option>
+                  @for (a of propAccountChoices(); track a.id) { <option [ngValue]="a.id">{{ a.nickname }} ({{ a.firm }})</option> }
+                </select>
+              </div>
+            }
+            @if (form.controls.propAccountId.value === null) {
+              <div class="field">
+                <label for="t-account">{{ propAccountChoices().length > 0 ? 'Other trading account (optional)' : 'Trading account (optional)' }}</label>
+                <input id="t-account" formControlName="tradingAccount" placeholder="e.g. your own broker account" />
+              </div>
+            }
             <div class="field">
               <label for="t-currency">Currency of P&amp;L</label>
               <select id="t-currency" formControlName="currency">

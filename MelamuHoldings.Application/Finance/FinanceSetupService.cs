@@ -1,4 +1,5 @@
 using MelamuHoldings.Application.Common;
+using MelamuHoldings.Domain.Common;
 using MelamuHoldings.Domain.Finance;
 
 namespace MelamuHoldings.Application.Finance;
@@ -67,10 +68,11 @@ public class FinanceSetupService
         var account = new FinancialAccount(
             request.Name, request.Type!.Value, Currency.FromCode(request.Currency), request.Ownership!.Value,
             request.Institution, request.Notes, Now);
+        account.SetProfile(request.Category, request.TaxTreatment, request.Reference, request.OpenedOn, await HomeFundAsync(request.HomeFundId), Now);
         await SaveWithAuditAsync(() => _repository.Add(account), () => AuditLog.Event(
             Now, userId, "account.created", nameof(FinancialAccount), account.Id,
             $"Created {account.Currency} {account.Type.ToString().ToLowerInvariant()} account '{account.Name}'.",
-            new { account.Name, account.Type, Currency = account.Currency.Code, account.Ownership, account.Institution }),
+            AccountSnapshot(account)),
             "IX_FinancialAccounts_Name", $"An account named '{account.Name}' already exists.");
 
         return (await FinanceReadModel.LoadAsync(_repository)).Account(account);
@@ -82,11 +84,13 @@ public class FinanceSetupService
         if (await _repository.AccountNameExistsAsync(request.Name, excludingId: id))
             throw new ConflictException($"An account named '{request.Name.Trim()}' already exists.");
 
-        var before = new { account.Name, account.Ownership, account.Institution, account.Notes };
+        var before = AccountSnapshot(account);
+        var homeFund = await HomeFundAsync(request.HomeFundId);
         account.UpdateDetails(request.Name, request.Ownership!.Value, request.Institution, request.Notes);
+        account.SetProfile(request.Category, request.TaxTreatment, request.Reference, request.OpenedOn, homeFund, Now);
         await SaveWithAuditAsync(() => { }, () => AuditLog.Event(
             Now, userId, "account.updated", nameof(FinancialAccount), account.Id, $"Updated account '{account.Name}'.",
-            new { before, after = new { account.Name, account.Ownership, account.Institution, account.Notes } }),
+            new { before, after = AccountSnapshot(account) }),
             "IX_FinancialAccounts_Name", $"An account named '{account.Name}' already exists.");
 
         return (await FinanceReadModel.LoadAsync(_repository)).Account(account);
@@ -103,6 +107,43 @@ public class FinanceSetupService
 
         return (await FinanceReadModel.LoadAsync(_repository)).Account(account);
     }
+
+    // A home fund is a purpose the account is for, so it has to exist and cannot be the holding fund for money not yet assigned
+    private static string CardLabel(PaymentCard card) =>
+        $"{card.Kind.ToString().ToLowerInvariant()} card" + (card.LastFour is { } digits ? $" ending {digits}" : "");
+
+    private async Task<int?> HomeFundAsync(int? fundId)
+    {
+        if (fundId is not { } id) return null;
+        var fund = await _repository.GetFundAsync(id) ?? throw new DomainException($"Fund {id} does not exist.");
+        if (fund.IsSystem) throw new DomainException($"'{fund.Name}' holds money waiting to be assigned, so an account cannot be for it.");
+        return id;
+    }
+
+    public async Task<AccountDto> AddCardAsync(int accountId, AddPaymentCardRequest request, int userId)
+    {
+        var account = await _repository.GetAccountAsync(accountId) ?? throw new NotFoundException($"Account {accountId} does not exist.");
+        var card = account.AddCard(request.Kind!.Value, request.Name, request.LastFour, Now, request.Network, request.Finish);
+        await SaveWithAuditAsync(() => { }, () => AuditLog.Event(
+            Now, userId, "card.added", nameof(PaymentCard), card.Id, $"Added a {CardLabel(card)} to '{account.Name}'.",
+            new { AccountId = account.Id, card.Kind, card.Name, card.LastFour, card.Network, card.Finish }));
+        return (await FinanceReadModel.LoadAsync(_repository)).Account(account);
+    }
+
+    public async Task<AccountDto> CancelCardAsync(int accountId, int cardId, int userId)
+    {
+        var account = await _repository.GetAccountAsync(accountId) ?? throw new NotFoundException($"Account {accountId} does not exist.");
+        var card = account.CancelCard(cardId, Now);
+        await SaveWithAuditAsync(() => { }, () => AuditLog.Event(
+            Now, userId, "card.cancelled", nameof(PaymentCard), card.Id, $"Recorded the {CardLabel(card)} on '{account.Name}' as cancelled.",
+            new { AccountId = account.Id, card.Kind, card.Name, card.LastFour }));
+        return (await FinanceReadModel.LoadAsync(_repository)).Account(account);
+    }
+
+    private static object AccountSnapshot(FinancialAccount a) => new
+    {
+        a.Name, a.Type, Currency = a.Currency.Code, a.Ownership, a.Institution, a.Notes, a.Category, a.TaxTreatment, a.Reference, a.OpenedOn, a.HomeFundId
+    };
 
     private static Currency? ThresholdCurrency(CreateFundRequest request) =>
         string.IsNullOrWhiteSpace(request.ThresholdCurrency) ? null : Currency.FromCode(request.ThresholdCurrency.Trim());

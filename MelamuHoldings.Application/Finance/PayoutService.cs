@@ -29,7 +29,8 @@ public class PayoutService
         var allocations = await _repository.GetAllocationsAsync();
         var reversed = await ReversedAsync(allocations);
         var accounts = (await _repository.GetAccountsAsync()).ToDictionary(a => a.Id);
-        return payouts.Select(p => ToDto(p, accounts, allocations.FirstOrDefault(a => a.PayoutId == p.Id && !a.IsCancelled), reversed)).ToList();
+        var propAccounts = await _repository.GetPropAccountNamesAsync(payouts.Where(p => p.PropFirmAccountId is not null).Select(p => p.PropFirmAccountId!.Value));
+        return payouts.Select(p => ToDto(p, accounts, allocations.FirstOrDefault(a => a.PayoutId == p.Id && !a.IsCancelled), reversed, propAccounts)).ToList();
     }
 
     public async Task<PayoutDto> GetAsync(int id) => await ToDtoAsync(await PayoutAsync(id));
@@ -44,6 +45,12 @@ public class PayoutService
         var currency = Currency.FromCode(request.Currency);
         var payout = new Payout(request.Source, request.Reference, request.Notes,
             Money.Of(request.Amount!.Value, currency), request.RequestedOn!.Value, new RecordingInfo(userId, Now, key, hash));
+        if (request.PropFirmAccountId is { } propAccountId)
+        {
+            // Another trader's account reads the same as one that does not exist
+            if (!await _repository.PropAccountBelongsToAsync(propAccountId, userId)) throw new DomainException($"Prop firm account {propAccountId} does not exist.");
+            payout.LinkToPropAccount(propAccountId);
+        }
 
         try
         {
@@ -169,7 +176,8 @@ public class PayoutService
         var allocation = await _repository.GetActiveAllocationForPayoutAsync(payout.Id);
         var reversed = allocation is null ? new HashSet<int>() : await ReversedAsync([allocation]);
         var accounts = (await _repository.GetAccountsAsync()).ToDictionary(a => a.Id);
-        return ToDto(payout, accounts, allocation, reversed);
+        var propAccounts = payout.PropFirmAccountId is { } id ? await _repository.GetPropAccountNamesAsync([id]) : [];
+        return ToDto(payout, accounts, allocation, reversed, propAccounts);
     }
 
     private async Task<HashSet<int>> ReversedAsync(IEnumerable<Allocation> allocations)
@@ -178,7 +186,7 @@ public class PayoutService
         return ids.Count == 0 ? [] : (await _repository.GetReversalIdsAsync(ids)).Keys.ToHashSet();
     }
 
-    private static PayoutDto ToDto(Payout p, IReadOnlyDictionary<int, FinancialAccount> accounts, Allocation? allocation, IReadOnlySet<int> reversed) => new(
+    private static PayoutDto ToDto(Payout p, IReadOnlyDictionary<int, FinancialAccount> accounts, Allocation? allocation, IReadOnlySet<int> reversed, IReadOnlyDictionary<int, string> propAccounts) => new(
         p.Id, p.Source, p.Reference, p.Notes, p.Status,
         MoneyDto.From(p.Requested), p.RequestedOn,
         p.Approved is { } approved ? MoneyDto.From(approved) : null, p.ApprovedOn,
@@ -188,12 +196,13 @@ public class PayoutService
         p.FeeAmount is { } fee && p.CreditedCurrency is not null ? new MoneyDto(fee, p.CreditedCurrency.Code) : null,
         p.EffectiveRate, p.IncomeTransactionId,
         p.RejectedOn, p.RejectionReason, p.CreatedAt,
-        allocation?.Id, allocation?.Status(reversed));
+        allocation?.Id, allocation?.Status(reversed),
+        p.PropFirmAccountId, p.PropFirmAccountId is { } propAccountId && propAccounts.TryGetValue(propAccountId, out var propAccount) ? propAccount : null);
 
     private AuditEvent Audit(int userId, string action, Payout payout, string summary) =>
         AuditLog.Event(Now, userId, action, nameof(Payout), payout.Id, summary, new
         {
-            payout.Source, Status = payout.Status.ToString(), Currency = payout.Currency.Code,
+            payout.Source, payout.PropFirmAccountId, Status = payout.Status.ToString(), Currency = payout.Currency.Code,
             payout.RequestedAmount, payout.ApprovedAmount, payout.ReceivedOn, payout.ReceivedIntoAccountId,
             payout.CreditedAmount, payout.FeeAmount, payout.EffectiveRate, payout.IncomeTransactionId, payout.RejectionReason
         });

@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { OverviewComponent, attentionItems } from './overview.component';
 import { Account, Allocation, Balances, BudgetMonth, ContinuityReport, Fund, InvestmentAccount, Obligation, Payout, PlannedPurchase } from '../finance/finance.models';
 import { BehaviourSummary } from '../trading/models/analytics.model';
+import { PropAccount } from '../trading/models/prop-account.model';
 import { environment } from '../../../environments/environment';
 
 const api = environment.apiUrl;
@@ -284,7 +285,54 @@ describe('OverviewComponent', () => {
       totalPnL: 1585, maxDrawdown: 800, winCount: 10, lossCount: 9, breakevenCount: 1
     });
     http.expectOne(`${api}/analytics/behaviour`).flush(noBehaviour);
+    http.expectOne(`${api}/prop-accounts`).flush([]);
   }
+
+  it('warns about live prop accounts near or at a limit, from recorded trades, and leaves the others alone', () => {
+    const account = (nickname: string, status: string, figures: object) => ({
+      id: 5, nickname, status, accountSize: { amount: 100000, currency: 'USD' },
+      standing: { figures: { balance: 100000, drawdown: null, dailyLoss: null, target: null, minimumDays: null, targetMet: false, ...figures } }
+    }) as unknown as PropAccount;
+    const drawdown = (standing: string, room: number) => ({ drawdown: { limit: 10000, level: 90000, room, standing } });
+    const daily = (standing: string, daysPastLimit: string[] = []) => ({ dailyLoss: { limit: 5000, latestDay: '2026-11-03', latestDayPnL: -4200, daysPastLimit, standing } });
+
+    const items = attentionItems(null, null, [], [], [], null, null, null, [], [
+      account('Clear', 'Active', { ...drawdown('Clear', 9000), ...daily('Clear') }),
+      account('Near', 'Active', { ...drawdown('Near', 1500), ...daily('Near') }),
+      account('At', 'Active', { ...drawdown('Reached', 0), ...daily('Reached', ['2026-11-02']) }),
+      account('Met', 'Active', { target: { target: 8000, profit: 8100 }, minimumDays: { done: 5 }, targetMet: true }),
+      account('Gone', 'Breached', drawdown('Reached', 0)),
+      account('Done', 'Closed', daily('Reached', ['2026-11-02']))
+    ]);
+
+    expect(items.map(i => [i.tone, i.title])).toEqual([
+      ['warning', 'Near is near its drawdown limit'],
+      ['warning', 'Near is near its daily loss limit'],
+      ['negative', 'At is at its drawdown limit'],
+      ['negative', 'At passed its daily loss limit'],
+      ['info', 'Met has met its target']
+    ]);
+    expect(items[0].detail).toBe('USD 1,500.00 of room left of USD 10,000.00, from recorded trades.');
+    expect(items[1].detail).toBe('Recorded trades lost USD 4,200.00 on 2026-11-03, with a limit of USD 5,000.00.');
+    expect(items[2].detail).toContain("Check the firm's dashboard.");
+    expect(items[3].detail).toContain('2026-11-02');
+    expect(items[4].detail).toContain('on 5 trading days');
+    expect(items[0].link).toBe('/trading/prop-accounts/5');
+  });
+
+  it('names personal and unstated money beside Cash, and says nothing when there is none', async () => {
+    const fixture = await render();
+    flushFinance();
+    flushTrading(20);
+    await fixture.whenStable();
+    const c = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.other-cash')).toBeNull();
+
+    c.balances.update(b => ({ ...b!, otherCash: [{ ownership: 'Personal', amount: { amount: 2000, currency: 'ZAR' } }] }));
+    await fixture.whenStable();
+    expect(el.querySelector('.other-cash')!.textContent).toBe('Not counted as business cash: ZAR 2,000.00 in personal accounts.');
+  });
 
   it('shows each currency separately and never adds them together', async () => {
     const fixture = await render();

@@ -34,6 +34,27 @@ Code: `MelamuHoldings.Domain/Finance/Currency.cs`, `Money.cs`. Tests: `tests/Mel
 
 Seeded funds are configuration. They hold no money until transactions are posted.
 
+**What an account is (D14).** All of this is stated by the owner and never inferred from a name, because "TFSA" in a name proves nothing about who owns it or how it is taxed:
+
+| Field | Values | Rules |
+|---|---|---|
+| Category | Not stated, Current, Savings, Investment | Current and Savings are for bank accounts, Investment for brokerage accounts. |
+| Tax treatment | Not stated, Taxable, Tax-free | Tells a TFSA from a normal investment account. It is a label: no tax is calculated. |
+| Reference | Up to 20 characters | At most four digits, so a full account number is refused. |
+| Date opened | A date | Not in the future. |
+| Mainly for fund | One fund, not Unallocated | A label, shown on the account and on the Funds page. It restricts nothing, and fund balances still come from the ledger. |
+
+Type and currency are fixed once created; everything else can be corrected, and each change is in the audit log with its before and after values.
+
+**Payment cards.** A card is its own record on a bank account, not an account: it holds no money and changes no balance. It keeps only what recognises it: debit or credit, an optional name, optionally exactly the last four digits, the network if stated, and the colour to draw it in (D15). The full number, expiry, security code and cardholder name are never stored or asked for. A card is recorded as cancelled, never deleted, and closing an account cancels its active cards. Both are in the audit log. Nothing here connects to a bank.
+
+**Prop firm fees and payouts (D16).** A fee is an expense already in the ledger, linked to one prop firm account, and a payout can name the prop firm account it came from. Neither link moves money or changes a balance, and removing one leaves the expense or payout where it is. An expense can be one account's fee once. It can also pay an obligation or a planned purchase, because the link only says which account it belongs to. Fees count unless reversed. A payout counts once received, for the amount that reached the account, in that account's currency. Requested and approved payouts are shown as awaiting and never counted. Nothing is converted.
+
+**Business cash (D14).** Business cash means **company bank and cash accounts**. A personal account or one whose ownership is not stated is reported apart and never added to it, and a brokerage account is not cash at all. The same rule decides the Cash figures, money in and out for a period, the ledger's cash filter, continuity, the affordability check and unrestricted cash.
+
+- **Paying the owner:** a transfer from a company account to a personal one is money out of business cash, shown under Transfers in the period. The money stays in the Owner's Distribution fund's balance, in the personal account.
+- **Ownership is not dated:** the app knows who owns an account now, not who owned it then. Correcting an account's owner moves its whole history in or out of the figures, including earlier periods.
+
 ## Ledger (Phase 4: implemented)
 
 Code: `MelamuHoldings.Domain/Finance/LedgerTransaction.cs`. Tests: `tests/MelamuHoldings.UnitTests/Finance/LedgerTransactionTests.cs` and `tests/MelamuHoldings.IntegrationTests/FinanceEndpointTests.cs`.
@@ -82,7 +103,8 @@ All balances are summed from entries. None is stored.
 | Account balance | Σ entries for the account (one currency) |
 | Account by fund | Σ entries for each (account, fund) |
 | Fund balance | Σ entries for the fund, **per currency**. Different currencies are never added together. |
-| Cash totals | Σ entries in Bank and Cash accounts, per currency. Brokerage balances are recorded but are not counted as spendable cash. |
+| Cash totals | Σ entries in **company** Bank and Cash accounts, per currency. Brokerage balances are recorded but are not counted as spendable cash. |
+| Other cash | Σ entries in Bank and Cash accounts that are personal or have ownership not stated, per ownership and currency. Shown beside the cash totals, never added to them. |
 | As of a date | The same sums restricted to transactions dated on or before that date |
 
 Money that is earmarked but has not physically moved shows as a fund balance inside the original account (for example "Operating ZAR · Business Continuity"). Physically separated money shows in its own account. Both are visible side by side on the Accounts page.
@@ -201,7 +223,7 @@ All errors are returned as ProblemDetails.
 
 Code: `Application/Finance/OverviewService.cs`, `GET /api/overview?from&to` (this month to date by default; at most 10 years; `from` after `to` is 422). Tests: `OverviewEndpointTests.cs`.
 
-**Scope.** Every figure is summed from ledger entries in **Bank and Cash** accounts, the same scope as the cash totals, per currency. Brokerage and Other accounts are outside it.
+**Scope.** Every figure is summed from ledger entries in **company Bank and Cash** accounts, the same scope as the cash totals, per currency. Brokerage, Other, personal and ownership-not-stated accounts are outside it, so a transfer to one of them shows as money out.
 
 **Lines.** Each entry falls in exactly one line, decided by its transaction's type:
 
@@ -271,8 +293,8 @@ Tests: `ContinuitySettingsTests.cs` and `Phase7FormulaTests.cs` (unit), `Continu
 |---|---|
 | Settings | One record: the continuity fund (Business Continuity by default), the months to cover (default 24, 1 to 120), the currency (ZAR, D7), the monthly essential expense (entered by the owner, D8; none until it is), and the restoration fund. |
 | Target | Months × monthly essential expense. Without the expense there is no target, coverage or shortfall: the page says "Not measured" rather than showing a zero. |
-| Counted | The continuity fund's balance in ZAR in **bank and cash** accounts, from the ledger. |
-| Shown, not counted | The fund's money in another currency (never converted), in brokerage or other accounts, and what confirmed allocations still owe it but have not earmarked or transferred. Each is listed with its reason. |
+| Counted | The continuity fund's balance in ZAR in **company bank and cash** accounts, from the ledger. |
+| Shown, not counted | The fund's money in another currency (never converted), in brokerage or other accounts, in personal or ownership-not-stated accounts, and what confirmed allocations still owe it but have not earmarked or transferred. Each is listed with its reason. |
 | Coverage | Counted ÷ monthly expense, rounded **down** to one decimal, so it never overstates. Shortfall: target − counted, never below zero. |
 | Earmarked or separated | A counted amount is **separated** when its account holds no other fund's money, and **earmarked** when the account is shared with other funds. Both count; the page shows the split. |
 | Restoration (D6) | A separate fund, Trading Restoration, added by the migration. It is measured against that fund's own target (set on the Funds page, in the target's currency), in bank and cash accounts, with the same not-counted rules. Continuity and restoration must be different funds, and neither can be Unallocated, so no money counts twice. |
@@ -359,7 +381,7 @@ Code: `Domain/Finance/PlannedPurchase.cs`, `Domain/Finance/Affordability.cs`, `A
 
 `After = Available − Committed elsewhere − Purchase`
 
-- **Available:** the purchase's fund, in the purchase's currency, in **bank and cash** accounts. Brokerage money is not spendable.
+- **Available:** the purchase's fund, in the purchase's currency, in **company bank and cash** accounts. Brokerage money is not spendable, and personal money is not the business's.
 - **Committed elsewhere:** that fund's other Committed purchases in that currency. Proposals reserve nothing, and a commitment never reserves against itself. Once a purchase is bought, its reservation ends and the expense has already reduced the balance.
 
 | Answer | When |

@@ -76,7 +76,7 @@ public class AnalyticsScope
             (filter.StrategyId is null || t.StrategyId == filter.StrategyId) &&
             (string.IsNullOrWhiteSpace(filter.Instrument) || Same(t.Instrument, filter.Instrument)) &&
             (string.IsNullOrWhiteSpace(filter.Session) || Same(t.Session, filter.Session)) &&
-            (string.IsNullOrWhiteSpace(filter.Account) || Same(t.TradingAccount, filter.Account))).ToList();
+            (string.IsNullOrWhiteSpace(filter.Account) || Same(t.AccountName, filter.Account))).ToList();
 
         if (filter.Adherence is { } adherence && trades.Count > 0)
         {
@@ -121,7 +121,7 @@ public class AnalyticsScope
             _ => f.Options.Select(o => new FilterOptionDto(o, o)).ToList()
         })).OrderBy(f => f.Label).ToList();
 
-        return new AnalyticsFilterOptionsDto(strategies, Distinct(trades.Select(t => t.Instrument)), Distinct(trades.Select(t => t.Session)), Distinct(trades.Select(t => t.TradingAccount)), journalFields);
+        return new AnalyticsFilterOptionsDto(strategies, Distinct(trades.Select(t => t.Instrument)), Distinct(trades.Select(t => t.Session)), Distinct(trades.Select(t => t.AccountName)), journalFields);
     }
 
     // A text or choice answer equals the value; a multi-select contains it; a checklist has that item ticked;

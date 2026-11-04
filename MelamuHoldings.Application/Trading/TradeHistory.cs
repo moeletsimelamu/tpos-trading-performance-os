@@ -55,7 +55,7 @@ public static class TradeValues
         new(nameof(Trade.Status), "Status", t.Status.ToString()),
         new(nameof(Trade.TradeDate), "Date", Date(t.TradeDate)),
         new(nameof(Trade.Instrument), "Instrument", Text(t.Instrument)),
-        new(nameof(Trade.TradingAccount), "Account", Text(t.TradingAccount)),
+        new(nameof(Trade.TradingAccount), "Account", Text(t.AccountName)),
         new(nameof(Trade.Direction), "Direction", t.Direction?.ToString()),
         new(nameof(Trade.EntryTime), "Entry time", Time(t.EntryTime)),
         new(nameof(Trade.EntryPrice), "Entry price", Number(t.EntryPrice)),

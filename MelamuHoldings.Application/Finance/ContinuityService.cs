@@ -34,8 +34,8 @@ public record ContinuityReportDto(
     RestorationDto? Restoration);
 
 // How close continuity is to its target, from recorded balances only (PLAN.md §1a and D6–D8):
-// - continuity cash is the continuity fund's balance in the target currency in Bank and Cash accounts;
-// - money in another currency, in brokerage or other accounts, or allocated but not yet earmarked is shown, never counted;
+// - continuity cash is the continuity fund's balance in the target currency in company Bank and Cash accounts;
+// - money in another currency, in brokerage, other or non-company accounts, or allocated but not yet earmarked is shown, never counted;
 // - the restoration capital is a different fund, measured against that fund's own target, so nothing counts twice.
 public class ContinuityService
 {
@@ -116,7 +116,7 @@ public class ContinuityService
         return ToDto(settings, (await FinanceReadModel.LoadAsync(_repository)).Funds().ToDictionary(f => f.Id));
     }
 
-    // The fund's balance in the currency, in Bank and Cash accounts; everything else of the fund is listed, not counted
+    // The fund's balance in the currency, in company Bank and Cash accounts; everything else of the fund is listed, not counted
     private static (decimal Cash, List<ContinuityHoldingDto> Holdings, List<NotCountedDto> NotCounted) Measure(
         int fundId, string currency, IReadOnlyList<AccountDto> accounts, Dictionary<int, List<MoneyDto>> outstanding)
     {
@@ -127,10 +127,13 @@ public class ContinuityService
             var position = account.Funds.FirstOrDefault(f => f.FundId == fundId && f.Balance.Amount != 0);
             if (position is null) continue;
             var cashAccount = account.Type is FinancialAccountType.Bank or FinancialAccountType.Cash;
+            var company = account.Ownership == Ownership.Company;
             if (position.Balance.Currency != currency)
                 notCounted.Add(new NotCountedDto($"In {position.Balance.Currency}, not {currency}; never converted", position.Balance, account.Name));
             else if (!cashAccount)
                 notCounted.Add(new NotCountedDto($"In a {account.Type.ToString().ToLowerInvariant()} account, not bank or cash", position.Balance, account.Name));
+            else if (!company)
+                notCounted.Add(new NotCountedDto(account.Ownership == Ownership.Personal ? "In a personal account" : "The account's ownership is not stated", position.Balance, account.Name));
             else
                 holdings.Add(new ContinuityHoldingDto(account.Id, account.Name, position.Balance,
                     Separated: account.Funds.Where(f => f.Balance.Amount != 0).All(f => f.FundId == fundId)));

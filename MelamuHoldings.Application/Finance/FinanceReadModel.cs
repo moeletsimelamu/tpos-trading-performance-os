@@ -33,7 +33,11 @@ public class FinanceReadModel
         return new AccountDto(
             account.Id, account.Name, account.Type, account.Currency.Code, account.Ownership,
             account.Institution, account.Notes, account.Status,
-            MoneyDto.From(balance), funds, account.CreatedAt, account.ClosedAt);
+            MoneyDto.From(balance), funds, account.CreatedAt, account.ClosedAt,
+            account.Category, account.TaxTreatment, account.Reference, account.OpenedOn, account.HomeFundId,
+            account.HomeFundId is { } home ? FundName(home) : null,
+            account.Cards.OrderBy(c => c.Status).ThenBy(c => c.Id)
+                .Select(c => new PaymentCardDto(c.Id, c.Kind, c.Name, c.LastFour, c.Status, c.AddedAt, c.CancelledAt, c.Network, c.Finish)).ToList());
     }
 
     public IReadOnlyList<AccountDto> Accounts() => _accounts.Values.OrderBy(a => a.Name).Select(Account).ToList();
@@ -50,16 +54,25 @@ public class FinanceReadModel
         var currency = fund.ThresholdCurrency?.Code;
         return new FundDto(fund.Id, fund.Name, fund.Description, fund.IsSystem, balances,
             fund.Minimum is { } minimum ? new MoneyDto(minimum, currency!) : null,
-            fund.Target is { } target ? new MoneyDto(target, currency!) : null);
+            fund.Target is { } target ? new MoneyDto(target, currency!) : null,
+            _accounts.Values.Where(a => a.HomeFundId == fund.Id && !a.IsClosed).OrderBy(a => a.Name).Select(a => new FundAccountDto(a.Id, a.Name)).ToList());
     }
 
     public IReadOnlyList<FundDto> Funds() => _funds.Values.OrderBy(f => f.Id).Select(Fund).ToList();
 
     public IReadOnlyList<MoneyDto> CashTotals() => _positions
-        .Where(p => _accounts.TryGetValue(p.FinancialAccountId, out var a) && a.Type is FinancialAccountType.Bank or FinancialAccountType.Cash)
+        .Where(p => _accounts.TryGetValue(p.FinancialAccountId, out var a) && a.CountsAsBusinessCash)
         .GroupBy(p => p.Currency.Code)
         .Select(g => new MoneyDto(g.Sum(p => p.Amount), g.Key))
         .OrderBy(m => m.Currency)
+        .ToList();
+
+    public IReadOnlyList<OtherCashDto> OtherCash() => _positions
+        .Where(p => _accounts.TryGetValue(p.FinancialAccountId, out var a) && a.Type is FinancialAccountType.Bank or FinancialAccountType.Cash && !a.CountsAsBusinessCash)
+        .GroupBy(p => (_accounts[p.FinancialAccountId].Ownership, p.Currency.Code))
+        .Select(g => new OtherCashDto(g.Key.Ownership, new MoneyDto(g.Sum(p => p.Amount), g.Key.Code)))
+        .Where(o => o.Amount.Amount != 0)
+        .OrderBy(o => o.Ownership).ThenBy(o => o.Amount.Currency)
         .ToList();
 
     public TransactionDto Transaction(LedgerTransaction transaction, int? reversedBy) => new(

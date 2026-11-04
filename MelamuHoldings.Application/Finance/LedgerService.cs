@@ -111,7 +111,7 @@ public class LedgerService
     public async Task<BalancesDto> GetBalancesAsync(DateOnly? asOf)
     {
         var readModel = await FinanceReadModel.LoadAsync(_repository, asOf);
-        return new BalancesDto(asOf, readModel.Accounts(), readModel.Funds(), readModel.CashTotals());
+        return new BalancesDto(asOf, readModel.Accounts(), readModel.Funds(), readModel.CashTotals(), readModel.OtherCash());
     }
 
     private async Task<RecordResult> RecordAsync(object request, string? idempotencyKey, int userId, Func<RecordingInfo, Task<LedgerTransaction>> build)

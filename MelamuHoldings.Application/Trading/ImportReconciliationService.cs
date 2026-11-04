@@ -105,7 +105,7 @@ public class ImportReconciliationService
     // --- Shared with the CSV import ---
 
     public static ImportedRow ToRow(TradeCsvRecord r) => new(
-        r.RowNumber, DateOnly.Parse(r.TradeDate), TimeOnly.TryParse(r.EntryTime, out var t) ? t : TimeOnly.MinValue,
+        r.RowNumber, DateOnly.Parse(r.TradeDate), TimeOnly.Parse(r.EntryTime),
         r.Instrument, Enum.Parse<TradeDirection>(r.Direction, ignoreCase: true), r.EntryPrice, r.ExitPrice, r.RiskAmount,
         r.PnL, r.RR, r.Strategy, r.Session, r.DayOfWeek, r.TradeDuration, r.IsManualOverride, r.DeviationNotes, r.Notes);
 

@@ -3,6 +3,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { FinanceApiService, newIdempotencyKey, todayIso } from '../finance-api.service';
+import { TradingApiService } from '../../trading/trading-api.service';
+import { PropAccount } from '../../trading/models/prop-account.model';
 import { ALLOCATION_STATUS, CurrencyInfo, Money, PAYOUT_STATUS, Payout, PayoutStatus } from '../finance.models';
 import { amountValidator } from '../amount.validator';
 import { MoneyPipe } from '../../../shared/money.pipe';
@@ -34,6 +36,15 @@ type Filter = 'All' | PayoutStatus;
               <label for="po-source">Paid by</label>
               <input id="po-source" formControlName="source" placeholder="e.g. the prop firm" />
             </div>
+            @if (propAccounts().length > 0) {
+              <div class="field">
+                <label for="po-prop">Prop account (optional)</label>
+                <select id="po-prop" formControlName="propFirmAccountId" (change)="fillSource()">
+                  <option [ngValue]="null">Not from a prop account</option>
+                  @for (a of propAccounts(); track a.id) { <option [ngValue]="a.id">{{ a.nickname }} · {{ a.firm }}</option> }
+                </select>
+              </div>
+            }
             <div class="field">
               <label for="po-currency">Currency of the payout</label>
               <select id="po-currency" formControlName="currency">
@@ -108,7 +119,7 @@ type Filter = 'All' | PayoutStatus;
                       <td class="nowrap secondary">{{ p.requestedOn }}</td>
                       <td>
                         <a [routerLink]="['/finance/payouts', p.id]">{{ p.source }}</a>
-                        <div class="small muted">#{{ p.id }}{{ p.reference ? ' · ' + p.reference : '' }}</div>
+                        <div class="small muted">#{{ p.id }}{{ p.reference ? ' · ' + p.reference : '' }}{{ p.propAccountName ? ' · ' + p.propAccountName : '' }}</div>
                       </td>
                       <td class="num">
                         {{ (p.approved ?? p.requested).amount | money: p.requested.currency }}
@@ -148,6 +159,7 @@ export class PayoutsComponent {
   private api = inject(FinanceApiService);
   private destroyRef = inject(DestroyRef);
   private fb = inject(FormBuilder);
+  private trading = inject(TradingApiService);
 
   readonly payoutStatus = PAYOUT_STATUS;
   readonly allocationStatus = ALLOCATION_STATUS;
@@ -161,12 +173,14 @@ export class PayoutsComponent {
   readonly showForm = signal(false);
   readonly saving = signal(false);
   readonly formError = signal('');
+  readonly propAccounts = signal<PropAccount[]>([]);
 
   // Kept while the same request is retried; renewed when the form changes
   private key = newIdempotencyKey();
 
   readonly form = this.fb.nonNullable.group({
     source: ['', [Validators.required, Validators.maxLength(100)]],
+    propFirmAccountId: [null as number | null],
     currency: ['USD', Validators.required],
     amount: [null as number | null, [Validators.required, amountValidator()]],
     requestedOn: [todayIso(), Validators.required],
@@ -209,6 +223,17 @@ export class PayoutsComponent {
   toggleForm(): void {
     this.showForm.set(!this.showForm());
     this.formError.set('');
+    if (this.showForm()) {
+      // Closed accounts too: a payout can arrive after an account closes. Without the list the form still works.
+      this.trading.getPropAccounts(true).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: a => this.propAccounts.set(a), error: () => {} });
+    }
+  }
+
+  // Choosing an account answers "paid by" unless something was already typed
+  fillSource(): void {
+    const v = this.form.getRawValue();
+    const account = this.propAccounts().find(a => a.id === v.propFirmAccountId);
+    if (account && !v.source.trim()) this.form.controls.source.setValue(account.firm);
   }
 
   create(): void {
@@ -220,7 +245,7 @@ export class PayoutsComponent {
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.formError.set('');
-    this.api.createPayout({ ...v, reference: v.reference || undefined, notes: v.notes || undefined }, this.key)
+    this.api.createPayout({ ...v, propFirmAccountId: v.propFirmAccountId ?? undefined, reference: v.reference || undefined, notes: v.notes || undefined }, this.key)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {

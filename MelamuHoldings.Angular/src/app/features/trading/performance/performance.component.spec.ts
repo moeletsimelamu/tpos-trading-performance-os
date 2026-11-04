@@ -10,7 +10,7 @@ const api = environment.apiUrl;
 const FIGURES = ['equity-curve', 'by-strategy', 'by-day', 'by-session'];
 
 const emptySummary = {
-  totalTrades: 0, winRate: 0, expectancy: 0, averageRR: 0, profitFactor: 0,
+  totalTrades: 0, winRate: 0, expectancy: 0, averageRR: 0, profitFactor: null,
   totalPnL: 0, maxDrawdown: 0, winCount: 0, lossCount: 0, breakevenCount: 0, minimumSample: 20, insufficientData: true
 };
 
@@ -76,6 +76,34 @@ describe('PerformanceComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('No trades recorded yet');
     expect(fixture.nativeElement.querySelector('a[href="/trading/import"]')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('app-analytics-filter-bar')).toBeNull();   // nothing to filter yet
+  });
+
+  async function renderSummary(profitFactor: number | null) {
+    const fixture = await render();
+    http.expectOne(`${api}/analytics/summary`).flush({ ...emptySummary, totalTrades: 2, totalPnL: 200, winRate: 100, winCount: 2, profitFactor, maxDrawdown: 50 });
+    http.expectOne(`${api}/analytics/equity-curve`).flush([]);
+    http.expectOne(`${api}/analytics/by-strategy`).flush([]);
+    http.expectOne(`${api}/analytics/by-day`).flush([]);
+    http.expectOne(`${api}/analytics/by-session`).flush([]);
+    http.expectOne(`${api}/analytics/adherence`).flush(emptyAdherence);
+    await fixture.whenStable();
+    const metrics = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.metric')];
+    return (label: string) => metrics.find(m => m.querySelector('.metric-label')?.textContent === label)!.textContent!;
+  }
+
+  it('says profit factor is undefined with no losing trades, and shows no number for it', async () => {
+    const metric = await renderSummary(null);
+    expect(metric('Profit factor')).toContain('Undefined');
+    expect(metric('Profit factor')).toContain('No losing trades to divide by');
+    expect(metric('Profit factor')).not.toMatch(/\d/);
+    expect(metric('Max drawdown')).toContain('50.00');
+  });
+
+  it('shows a profit factor of zero as a number, not as undefined', async () => {
+    const metric = await renderSummary(0);
+    expect(metric('Profit factor')).toContain('0.00');
+    expect(metric('Profit factor')).toContain('Gross profit ÷ gross loss');
+    expect(metric('Profit factor')).not.toContain('Undefined');
   });
 
   it('leads with total P&L and switches the breakdown table between views', async () => {

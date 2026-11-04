@@ -26,6 +26,7 @@ export const NAVIGATION: NavSection[] = [
       { label: 'Performance', route: '/trading/performance', icon: 'performance' },
       { label: 'Journal', route: '/trading/journal', icon: 'journal' },
       { label: 'Trades', route: '/trading/trades', icon: 'trades' },
+      { label: 'Prop accounts', route: '/trading/prop-accounts', icon: 'propAccount' },
       { label: 'Strategies', route: '/trading/strategies', icon: 'strategy' },
       { label: 'Journal templates', route: '/trading/journal-templates', icon: 'template' },
       { label: 'Import', route: '/trading/import', icon: 'import' },

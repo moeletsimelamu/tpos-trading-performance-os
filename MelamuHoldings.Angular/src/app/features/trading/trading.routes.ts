@@ -58,6 +58,18 @@ export const tradingRoutes: Routes = [
       import('./strategies/strategy-editor.component').then(m => m.StrategyEditorComponent)
   },
   {
+    path: 'prop-accounts',
+    title: 'Prop accounts',
+    loadComponent: () =>
+      import('./prop-accounts/prop-accounts.component').then(m => m.PropAccountsComponent)
+  },
+  {
+    path: 'prop-accounts/:id',
+    title: 'Prop account',
+    loadComponent: () =>
+      import('./prop-accounts/prop-account-detail.component').then(m => m.PropAccountDetailComponent)
+  },
+  {
     path: 'journal-templates',
     title: 'Journal templates',
     loadComponent: () =>

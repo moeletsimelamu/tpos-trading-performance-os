@@ -54,7 +54,7 @@ Draft ──▶ Open ──▶ Closed ──▶ Reviewed
 - **Edits keep the status.** A status can move back (for example Closed → Open), but only with the fields that status needs. Marking reviewed is a separate action that requires a closed trade.
 - **Imported trades are `Closed`.** Existing rows are migrated to `Closed` and analytics are unchanged.
 - **P&L is the net realised P&L** as the platform reports it, which is the same meaning as imports. Fees are recorded separately for information and are **not** subtracted again.
-- **Currency.** A manual trade can state the currency of its P&L, risk and fees. Imports leave it empty, because the CSV has no currency column. Analytics still add P&L across trades as before; the known gap stays documented until prop-firm accounts (Phase 8) give every trade an account currency.
+- **Currency.** A manual trade can state the currency of its P&L, risk and fees. Imports leave it empty, because the CSV has no currency column. Analytics still add P&L across trades as before. A trade linked to a prop firm account takes that account's currency (P8.2), so filtering by one account is in one currency; adding across accounts remains a documented gap.
 
 **Deletion policy:**
 - Any trade can be deleted with a two-step confirmation, as today.
@@ -77,7 +77,7 @@ Draft ──▶ Open ──▶ Closed ──▶ Reviewed
 | `Fees` | New, `decimal(18,2)`, optional, informational |
 | `ExitDate`, `ExitTime` | New, optional (a trade may span midnight) |
 | `Currency` | New, `char(3)`, optional |
-| `TradingAccount` | New, free text, optional, until Phase 8 adds prop-firm accounts |
+| `TradingAccount` | New, free text, optional. Since P8.2, a trade can instead link to a prop firm account (`PropFirmAccountId`), and this stays for any other account |
 | `ReviewNotes`, `ReviewedAt` | New: the trader's own post-trade review |
 | `UpdatedAt` | New |
 | `IdempotencyKey` | New, unique per user when present |

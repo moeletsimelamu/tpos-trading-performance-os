@@ -13,6 +13,11 @@ public class CsvParseResult
 
 public class CsvParserService
 {
+    // The largest values the trade columns can hold: decimal(18,5), decimal(18,2) and decimal(8,2)
+    private const decimal PriceLimit = 10_000_000_000_000m;
+    private const decimal AmountLimit = 10_000_000_000_000_000m;
+    private const decimal RRLimit = 1_000_000m;
+
     public CsvParseResult Parse(Stream fileStream)
     {
         var result = new CsvParseResult();
@@ -62,6 +67,9 @@ public class CsvParserService
         if (!DateOnly.TryParse(record.TradeDate, out _))
             return $"Row {rowNumber}: Invalid TradeDate '{record.TradeDate}'.";
 
+        if (!TimeOnly.TryParse(record.EntryTime, out _))
+            return $"Row {rowNumber}: Invalid EntryTime '{record.EntryTime}'.";
+
         if (record.Direction?.ToLower() is not "long" and not "short")
             return $"Row {rowNumber}: Direction must be 'Long' or 'Short'.";
 
@@ -70,6 +78,21 @@ public class CsvParserService
 
         if (record.ExitPrice <= 0)
             return $"Row {rowNumber}: ExitPrice must be greater than zero.";
+
+        if (record.EntryPrice >= PriceLimit)
+            return $"Row {rowNumber}: EntryPrice is too large.";
+
+        if (record.ExitPrice >= PriceLimit)
+            return $"Row {rowNumber}: ExitPrice is too large.";
+
+        if (Math.Abs(record.RiskAmount) >= AmountLimit)
+            return $"Row {rowNumber}: RiskAmount is too large.";
+
+        if (Math.Abs(record.PnL) >= AmountLimit)
+            return $"Row {rowNumber}: PnL is too large.";
+
+        if (Math.Abs(record.RR) >= RRLimit)
+            return $"Row {rowNumber}: RR is too large.";
 
         if (record.Strategy?.Trim().Length > Strategy.MaxNameLength)
             return $"Row {rowNumber}: Strategy must be at most {Strategy.MaxNameLength} characters.";

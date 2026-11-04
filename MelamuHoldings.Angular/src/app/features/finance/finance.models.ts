@@ -2,6 +2,35 @@
 
 export type AccountType = 'Bank' | 'Cash' | 'Brokerage' | 'Other';
 export type Ownership = 'Company' | 'Personal' | 'Unspecified';
+export type AccountCategory = 'NotStated' | 'Current' | 'Savings' | 'Investment';
+export type TaxTreatment = 'NotStated' | 'Taxable' | 'TaxFree';
+export type PaymentCardKind = 'Debit' | 'Credit';
+export type PaymentCardNetwork = 'NotStated' | 'Visa' | 'Mastercard' | 'Other';
+export type CardFinish = 'Navy' | 'Graphite' | 'Gold' | 'Silver' | 'Plum' | 'Teal' | 'ForestGold' | 'BlackTeal' | 'BlackGold' | 'Yellow' | 'Green';
+export const CARD_FINISHES: { value: CardFinish; label: string }[] = [
+  { value: 'Navy', label: 'Navy' },
+  { value: 'Graphite', label: 'Graphite' },
+  { value: 'ForestGold', label: 'Dark green and gold' },
+  { value: 'BlackTeal', label: 'Black with teal arcs' },
+  { value: 'BlackGold', label: 'Black with gold lines' },
+  { value: 'Yellow', label: 'Yellow with foil' },
+  { value: 'Green', label: 'Green with foil' },
+  { value: 'Gold', label: 'Gold' },
+  { value: 'Silver', label: 'Silver' },
+  { value: 'Plum', label: 'Plum' },
+  { value: 'Teal', label: 'Teal' }
+];
+
+// What identifies a card to its owner. Never the full number, expiry, security code or cardholder name.
+export interface PaymentCard { id: number; kind: PaymentCardKind; name?: string | null; lastFour?: string | null; status: 'Active' | 'Cancelled'; addedAt: string; cancelledAt?: string | null; network?: PaymentCardNetwork; finish?: CardFinish; }
+
+export const ACCOUNT_CATEGORY_LABELS: Record<AccountCategory, string> = { NotStated: 'Not stated', Current: 'Current', Savings: 'Savings', Investment: 'Investment' };
+export const TAX_TREATMENT_LABELS: Record<TaxTreatment, string> = { NotStated: 'Not stated', Taxable: 'Taxable', TaxFree: 'Tax-free' };
+
+// Which categories a type of account can have; the server has the final say
+export function categoriesFor(type: AccountType): AccountCategory[] {
+  return type === 'Bank' ? ['NotStated', 'Current', 'Savings'] : type === 'Brokerage' ? ['NotStated', 'Investment'] : ['NotStated'];
+}
 export type TransactionType =
   'OpeningBalance' | 'Income' | 'Expense' | 'Transfer' | 'FundReallocation' | 'CurrencyExchange' | 'Reversal';
 
@@ -21,10 +50,17 @@ export interface Account {
   funds: FundPosition[];
   createdAt: string;
   closedAt?: string | null;
+  category?: AccountCategory;
+  taxTreatment?: TaxTreatment;
+  reference?: string | null;
+  openedOn?: string | null;
+  homeFundId?: number | null;
+  homeFundName?: string | null;
+  cards?: PaymentCard[];
 }
 
 // Minimum and target are in one currency and compared with the fund's balance in that currency only
-export interface Fund { id: number; name: string; description?: string | null; isSystem: boolean; balances: Money[]; minimum?: Money | null; target?: Money | null; }
+export interface Fund { id: number; name: string; description?: string | null; isSystem: boolean; balances: Money[]; minimum?: Money | null; target?: Money | null; accounts?: { id: number; name: string }[]; }
 
 export interface SaveFund { name: string; description?: string; thresholdCurrency?: string | null; minimum?: number | null; target?: number | null; }
 
@@ -58,7 +94,7 @@ export interface SaveObligation {
   name: string; amount: number; currency: string; category?: string | null; recurrence: Recurrence; firstDueDate: string; notes?: string | null;
 }
 // Continuity (Phase 7.2): months of essential expenses the reserve covers, from recorded balances only.
-// Counted: the continuity fund's money in the settings currency in bank and cash accounts. Everything else is listed apart.
+// Counted: the continuity fund's money in the settings currency in company bank and cash accounts. Everything else is listed apart.
 export interface ContinuitySettings {
   continuityFundId: number; continuityFundName: string; months: number; currency: string; monthlyEssentialExpense?: number | null;
   restorationFundId?: number | null; restorationFundName?: string | null; updatedAt?: string | null;
@@ -88,7 +124,7 @@ export interface Valuation {
   id: number; accountId: number; valuedOn: string; value: Money; note?: string | null; recordedAt: string; recordedBalance: Money; unrealised: Money;
 }
 export interface InvestmentAccount {
-  accountId: number; accountName: string; currency: string; institution?: string | null; ownership: Ownership; status: 'Active' | 'Closed';
+  accountId: number; accountName: string; currency: string; institution?: string | null; ownership: Ownership; taxTreatment?: TaxTreatment; status: 'Active' | 'Closed';
   asOf: string; latest?: Valuation | null; netContributions: Money; recordedIncome: Money; recordedCosts: Money; recordedBalance: Money;
   unrealised?: Money | null; gainOnContributions?: Money | null; transactionsSinceValuation: number; movedSinceValuation: Money; currentRecordedBalance: Money;
 }
@@ -144,7 +180,18 @@ export interface Transaction {
 
 export interface Paged<T> { items: T[]; page: number; pageSize: number; totalCount: number; totalPages: number; }
 
-export interface Balances { asOf?: string | null; accounts: Account[]; funds: Fund[]; cashTotals: Money[]; }
+// Bank and cash money that is not the business's to count: in personal accounts, or ownership not stated
+export interface OtherCash { ownership: Ownership; amount: Money; }
+
+export function otherCashText(items: OtherCash[] | undefined, format: (m: Money) => string): string {
+  const part = (ownership: Ownership, where: string) => {
+    const amounts = (items ?? []).filter(i => i.ownership === ownership).map(i => format(i.amount));
+    return amounts.length > 0 ? `${amounts.join(' and ')} ${where}` : '';
+  };
+  return [part('Personal', 'in personal accounts'), part('Unspecified', 'in accounts with ownership not stated')].filter(Boolean).join('; ');
+}
+
+export interface Balances { asOf?: string | null; accounts: Account[]; funds: Fund[]; cashTotals: Money[]; otherCash?: OtherCash[]; }
 
 export interface AuditEvent {
   id: number; occurredAt: string; userId: number; action: string;
@@ -160,7 +207,7 @@ export interface TransactionFilter {
   page: number; pageSize: number;
 }
 
-// The Executive Overview's period figures (Phase 6). Summed from bank and cash ledger entries by transaction type;
+// The Executive Overview's period figures (Phase 6). Summed from company bank and cash ledger entries by transaction type;
 // each line is the ledger list for that type and period. Net cash movement is cash movement, not profit.
 export interface CashLine { type: TransactionType; label: string; amount: number; transactions: number; gross?: number | null; fees?: number | null; }
 export interface CurrencyPeriod {
@@ -211,6 +258,7 @@ export interface Payout {
   credited?: Money | null; fee?: Money | null; effectiveRate?: number | null; incomeTransactionId?: number | null;
   rejectedOn?: string | null; rejectionReason?: string | null; createdAt: string;
   allocationId?: number | null; allocationStatus?: AllocationStatus | null;
+  propFirmAccountId?: number | null; propAccountName?: string | null;
 }
 
 export interface PolicyLine { fundId: number; fundName: string; percentage: number; }

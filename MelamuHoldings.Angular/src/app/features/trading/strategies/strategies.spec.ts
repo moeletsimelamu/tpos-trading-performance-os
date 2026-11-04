@@ -233,6 +233,7 @@ describe('Trade form checklist', () => {
     await fixture.whenStable();
     if (id) http.expectOne(`${api}/trades/${id}`).flush(existing!);
     http.expectOne(`${api}/journal-templates`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     http.expectOne(`${api}/strategies`).flush([strategy()]);
     await fixture.whenStable();
     return { fixture, c: fixture.componentInstance };
@@ -261,6 +262,7 @@ describe('Trade form checklist', () => {
     const fixture = TestBed.createComponent(TradeFormComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush([]);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     http.expectOne(`${api}/strategies`).flush([strategy({
       instruments: ['NQ', 'ES'], sessions: ['New York'],
       rules: [{ id: 41, text: 'Stop loss is set', isMandatory: true, category: 'Risk', sortOrder: 1 }, { id: 43, text: 'Range marked', isMandatory: true, category: 'Setup', sortOrder: 2 }]
@@ -283,6 +285,7 @@ describe('Trade form checklist', () => {
     const fixture = TestBed.createComponent(TradeFormComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/journal-templates`).flush(TEMPLATES);
+    http.expectOne(`${api}/prop-accounts?includeClosed=true`).flush([]);
     http.expectOne(`${api}/strategies`).flush([strategy({ defaultTemplateId: 2 }), strategy({ id: 5, name: 'Scalp', defaultTemplateId: 1 })]);
     await fixture.whenStable();
     const c = fixture.componentInstance;

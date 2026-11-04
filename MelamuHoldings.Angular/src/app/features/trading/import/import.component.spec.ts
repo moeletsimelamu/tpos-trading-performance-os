@@ -30,14 +30,38 @@ describe('ImportComponent', () => {
 
   afterEach(() => http.verify());
 
-  async function render(matches: ImportMatch[] = []) {
+  async function render(matches: ImportMatch[] = [], propAccounts: object[] = []) {
     const fixture = TestBed.createComponent(ImportComponent);
     await fixture.whenStable();
     http.expectOne(`${api}/upload/logs`).flush([]);
     http.expectOne(`${api}/upload/matches`).flush(matches);
+    http.expectOne(`${api}/prop-accounts`).flush(propAccounts);
     await fixture.whenStable();
     return fixture;
   }
+
+  it('offers no account choice without accounts, and puts a whole file on the one chosen', async () => {
+    const none = await render();
+    expect(none.nativeElement.querySelector('#import-account')).toBeNull();
+    none.componentInstance.upload(new File(['TradeDate'], 'plain.csv'));
+    const plain = http.expectOne(`${api}/upload`);
+    expect((plain.request.body as FormData).has('propAccountId')).toBe(false);
+    plain.flush({ uploadLogId: 1, fileName: 'plain.csv', totalRows: 0, parsedRows: 0, failedRows: 0, duplicateRows: 0, matchedRows: 0, status: 'Completed', errors: [] });
+    http.expectOne(`${api}/upload/logs`).flush([]);
+    http.expectOne(`${api}/upload/matches`).flush([]);
+
+    const fixture = await render([], [{ id: 5, nickname: 'Attempt 1', firm: 'Test Firm' }]);
+    const select = fixture.nativeElement.querySelector('#import-account') as HTMLSelectElement;
+    expect(select.textContent).toContain('Attempt 1 (Test Firm)');
+    select.value = '5';
+    select.dispatchEvent(new Event('change'));
+    fixture.componentInstance.upload(new File(['TradeDate'], 'journal.csv'));
+    const req = http.expectOne(`${api}/upload`);
+    expect((req.request.body as FormData).get('propAccountId')).toBe('5');
+    req.flush({ uploadLogId: 2, fileName: 'journal.csv', totalRows: 0, parsedRows: 0, failedRows: 0, duplicateRows: 0, matchedRows: 0, status: 'Completed', errors: [] });
+    http.expectOne(`${api}/upload/logs`).flush([]);
+    http.expectOne(`${api}/upload/matches`).flush([]);
+  });
 
   it('rejects a non-CSV file inline without calling the API', async () => {
     const fixture = await render();

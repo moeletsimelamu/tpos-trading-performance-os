@@ -28,6 +28,10 @@ public class Trade
     public string Instrument { get; set; } = string.Empty;
     public string? TradingAccount { get; set; }
 
+    // The prop firm account the trade was taken on. An account on any other platform stays free text in TradingAccount.
+    public int? PropFirmAccountId { get; set; }
+    public PropFirmAccount? PropFirmAccount { get; set; }
+
     // Execution: empty until recorded. Nothing is filled in with a placeholder value.
     public TradeDirection? Direction { get; set; }
     public TimeOnly? EntryTime { get; set; }
@@ -72,6 +76,21 @@ public class Trade
 
     public bool IsImported => UploadLogId is not null;
     public bool CountsInAnalytics => Status is TradeStatus.Closed or TradeStatus.Reviewed;
+
+    // The account as the trader knows it, whichever way it is recorded
+    public string? AccountName => PropFirmAccount?.Nickname ?? TradingAccount;
+
+    // A linked trade takes its name and currency from the account, so its P&L can be added to the account's balance
+    public void LinkTo(PropFirmAccount? account)
+    {
+        PropFirmAccountId = account?.Id;
+        PropFirmAccount = account;
+        if (account is null) return;
+        if (Currency is not null && Currency != account.Currency.Code)
+            throw new DomainException($"{account.Nickname} is in {account.Currency.Code}, and this trade's P&L is in {Currency}.");
+        TradingAccount = null;
+        Currency = account.Currency.Code;
+    }
 
     // The fields a status needs that this trade does not have yet, by name
     public IReadOnlyList<string> MissingFor(TradeStatus status)

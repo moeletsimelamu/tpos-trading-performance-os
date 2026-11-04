@@ -5,6 +5,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TradingApiService } from '../trading-api.service';
 import { UploadResult } from '../models/analytics.model';
 import { ImportMatch, LinkResult, MatchDecision } from '../models/journal-view.model';
+import { PropAccount } from '../models/prop-account.model';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
@@ -25,6 +26,16 @@ const FIELD_NAMES: Record<string, string> = {
     <div class="page narrow">
       <app-page-header section="Trading operations" title="Import trades"
         description="Bring trade history in from a CSV export. Rows already imported are skipped, and a row that matches a trade you journaled waits for your decision instead of duplicating it." />
+
+      @if (propAccounts().length > 0) {
+        <div class="field account-choice">
+          <label for="import-account">Put these trades on a prop firm account (optional)</label>
+          <select id="import-account" [value]="propAccountId() ?? ''" (change)="chooseAccount($any($event.target).value)" [disabled]="isUploading()">
+            <option value="">None</option>
+            @for (a of propAccounts(); track a.id) { <option [value]="a.id">{{ a.nickname }} ({{ a.firm }})</option> }
+          </select>
+        </div>
+      }
 
       <div class="drop-zone"
         role="button"
@@ -126,7 +137,7 @@ const FIELD_NAMES: Record<string, string> = {
 
       <section class="card format" aria-labelledby="format-heading">
         <h2 id="format-heading">Expected columns</h2>
-        <p class="secondary small">The file needs a header row with these names. <code>Direction</code> is Long or Short; prices must be above zero.</p>
+        <p class="secondary small">The file needs a header row with these names. <code>Direction</code> is Long or Short; <code>EntryTime</code> must be a valid time; prices must be above zero.</p>
         <div class="columns">
           @for (col of expectedColumns; track col) { <code>{{ col }}</code> }
         </div>
@@ -174,6 +185,7 @@ const FIELD_NAMES: Record<string, string> = {
     </div>
   `,
   styles: [`
+    .account-choice { margin-bottom: var(--space-4); max-width: 420px; }
     .narrow { max-width: 900px; }
     .drop-zone {
       display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
@@ -228,6 +240,8 @@ export class ImportComponent {
   readonly matchError = signal('');
   readonly decision = signal('');
   readonly deciding = signal<number | null>(null);
+  readonly propAccounts = signal<PropAccount[]>([]);
+  readonly propAccountId = signal<number | null>(null);
 
   readonly expectedColumns = [
     'TradeDate', 'EntryTime', 'Instrument', 'Direction',
@@ -239,6 +253,12 @@ export class ImportComponent {
   constructor() {
     this.loadLogs();
     this.loadMatches();
+    // The import still works without them: the trades just are not linked
+    this.api.getPropAccounts().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: a => this.propAccounts.set(a), error: () => {} });
+  }
+
+  chooseAccount(value: string): void {
+    this.propAccountId.set(value ? Number(value) : null);
   }
 
   loadMatches(): void {
@@ -317,7 +337,7 @@ export class ImportComponent {
 
     this.uploadError.set('');
     this.isUploading.set(true);
-    this.api.uploadCsv(file)
+    this.api.uploadCsv(file, this.propAccountId())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: result => {

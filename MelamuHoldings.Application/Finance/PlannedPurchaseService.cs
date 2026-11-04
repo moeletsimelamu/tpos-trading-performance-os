@@ -174,7 +174,7 @@ public class PlannedPurchaseService
         MoneyDto M(decimal amount) => new(amount, currency);
 
         var available = accounts
-            .Where(a => a.Type is FinancialAccountType.Bank or FinancialAccountType.Cash)
+            .Where(a => FinancialAccount.IsBusinessCash(a.Type, a.Ownership))
             .SelectMany(a => a.Funds)
             .Where(f => f.FundId == purchase.FundId && f.Balance.Currency == currency)
             .Sum(f => f.Balance.Amount);
