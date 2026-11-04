@@ -36,7 +36,8 @@ This plan evolves the existing trading analytics application (see `docs/EXISTING
 - P8.2 (trades linked to accounts, balances from the firm's dashboard, and each account's standing against its rules, with warnings) is complete on branch `phase-8-2-prop-account-standing`, cut from `phase-8-1-prop-accounts`.
 - The company's logo replaced the proposed mark (decision D13) on branch `brand-melamu-logo`, cut from `phase-8-2-prop-account-standing`; the rest of the owner's business-structure addendum of 2026-11-04 is still to be sequenced.
 - Account details and business cash (decision D14, the second step of that addendum) are complete on branch `accounts-business-structure`, cut from `brand-melamu-logo`.
-- Next: account panels, then P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report).
+- Account panels and payment cards (the third step of that addendum) are complete on branch `accounts-panels`, cut from `accounts-business-structure`.
+- Next: P8.3 (payouts and fees linked to accounts, and the fees-versus-payouts report).
 
 ---
 

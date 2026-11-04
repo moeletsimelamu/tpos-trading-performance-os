@@ -49,6 +49,37 @@ CI (`.github/workflows/ci.yml`) runs:
 - **Backend:** a Release build with warnings as errors, a vulnerable-package gate, and both .NET suites against a SQL Server 2022 container.
 - **Frontend:** `npm ci`, a production-dependency audit, `ng build`, and the Angular specs.
 
+## Results — 2026-11-04 (branch `accounts-panels`)
+
+| Command | Result |
+|---|---|
+| `dotnet build MelamuHoldings.slnx -c Release -warnaserror` | 0 warnings, 0 errors |
+| `dotnet test` (Release): unit | 363 passed, 0 failed |
+| `dotnet test` (Release): integration | 142 passed, 0 failed |
+| `ng test --watch=false` | 234 passed, 0 failed (31 files) |
+| `ng build` (production) | Succeeded; initial bundle 339.83 kB; no budget warnings |
+| `dotnet list package --vulnerable --include-transitive` | No vulnerable packages |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| `dotnet ef migrations has-pending-model-changes` | No changes |
+| `dotnet ef migrations script --idempotent` | Generated for all 18 migrations; every step guarded |
+| `AddPaymentCards` | Applied to `MelamuHoldings_Scratch`, then to dev `MelamuHoldings` after a backup verified with `RESTORE VERIFYONLY` |
+
+CI has not run on this branch, because it has not been pushed.
+
+**New tests**
+- **Unit (`PaymentCardTests`):** a card keeps only what recognises it, and its name and digits are optional. Anything but exactly four digits is refused, including a full card number. Only a bank account can have a card. An account cannot have two active cards with the same digits, and closing it cancels its cards.
+- **Integration (`PaymentCardEndpointTests`):** a card is added, read back and recorded as cancelled, with both in the audit log and the balance unchanged. Closing an account cancels its cards. A full number, wrong digits, a missing or unknown kind, a brokerage account, and a missing account or card are refused. `FinanceEndpointTests` adds the 401 and 403 checks.
+- **Angular (`finance-pages.spec`):** what a panel shows, and the groups with the company's first. Nothing claims to be an issued card or a live connection, and there are no images in a panel. Tax-free is marked, and a closed account comes after the open ones with no actions. The table choice is remembered. Adding a card sends only what recognises it, cards are offered only on bank accounts, and cancelling asks first. Initials are made from a provider's name.
+- **Existing tests changed:** the two Accounts specs that read table rows now switch to the table view.
+
+**Browser check (scratch database, desktop and phone width)**
+- **Panels:** five accounts in Business and Personal groups, each with provider, category, currency, balance, money by fund and its links.
+- **Cards:** a debit card ending 4111 saved and showed on its panel. The same digits were refused with the reason. Recording it as cancelled asked first, then showed Cancelled.
+- **Table:** the switch showed all five rows with the same actions, and the choice was kept in the browser.
+- **Phone width:** panels and the card form fit the 375 px page with nothing past its edge.
+- **How it was driven:** by page script in a background tab.
+- **Not exercised in the browser:** closing an account from a panel, the tax-free tag, and the Ownership not stated group. The Angular and integration tests cover them.
+
 ## Results — 2026-11-04 (branch `accounts-business-structure`)
 
 | Command | Result |

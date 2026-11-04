@@ -46,6 +46,15 @@ The owner chose this design on 2026-11-04 (decision D13). It starts from the log
   - The original design file does not exist in the repository, so the M is a measured redraw from an 828 px image. Its edges match the image, but fine curves on the serifs were judged by eye.
   - `(PTY) LTD` states a legal form. Check that the company is registered before using the full logo outside this private system.
 
+## Account panels
+
+The Accounts page shows each account as a panel, with a table view one click away and the choice remembered per browser.
+
+- **Not a bank card.** A panel is a plain record, with no chip, number pattern or card proportions. A footnote on the page says so, and that nothing connects to a bank.
+- **No bank logos.** A provider shows as a neutral tile of its initials and its name as text. No bank's logo or colours are used, because none has been licensed. If one is, it replaces the tile and nothing else changes.
+- **Type at a glance.** The top rule is navy for a bank, muted gold for a brokerage and grey for cash or other.
+- **Ownership at a glance.** Business accounts come first. Personal accounts and those with ownership not stated are separate groups, each saying they are not counted as business cash.
+
 ## Colour
 
 | Token | Value | Use |

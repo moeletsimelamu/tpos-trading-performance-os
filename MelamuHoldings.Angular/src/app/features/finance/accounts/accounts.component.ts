@@ -1,20 +1,36 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { FinanceApiService } from '../finance-api.service';
-import { ACCOUNT_CATEGORY_LABELS, Account, AccountCategory, AccountType, Balances, CurrencyInfo, Ownership, TAX_TREATMENT_LABELS, TaxTreatment, categoriesFor, otherCashText } from '../finance.models';
+import { ACCOUNT_CATEGORY_LABELS, Account, AccountCategory, AccountType, Balances, CurrencyInfo, Ownership, PaymentCard, PaymentCardKind, TAX_TREATMENT_LABELS, TaxTreatment, categoriesFor, otherCashText } from '../finance.models';
 import { MoneyPipe, formatMoney } from '../../../shared/money.pipe';
 import { LoadErrorComponent } from '../../../shared/load-error.component';
 import { describeHttpError } from '../../../shared/http-error';
 import { PageHeaderComponent } from '../../../shared/ui/page-header.component';
 
 type LoadState = 'loading' | 'ready' | 'error';
+type AccountsView = 'panels' | 'table';
+
+const VIEW_KEY = 'mhos.accounts.view';
+
+// One to three letters to recognise a provider by, in a plain tile. No bank's logo is used without its permission.
+export function providerInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  if (/^[A-Z]{2,3}$/.test(words[0])) return words[0];
+  return words.slice(0, 2).map(w => w[0].toUpperCase()).join('');
+}
+
+function readView(): AccountsView {
+  try { return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'panels'; } catch { return 'panels'; }
+}
 
 @Component({
   selector: 'app-finance-accounts',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent],
+  imports: [NgTemplateOutlet, ReactiveFormsModule, RouterLink, MoneyPipe, LoadErrorComponent, PageHeaderComponent],
   template: `
     <div class="page">
       <app-page-header section="Finance" title="Accounts"
@@ -127,6 +143,103 @@ type LoadState = 'loading' | 'ready' | 'error';
                 <p>Add the account payouts arrive in, then record its opening balance.</p>
               </div>
             } @else {
+              <div class="view-bar">
+                <div class="tabs" role="tablist" aria-label="Show accounts as">
+                  <button type="button" class="tab" role="tab" [attr.aria-selected]="view() === 'panels'" (click)="setView('panels')">Panels</button>
+                  <button type="button" class="tab" role="tab" [attr.aria-selected]="view() === 'table'" (click)="setView('table')">Table</button>
+                </div>
+              </div>
+              @if (actionError()) { <p class="notice notice-error" role="alert">{{ actionError() }}</p> }
+
+              @if (view() === 'panels') {
+                @for (group of groups(); track group.title) {
+                  <section class="group" [attr.aria-label]="group.title">
+                    <h2>{{ group.title }}</h2>
+                    @if (group.note) { <p class="small secondary group-note">{{ group.note }}</p> }
+                    <div class="panels">
+                      @for (a of group.accounts; track a.id) {
+                        <article class="panel" [class.closed]="a.status === 'Closed'" [attr.data-type]="a.type" [attr.aria-label]="a.name">
+                          <header class="panel-head">
+                            <span class="provider-badge" aria-hidden="true">{{ initials(a) }}</span>
+                            <div class="provider">
+                              <span class="provider-name">{{ a.institution ?? 'Provider not stated' }}</span>
+                              <span class="small muted">{{ kind(a) }}</span>
+                            </div>
+                            @if (a.status === 'Closed') { <span class="tag">Closed</span> }
+                            @else if (a.taxTreatment === 'TaxFree') { <span class="tag tag-info">Tax-free</span> }
+                          </header>
+                          <a class="panel-name" [routerLink]="['/finance/transactions']" [queryParams]="{ accountId: a.id }">{{ a.name }}</a>
+                          <div class="panel-balance">{{ a.balance.amount | money: a.balance.currency }}</div>
+                          <div class="small muted">Recorded balance</div>
+                          <dl class="panel-facts">
+                            <div>
+                              <dt>By fund</dt>
+                              <dd>
+                                @for (f of a.funds; track f.fundId) { <div class="fund-line"><span>{{ f.fundName }}</span><span class="fund-amount">{{ f.balance.amount | money: f.balance.currency }}</span></div> }
+                                @empty { <span class="muted">Nothing recorded</span> }
+                              </dd>
+                            </div>
+                            @if (a.homeFundName) { <div><dt>Mainly for</dt><dd>{{ a.homeFundName }}</dd></div> }
+                            @if (a.reference) { <div><dt>Reference</dt><dd>{{ a.reference }}</dd></div> }
+                            @if (a.openedOn) { <div><dt>Opened</dt><dd>{{ a.openedOn }}</dd></div> }
+                            @if (a.taxTreatment === 'Taxable') { <div><dt>Tax</dt><dd>Taxable</dd></div> }
+                            @if (a.notes) { <div><dt>Notes</dt><dd>{{ a.notes }}</dd></div> }
+                            @if (a.type === 'Bank') {
+                              <div>
+                                <dt>Payment cards</dt>
+                                <dd>
+                                  @for (c of a.cards ?? []; track c.id) {
+                                    <div class="card-line" [class.cancelled]="c.status === 'Cancelled'">
+                                      <span>{{ cardLabel(c) }}</span>
+                                      @if (c.status === 'Cancelled') { <span class="tag">Cancelled</span> }
+                                      @else if (a.status === 'Active') {
+                                        @if (confirmingCard() === c.id) {
+                                          <button type="button" class="btn btn-sm btn-danger" [disabled]="saving()" (click)="cancelCard(a, c)">Record as cancelled</button>
+                                          <button type="button" class="btn-link small" (click)="confirmingCard.set(null)">Keep</button>
+                                        } @else {
+                                          <button type="button" class="btn-link small" (click)="confirmingCard.set(c.id)">Cancel card</button>
+                                        }
+                                      }
+                                    </div>
+                                  } @empty { <span class="muted">None recorded</span> }
+                                  @if (a.status === 'Active' && addingCardTo() !== a.id) { <div><button type="button" class="btn-link small" (click)="startCard(a)">Add a card</button></div> }
+                                </dd>
+                              </div>
+                            }
+                          </dl>
+                          @if (addingCardTo() === a.id) {
+                            <form class="card-form" [formGroup]="cardForm" (ngSubmit)="addCard(a)" aria-label="Add a payment card">
+                              <div class="field">
+                                <label [for]="'card-kind-' + a.id">Kind</label>
+                                <select [id]="'card-kind-' + a.id" formControlName="kind"><option value="Debit">Debit</option><option value="Credit">Credit</option></select>
+                              </div>
+                              <div class="field">
+                                <label [for]="'card-four-' + a.id">Last four digits (optional)</label>
+                                <input [id]="'card-four-' + a.id" formControlName="lastFour" inputmode="numeric" maxlength="4" autocomplete="off" />
+                              </div>
+                              <div class="field wide">
+                                <label [for]="'card-name-' + a.id">Name (optional)</label>
+                                <input [id]="'card-name-' + a.id" formControlName="name" maxlength="50" autocomplete="off" />
+                              </div>
+                              <p class="small secondary wide">Only enough to recognise it. Never enter the full number, expiry, security code or cardholder name.</p>
+                              @if (cardError()) { <p class="notice notice-error wide" role="alert">{{ cardError() }}</p> }
+                              <div class="form-actions wide">
+                                <button type="submit" class="btn btn-sm btn-primary" [disabled]="cardForm.invalid || saving()">Save card</button>
+                                <button type="button" class="btn-link small" (click)="addingCardTo.set(null)">Cancel</button>
+                              </div>
+                            </form>
+                          }
+                          <footer class="panel-actions">
+                            <a class="btn-link small" [routerLink]="['/finance/transactions']" [queryParams]="{ accountId: a.id }">Transactions</a>
+                            <ng-container *ngTemplateOutlet="accountActions; context: { $implicit: a }" />
+                          </footer>
+                        </article>
+                      }
+                    </div>
+                  </section>
+                }
+                <p class="small muted honesty">These panels summarise what you recorded here. They are not bank cards or live connections to any bank, and no bank's logo is used.</p>
+              } @else {
               <div class="card table-card">
                 <table class="data-table">
                   <thead>
@@ -155,25 +268,29 @@ type LoadState = 'loading' | 'ready' | 'error';
                           @if (a.homeFundName) { <div class="muted">Mainly for {{ a.homeFundName }}</div> }
                         </td>
                         <td class="actions">
-                          @if (a.status === 'Active') {
-                            <button type="button" class="btn-link small" (click)="startEdit(a)">Edit</button>
-                            <a class="btn-link small" [routerLink]="['/finance/transactions/new']" [queryParams]="{ type: 'opening-balance', accountId: a.id }">Opening balance</a>
-                            @if (a.balance.amount === 0) {
-                              @if (confirmingClose() === a.id) {
-                                <button type="button" class="btn btn-danger" (click)="close(a)" [disabled]="saving()">Confirm close</button>
-                                <button type="button" class="btn-link small" (click)="confirmingClose.set(null)">Keep</button>
-                              } @else {
-                                <button type="button" class="btn-link small" (click)="confirmingClose.set(a.id)">Close</button>
-                              }
-                            }
-                          }
+                          <ng-container *ngTemplateOutlet="accountActions; context: { $implicit: a }" />
                         </td>
                       </tr>
                     }
                   </tbody>
                 </table>
               </div>
-              @if (actionError()) { <p class="notice notice-error" role="alert">{{ actionError() }}</p> }
+              }
+
+              <ng-template #accountActions let-a>
+                @if (a.status === 'Active') {
+                  <button type="button" class="btn-link small" (click)="startEdit(a)">Edit</button>
+                  <a class="btn-link small" [routerLink]="['/finance/transactions/new']" [queryParams]="{ type: 'opening-balance', accountId: a.id }">Opening balance</a>
+                  @if (a.balance.amount === 0) {
+                    @if (confirmingClose() === a.id) {
+                      <button type="button" class="btn btn-danger" (click)="close(a)" [disabled]="saving()">Confirm close</button>
+                      <button type="button" class="btn-link small" (click)="confirmingClose.set(null)">Keep</button>
+                    } @else {
+                      <button type="button" class="btn-link small" (click)="confirmingClose.set(a.id)">Close</button>
+                    }
+                  }
+                }
+              </ng-template>
             }
           }
         }
@@ -187,6 +304,32 @@ type LoadState = 'loading' | 'ready' | 'error';
     .wide { grid-column: 1 / -1; }
     .closed td { color: var(--text-muted); }
     .actions { white-space: nowrap; display: flex; gap: var(--space-3); align-items: center; justify-content: flex-end; }
+    .view-bar { display: flex; justify-content: flex-end; margin-bottom: var(--space-3); }
+    .group { margin-bottom: var(--space-6); }
+    .group h2 { font-size: var(--text-md); margin-bottom: var(--space-1); }
+    .group-note { margin-bottom: var(--space-2); }
+    .panels { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: var(--space-4); align-items: start; margin-top: var(--space-3); }
+    /* A plain record of an account, deliberately not card-shaped: no chip, number pattern or card proportions */
+    .panel { background: var(--surface); border: 1px solid var(--border-subtle); border-top: 3px solid var(--navy-900); border-radius: var(--radius); padding: var(--space-4); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .panel[data-type='Brokerage'] { border-top-color: #b8a06a; }
+    .panel[data-type='Cash'], .panel[data-type='Other'] { border-top-color: var(--text-muted); }
+    .panel.closed { opacity: .7; }
+    .panel-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+    .provider-badge { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--radius); background: var(--surface-sunken); color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+    .provider { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
+    .provider-name { font-weight: 500; overflow-wrap: anywhere; }
+    .panel-name { font-size: var(--text-md); font-weight: 600; overflow-wrap: anywhere; }
+    .panel-balance { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: var(--space-2); overflow-wrap: anywhere; }
+    .panel-facts { display: grid; gap: var(--space-2); margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
+    .panel-facts dt { font-size: var(--text-xs); color: var(--text-secondary); }
+    .panel-facts dd { margin: 0; font-size: var(--text-sm); }
+    .fund-line { display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+    .fund-amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .card-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+    .card-line.cancelled > span:first-child { color: var(--text-muted); }
+    .card-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: var(--space-2) var(--space-3); margin-top: var(--space-3); padding: var(--space-3); background: var(--surface-sunken); border-radius: var(--radius); }
+    .panel-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
+    .honesty { margin-top: var(--space-2); }
   `]
 })
 export class AccountsComponent {
@@ -211,6 +354,27 @@ export class AccountsComponent {
   readonly confirmingClose = signal<number | null>(null);
   // The account being changed; null when adding a new one
   readonly editing = signal<Account | null>(null);
+  // The owner's own preference for this page; if it cannot be read or kept, the panels show
+  readonly view = signal<AccountsView>(readView());
+  readonly addingCardTo = signal<number | null>(null);
+  readonly confirmingCard = signal<number | null>(null);
+  readonly cardError = signal('');
+  readonly cardForm = this.fb.nonNullable.group({
+    kind: ['Debit' as PaymentCardKind, Validators.required],
+    lastFour: ['', Validators.pattern(/^\d{4}$/)],
+    name: ['', Validators.maxLength(50)]
+  });
+
+  // Business accounts first, because personal money must never read as the company's. Open accounts lead each group.
+  readonly groups = computed(() => {
+    const accounts = this.balances()?.accounts ?? [];
+    const of = (ownership: Ownership) => accounts.filter(a => a.ownership === ownership).sort((a, b) => (a.status === b.status ? a.name.localeCompare(b.name) : a.status === 'Active' ? -1 : 1));
+    return [
+      { title: 'Business accounts', note: '', accounts: of('Company') },
+      { title: 'Personal accounts', note: 'Your own money. Not counted as business cash.', accounts: of('Personal') },
+      { title: 'Ownership not stated', note: 'Not counted as business cash until you state who owns them.', accounts: of('Unspecified') }
+    ].filter(g => g.accounts.length > 0);
+  });
 
   readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
@@ -295,6 +459,53 @@ export class AccountsComponent {
         this.load();
       },
       error: err => { this.saving.set(false); this.formError.set(describeHttpError(err)); }
+    });
+  }
+
+  setView(view: AccountsView): void {
+    this.view.set(view);
+    try { localStorage.setItem(VIEW_KEY, view); } catch { /* the choice just is not remembered */ }
+  }
+
+  initials(a: Account): string {
+    return providerInitials(a.institution ?? a.name);
+  }
+
+  // What sort of account it is, at a glance
+  kind(a: Account): string {
+    const category = a.category && a.category !== 'NotStated' ? ` · ${this.categoryLabels[a.category]}` : '';
+    return `${a.type}${category} · ${a.currency}`;
+  }
+
+  cardLabel(c: PaymentCard): string {
+    const ending = c.lastFour ? ` ending ${c.lastFour}` : '';
+    return `${c.name ? `${c.name}: ` : ''}${c.kind} card${ending}`;
+  }
+
+  startCard(a: Account): void {
+    this.cardForm.reset();
+    this.cardError.set('');
+    this.addingCardTo.set(a.id);
+  }
+
+  addCard(a: Account): void {
+    if (this.cardForm.invalid || this.saving()) return;
+    const v = this.cardForm.getRawValue();
+    this.saving.set(true);
+    this.cardError.set('');
+    this.api.addPaymentCard(a.id, { kind: v.kind, lastFour: v.lastFour.trim() || null, name: v.name.trim() || null }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => { this.saving.set(false); this.addingCardTo.set(null); this.load(); },
+      error: err => { this.saving.set(false); this.cardError.set(`Not saved: ${describeHttpError(err)}`); }
+    });
+  }
+
+  cancelCard(a: Account, c: PaymentCard): void {
+    if (this.saving()) return;
+    this.saving.set(true);
+    this.actionError.set('');
+    this.api.cancelPaymentCard(a.id, c.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => { this.saving.set(false); this.confirmingCard.set(null); this.load(); },
+      error: err => { this.saving.set(false); this.actionError.set(`That card was not changed: ${describeHttpError(err)}`); }
     });
   }
 

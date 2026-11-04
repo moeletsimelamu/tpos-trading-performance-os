@@ -4,6 +4,10 @@ export type AccountType = 'Bank' | 'Cash' | 'Brokerage' | 'Other';
 export type Ownership = 'Company' | 'Personal' | 'Unspecified';
 export type AccountCategory = 'NotStated' | 'Current' | 'Savings' | 'Investment';
 export type TaxTreatment = 'NotStated' | 'Taxable' | 'TaxFree';
+export type PaymentCardKind = 'Debit' | 'Credit';
+
+// What identifies a card to its owner. Never the full number, expiry, security code or cardholder name.
+export interface PaymentCard { id: number; kind: PaymentCardKind; name?: string | null; lastFour?: string | null; status: 'Active' | 'Cancelled'; addedAt: string; cancelledAt?: string | null; }
 
 export const ACCOUNT_CATEGORY_LABELS: Record<AccountCategory, string> = { NotStated: 'Not stated', Current: 'Current', Savings: 'Savings', Investment: 'Investment' };
 export const TAX_TREATMENT_LABELS: Record<TaxTreatment, string> = { NotStated: 'Not stated', Taxable: 'Taxable', TaxFree: 'Tax-free' };
@@ -37,6 +41,7 @@ export interface Account {
   openedOn?: string | null;
   homeFundId?: number | null;
   homeFundName?: string | null;
+  cards?: PaymentCard[];
 }
 
 // Minimum and target are in one currency and compared with the fund's balance in that currency only

@@ -833,6 +833,47 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                     b.ToTable("ObligationPayments", "finance");
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PaymentCard", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FinancialAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("LastFour")
+                        .HasColumnType("char(4)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FinancialAccountId");
+
+                    b.ToTable("PaymentCards", "finance");
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.Payout", b =>
                 {
                     b.Property<int>("Id")
@@ -2071,6 +2112,15 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.PaymentCard", b =>
+                {
+                    b.HasOne("MelamuHoldings.Domain.Finance.FinancialAccount", null)
+                        .WithMany("Cards")
+                        .HasForeignKey("FinancialAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.Payout", b =>
                 {
                     b.HasOne("MelamuHoldings.Domain.Identity.User", null)
@@ -2330,6 +2380,11 @@ namespace MelamuHoldings.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.AllocationPolicy", b =>
                 {
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("MelamuHoldings.Domain.Finance.FinancialAccount", b =>
+                {
+                    b.Navigation("Cards");
                 });
 
             modelBuilder.Entity("MelamuHoldings.Domain.Finance.LedgerTransaction", b =>

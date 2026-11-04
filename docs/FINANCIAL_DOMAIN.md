@@ -46,6 +46,8 @@ Seeded funds are configuration. They hold no money until transactions are posted
 
 Type and currency are fixed once created; everything else can be corrected, and each change is in the audit log with its before and after values.
 
+**Payment cards.** A card is its own record on a bank account, not an account: it holds no money and changes no balance. It keeps only what recognises it: debit or credit, an optional name, and optionally exactly the last four digits. The full number, expiry, security code and cardholder name are never stored or asked for. A card is recorded as cancelled, never deleted, and closing an account cancels its active cards. Both are in the audit log. Nothing here connects to a bank.
+
 **Business cash (D14).** Business cash means **company bank and cash accounts**. A personal account or one whose ownership is not stated is reported apart and never added to it, and a brokerage account is not cash at all. The same rule decides the Cash figures, money in and out for a period, the ledger's cash filter, continuity, the affordability check and unrestricted cash.
 
 - **Paying the owner:** a transfer from a company account to a personal one is money out of business cash, shown under Transfers in the period. The money stays in the Owner's Distribution fund's balance, in the personal account.

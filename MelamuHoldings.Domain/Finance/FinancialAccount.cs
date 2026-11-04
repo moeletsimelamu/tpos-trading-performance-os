@@ -16,6 +16,10 @@ public enum FinancialAccountCategory { NotStated, Current, Savings, Investment }
 // TFSA from a normal investment account.
 public enum TaxTreatment { NotStated, Taxable, TaxFree }
 
+public enum PaymentCardKind { Debit, Credit }
+
+public enum PaymentCardStatus { Active, Cancelled }
+
 // A real place money is held (a bank account, cash, a brokerage account), in exactly one currency.
 // No credentials are ever stored. Balances are not stored either: they are summed from ledger entries.
 public class FinancialAccount
@@ -25,6 +29,8 @@ public class FinancialAccount
     public const int MaxNotesLength = 500;
     public const int MaxReferenceLength = 20;
     public const int MaxReferenceDigits = 4;
+
+    private readonly List<PaymentCard> _cards = new();
 
     public int Id { get; private set; }
     public string Name { get; private set; } = string.Empty;
@@ -47,6 +53,8 @@ public class FinancialAccount
     // The fund this account is mainly for, as a label. It restricts nothing: fund balances still come from the ledger,
     // and an account can hold money for several funds.
     public int? HomeFundId { get; private set; }
+
+    public IReadOnlyList<PaymentCard> Cards => _cards;
 
     private FinancialAccount() { }
 
@@ -105,8 +113,31 @@ public class FinancialAccount
         if (!balance.IsZero)
             throw new DomainException($"Account '{Name}' still holds {balance}. Move or record the remaining money before closing it.");
 
+        // A card cannot outlive the account it draws on
+        foreach (var card in _cards.Where(c => c.Status == PaymentCardStatus.Active))
+            card.Cancel(closedAt);
         Status = FinancialAccountStatus.Closed;
         ClosedAt = closedAt;
+    }
+
+    // A card a bank has issued on this account, recorded so it can be recognised. A card is not an account and holds no money.
+    public PaymentCard AddCard(PaymentCardKind kind, string? name, string? lastFour, DateTime now)
+    {
+        EnsureActive();
+        if (Type != FinancialAccountType.Bank) throw new DomainException("Only a bank account can have a payment card.");
+        var card = new PaymentCard(kind, name, lastFour, now);
+        if (card.LastFour is not null && _cards.Any(c => c.Status == PaymentCardStatus.Active && c.LastFour == card.LastFour))
+            throw new DomainException($"This account already has an active card ending {card.LastFour}.");
+        _cards.Add(card);
+        return card;
+    }
+
+    public PaymentCard CancelCard(int cardId, DateTime now)
+    {
+        var card = _cards.FirstOrDefault(c => c.Id == cardId) ?? throw new DomainException($"Card {cardId} is not on this account.");
+        if (card.Status == PaymentCardStatus.Cancelled) throw new DomainException("This card is already cancelled.");
+        card.Cancel(now);
+        return card;
     }
 
     public void EnsureActive()
@@ -134,5 +165,40 @@ public class FinancialAccount
         if (string.IsNullOrWhiteSpace(value)) return null;
         value = value.Trim();
         return value.Length <= maxLength ? value : throw new DomainException($"{field} must be at most {maxLength} characters.");
+    }
+}
+
+// What identifies a card to its owner, and nothing more: never the full number, expiry, security code or cardholder name.
+public class PaymentCard
+{
+    public const int MaxNameLength = 50;
+
+    public int Id { get; private set; }
+    public int FinancialAccountId { get; private set; }
+    public PaymentCardKind Kind { get; private set; }
+    public string? Name { get; private set; }
+    public string? LastFour { get; private set; }
+    public PaymentCardStatus Status { get; private set; }
+    public DateTime AddedAt { get; private set; }
+    public DateTime? CancelledAt { get; private set; }
+
+    private PaymentCard() { }
+
+    internal PaymentCard(PaymentCardKind kind, string? name, string? lastFour, DateTime now)
+    {
+        if (!Enum.IsDefined(kind)) throw new DomainException("Choose debit or credit.");
+        Kind = kind;
+        Name = Text.Optional(name, MaxNameLength, "Card name");
+        LastFour = Text.Optional(lastFour, 4, "Last four digits");
+        if (LastFour is { } digits && (digits.Length != 4 || !digits.All(char.IsAsciiDigit)))
+            throw new DomainException("Enter exactly the last four digits of the card, or leave them out.");
+        Status = PaymentCardStatus.Active;
+        AddedAt = now;
+    }
+
+    internal void Cancel(DateTime now)
+    {
+        Status = PaymentCardStatus.Cancelled;
+        CancelledAt = now;
     }
 }

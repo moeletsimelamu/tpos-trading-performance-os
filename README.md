@@ -136,6 +136,8 @@ The landing page shows the business as recorded:
 ## What works today: financial management
 
 - **Accounts:** real places money is held (Bank, Cash, Brokerage), each in one fixed currency with stated ownership. You can also state the category (current, savings, investment), the tax treatment (which is what tells a TFSA from a normal investment account), a reference of at most four digits, the date opened and the fund it is mainly for. Nothing is guessed from a name, and all of it can be corrected. They close only at a zero balance. No credentials or full account numbers are stored.
+- **Account panels:** the Accounts page shows each account as a panel, with business accounts first and personal ones apart: provider, category, currency, recorded balance, money by fund, reference and a link to its transactions. A table view is one click away. The panels are plain records: they don't imitate a bank card, use a bank's logo, or connect to any bank.
+- **Payment cards:** recorded on a bank account as debit or credit, with at most the last four digits. No full number, expiry, security code or cardholder name is ever stored.
 - **Funds:** what money is earmarked for. The defaults are Unallocated, Operating Capital, Business Continuity, Wealth Fund and Owner's Distribution. One account can hold several funds.
 - **Ledger:** record income, expenses, transfers, earmarks (between funds inside one account), currency exchanges (USD → ZAR at the rate you actually got) and opening balances.
   - Entries are never edited.
@@ -330,6 +332,7 @@ All endpoints except login require a bearer token. Errors are returned as Proble
 | GET / POST | `/api/financial-accounts` | List accounts with balances / create an account |
 | GET / PUT | `/api/financial-accounts/{id}` | One account / update its name, ownership, institution, notes, category, tax treatment, reference, date opened and home fund |
 | POST | `/api/financial-accounts/{id}/close` | Close an account (only at a zero balance) |
+| POST | `/api/financial-accounts/{id}/cards` · `/cards/{cardId}/cancel` | Record a payment card on a bank account, or record it as cancelled |
 | POST | `/api/transactions/{opening-balance\|income\|expense\|transfer\|reallocation\|exchange}` | Record a money movement |
 | POST | `/api/transactions/{id}/reverse` | Reverse a transaction (once, with a reason) |
 | GET | `/api/transactions` | The ledger; filter by `from`, `to`, `type`, `accountId`, `fundId` and `cash` (company bank and cash accounts only); paged |

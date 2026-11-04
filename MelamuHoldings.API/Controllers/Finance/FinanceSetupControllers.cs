@@ -56,6 +56,13 @@ public class FinancialAccountsController : FinanceControllerBase
 
     [HttpPost("{id:int}/close")]
     public async Task<IActionResult> Close(int id) => Ok(await _setup.CloseAccountAsync(id, UserId));
+
+    // A card recorded on a bank account, so it can be recognised. Never its full number, expiry, security code or cardholder.
+    [HttpPost("{id:int}/cards")]
+    public async Task<IActionResult> AddCard(int id, AddPaymentCardRequest request) => Ok(await _setup.AddCardAsync(id, request, UserId));
+
+    [HttpPost("{id:int}/cards/{cardId:int}/cancel")]
+    public async Task<IActionResult> CancelCard(int id, int cardId) => Ok(await _setup.CancelCardAsync(id, cardId, UserId));
 }
 
 [Route("api")]

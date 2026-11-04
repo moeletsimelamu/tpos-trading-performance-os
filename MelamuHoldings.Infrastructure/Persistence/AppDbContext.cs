@@ -77,6 +77,7 @@ public class AppDbContext : DbContext
 
         modelBuilder.ApplyConfiguration(new FundConfiguration());
         modelBuilder.ApplyConfiguration(new FinancialAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new PaymentCardConfiguration());
         modelBuilder.ApplyConfiguration(new LedgerTransactionConfiguration());
         modelBuilder.ApplyConfiguration(new LedgerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new AuditEventConfiguration());

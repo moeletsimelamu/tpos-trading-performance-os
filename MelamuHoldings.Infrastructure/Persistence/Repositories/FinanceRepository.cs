@@ -26,10 +26,10 @@ public partial class FinanceRepository : IFinanceRepository
         _context.Funds.AnyAsync(f => f.Name == name.Trim() && f.Id != excludingId);
 
     public Task<List<FinancialAccount>> GetAccountsAsync() =>
-        _context.FinancialAccounts.OrderBy(a => a.Name).ToListAsync();
+        _context.FinancialAccounts.Include(a => a.Cards).OrderBy(a => a.Name).ToListAsync();
 
     public Task<FinancialAccount?> GetAccountAsync(int id) =>
-        _context.FinancialAccounts.FirstOrDefaultAsync(a => a.Id == id);
+        _context.FinancialAccounts.Include(a => a.Cards).FirstOrDefaultAsync(a => a.Id == id);
 
     public Task<bool> AccountNameExistsAsync(string name, int? excludingId = null) =>
         _context.FinancialAccounts.AnyAsync(a => a.Name == name.Trim() && a.Id != excludingId);

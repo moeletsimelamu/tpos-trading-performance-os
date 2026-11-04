@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { AccountsComponent } from './accounts/accounts.component';
+import { AccountsComponent, providerInitials } from './accounts/accounts.component';
 import { TransactionsComponent } from './transactions/transactions.component';
 import { account, FUNDS } from './finance-testing';
 import { Account, Transaction, categoriesFor, otherCashText } from './finance.models';
@@ -15,6 +15,7 @@ describe('AccountsComponent', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
+    localStorage.removeItem('mhos.accounts.view');
     TestBed.configureTestingModule({
       imports: [AccountsComponent],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])]
@@ -46,6 +47,8 @@ describe('AccountsComponent', () => {
 
   it('offers Close only for accounts at a zero balance, after confirmation', async () => {
     const fixture = await render();
+    fixture.componentInstance.view.set('table');
+    await fixture.whenStable();
     const rows = [...fixture.nativeElement.querySelectorAll('tbody tr')] as HTMLElement[];
 
     expect(rows[0].textContent).not.toContain('Close');
@@ -124,6 +127,8 @@ describe('AccountsComponent', () => {
       account({ id: 4, name: 'Unknown', ownership: 'Unspecified' })
     ]);
     const c = fixture.componentInstance;
+    c.view.set('table');
+    await fixture.whenStable();
     const rows = [...fixture.nativeElement.querySelectorAll('tbody tr')].map((r: HTMLElement) => r.textContent!.replace(/\s+/g, ' '));
 
     expect(rows[0]).toContain('EasyEquities · Ref 1234 · Opened 2026-01-15');
@@ -156,6 +161,142 @@ describe('AccountsComponent', () => {
     expect(otherCashText([], m => String(m.amount))).toBe('');
     expect(otherCashText([{ ownership: 'Personal', amount: { amount: 1, currency: 'ZAR' } }, { ownership: 'Personal', amount: { amount: 2, currency: 'USD' } }], m => m.currency + m.amount))
       .toBe('ZAR1 and USD2 in personal accounts');
+  });
+
+  describe('panels', () => {
+    const panels = (el: HTMLElement) => [...el.querySelectorAll('.panel')] as HTMLElement[];
+    const text = (el: Element) => el.textContent!.replace(/\s+/g, ' ');
+
+    it('shows what identifies each account, grouped with the company\'s first', async () => {
+      const fixture = await render([
+        account({ id: 1, name: 'FNB Aspire', institution: 'FNB', ownership: 'Personal', category: 'Current' }),
+        account({
+          id: 2, name: 'FNB Gold', institution: 'FNB', category: 'Current', reference: '1234', openedOn: '2026-01-15', homeFundName: 'Operating Capital',
+          balance: { amount: 16950.5, currency: 'ZAR' }, funds: [{ fundId: 2, fundName: 'Operating Capital', balance: { amount: 16950.5, currency: 'ZAR' } }]
+        }),
+        account({ id: 3, name: 'Unknown', institution: null, ownership: 'Unspecified' })
+      ]);
+      const el = fixture.nativeElement as HTMLElement;
+
+      expect([...el.querySelectorAll('.group h2')].map(h => h.textContent)).toEqual(['Business accounts', 'Personal accounts', 'Ownership not stated']);
+      const gold = text(panels(el)[0]);
+      for (const part of ['FNB', 'Bank · Current · ZAR', 'FNB Gold', 'ZAR 16,950.50', 'Recorded balance', 'Operating Capital', 'Mainly for', 'Reference1234', 'Opened2026-01-15', 'Transactions']) {
+        expect(gold).toContain(part);
+      }
+      expect(panels(el)[0].querySelector('a.panel-name')!.getAttribute('href')).toBe('/finance/transactions?accountId=2');
+      expect(text(el.querySelector('section[aria-label="Personal accounts"]')!)).toContain('Not counted as business cash.');
+      expect(text(panels(el)[2])).toContain('Provider not stated');
+    });
+
+    it('never looks like or claims to be an issued card or a live connection', async () => {
+      const fixture = await render();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(text(el.querySelector('.honesty')!)).toContain('not bank cards or live connections');
+      expect(el.querySelectorAll('.panel img').length).toBe(0);
+      expect(text(panels(el)[0])).not.toMatch(/\d{4} \d{4}|Valid thru|Expires|Cardholder/i);
+    });
+
+    it('marks a tax-free account and tells it from a taxable one', async () => {
+      const fixture = await render([
+        account({ id: 1, name: 'TFSA', type: 'Brokerage', taxTreatment: 'TaxFree', category: 'Investment' }),
+        account({ id: 2, name: 'Normal', type: 'Brokerage', taxTreatment: 'Taxable', category: 'Investment' })
+      ]);
+      const [normal, tfsa] = panels(fixture.nativeElement);
+      expect(tfsa.querySelector('.tag-info')!.textContent).toBe('Tax-free');
+      expect(text(normal)).toContain('TaxTaxable');
+      expect(tfsa.getAttribute('data-type')).toBe('Brokerage');
+    });
+
+    it('shows a closed account after the open ones, with no actions', async () => {
+      const fixture = await render([
+        account({ id: 1, name: 'Aardvark', status: 'Closed', balance: { amount: 0, currency: 'ZAR' } }),
+        account({ id: 2, name: 'Zebra' })
+      ]);
+      const [open, closed] = panels(fixture.nativeElement);
+      expect(open.getAttribute('aria-label')).toBe('Zebra');
+      expect(closed.classList.contains('closed')).toBe(true);
+      expect(closed.querySelector('.tag')!.textContent).toBe('Closed');
+      expect([...closed.querySelectorAll('button')].length).toBe(0);
+    });
+
+    it('remembers the choice of table, and shows panels when nothing is remembered', async () => {
+      const fixture = await render();
+      const c = fixture.componentInstance;
+      const el = fixture.nativeElement as HTMLElement;
+      expect(c.view()).toBe('panels');
+      expect(el.querySelector('table')).toBeNull();
+
+      ([...el.querySelectorAll('.view-bar button')].find(b => b.textContent === 'Table') as HTMLButtonElement).click();
+      await fixture.whenStable();
+      expect(el.querySelector('table')).not.toBeNull();
+      expect(el.querySelector('.panel')).toBeNull();
+      expect(localStorage.getItem('mhos.accounts.view')).toBe('table');
+      localStorage.removeItem('mhos.accounts.view');
+    });
+
+    it('records a card with only what recognises it', async () => {
+      const fixture = await render([account({ id: 2, name: 'FNB Gold', cards: [] })]);
+      const c = fixture.componentInstance;
+      const el = fixture.nativeElement as HTMLElement;
+      expect(text(panels(el)[0])).toContain('Payment cardsNone recorded');
+
+      ([...el.querySelectorAll('.panel button')].find(b => b.textContent === 'Add a card') as HTMLButtonElement).click();
+      await fixture.whenStable();
+      expect(text(el.querySelector('.card-form')!)).toContain('Never enter the full number, expiry, security code or cardholder name.');
+      expect(el.querySelector('.card-form input[autocomplete="cc-number"]')).toBeNull();
+
+      c.cardForm.patchValue({ lastFour: '123' });
+      expect(c.cardForm.invalid).toBe(true);
+      c.addCard(c.balances()!.accounts[0]);
+      http.expectNone(`${api}/financial-accounts/2/cards`);
+
+      c.cardForm.patchValue({ kind: 'Credit', lastFour: '1234', name: ' Fuel ' });
+      c.addCard(c.balances()!.accounts[0]);
+      const req = http.expectOne(`${api}/financial-accounts/2/cards`);
+      expect(req.request.body).toEqual({ kind: 'Credit', lastFour: '1234', name: 'Fuel' });
+      req.flush(account({ id: 2 }));
+      http.expectOne(`${api}/balances`).flush({
+        accounts: [account({ id: 2, name: 'FNB Gold', cards: [{ id: 9, kind: 'Credit', name: 'Fuel', lastFour: '1234', status: 'Active', addedAt: '2026-11-04T00:00:00Z' }] })],
+        funds: FUNDS, cashTotals: []
+      });
+      await fixture.whenStable();
+      expect(c.addingCardTo()).toBeNull();
+      expect(text(panels(el)[0])).toContain('Fuel: Credit card ending 1234');
+    });
+
+    it('offers cards only on bank accounts', async () => {
+      const fixture = await render([account({ id: 1, name: 'Broker', type: 'Brokerage' }), account({ id: 2, name: 'Till', type: 'Cash' })]);
+      expect(text(fixture.nativeElement)).not.toContain('Payment cards');
+    });
+
+    it('records a card as cancelled after asking, and shows a refusal when adding one', async () => {
+      const active = { id: 9, kind: 'Debit' as const, lastFour: '1234', status: 'Active' as const, addedAt: '2026-11-04T00:00:00Z' };
+      const fixture = await render([account({ id: 2, name: 'FNB Gold', cards: [active] })]);
+      const c = fixture.componentInstance;
+      const el = fixture.nativeElement as HTMLElement;
+
+      ([...el.querySelectorAll('.card-line button')].find(b => b.textContent === 'Cancel card') as HTMLButtonElement).click();
+      await fixture.whenStable();
+      (el.querySelector('.card-line .btn-danger') as HTMLButtonElement).click();
+      http.expectOne(`${api}/financial-accounts/2/cards/9/cancel`).flush(account({ id: 2 }));
+      http.expectOne(`${api}/balances`).flush({
+        accounts: [account({ id: 2, name: 'FNB Gold', cards: [{ ...active, status: 'Cancelled', cancelledAt: '2026-11-04T01:00:00Z' } as never] })], funds: FUNDS, cashTotals: []
+      });
+      await fixture.whenStable();
+      expect(el.querySelector('.card-line .tag')!.textContent).toBe('Cancelled');
+
+      c.startCard(c.balances()!.accounts[0]);
+      await fixture.whenStable();
+      c.addCard(c.balances()!.accounts[0]);
+      http.expectOne(`${api}/financial-accounts/2/cards`).flush({ title: 'This account already has an active card ending 1234.' }, { status: 422, statusText: 'Unprocessable' });
+      await fixture.whenStable();
+      expect(el.querySelector('.card-form [role="alert"]')!.textContent).toContain('already has an active card');
+    });
+
+    it('makes recognisable initials from a provider\'s name', () => {
+      expect(['FNB', 'FNB Business', 'TymeBank', 'Easy Equities', 'First national bank', '  ', 'ABCD Bank'].map(providerInitials))
+        .toEqual(['FNB', 'FNB', 'T', 'EE', 'FN', '?', 'AB']);
+    });
   });
 
   it('shows a conflict from the API when creating a duplicate account', async () => {

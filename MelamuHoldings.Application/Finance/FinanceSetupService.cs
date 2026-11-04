@@ -109,12 +109,35 @@ public class FinanceSetupService
     }
 
     // A home fund is a purpose the account is for, so it has to exist and cannot be the holding fund for money not yet assigned
+    private static string CardLabel(PaymentCard card) =>
+        $"{card.Kind.ToString().ToLowerInvariant()} card" + (card.LastFour is { } digits ? $" ending {digits}" : "");
+
     private async Task<int?> HomeFundAsync(int? fundId)
     {
         if (fundId is not { } id) return null;
         var fund = await _repository.GetFundAsync(id) ?? throw new DomainException($"Fund {id} does not exist.");
         if (fund.IsSystem) throw new DomainException($"'{fund.Name}' holds money waiting to be assigned, so an account cannot be for it.");
         return id;
+    }
+
+    public async Task<AccountDto> AddCardAsync(int accountId, AddPaymentCardRequest request, int userId)
+    {
+        var account = await _repository.GetAccountAsync(accountId) ?? throw new NotFoundException($"Account {accountId} does not exist.");
+        var card = account.AddCard(request.Kind!.Value, request.Name, request.LastFour, Now);
+        await SaveWithAuditAsync(() => { }, () => AuditLog.Event(
+            Now, userId, "card.added", nameof(PaymentCard), card.Id, $"Added a {CardLabel(card)} to '{account.Name}'.",
+            new { AccountId = account.Id, card.Kind, card.Name, card.LastFour }));
+        return (await FinanceReadModel.LoadAsync(_repository)).Account(account);
+    }
+
+    public async Task<AccountDto> CancelCardAsync(int accountId, int cardId, int userId)
+    {
+        var account = await _repository.GetAccountAsync(accountId) ?? throw new NotFoundException($"Account {accountId} does not exist.");
+        var card = account.CancelCard(cardId, Now);
+        await SaveWithAuditAsync(() => { }, () => AuditLog.Event(
+            Now, userId, "card.cancelled", nameof(PaymentCard), card.Id, $"Recorded the {CardLabel(card)} on '{account.Name}' as cancelled.",
+            new { AccountId = account.Id, card.Kind, card.Name, card.LastFour }));
+        return (await FinanceReadModel.LoadAsync(_repository)).Account(account);
     }
 
     private static object AccountSnapshot(FinancialAccount a) => new
